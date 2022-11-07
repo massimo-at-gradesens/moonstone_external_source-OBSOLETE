@@ -1,0 +1,14 @@
+# Editor directories and files
+*.pyc
+__pycache__
+dist
+*.egg-info
+
+.idea
+.vscode
+.venv*
+*.project
+*.pydevproject
+.tox
+.coverage
+/.pytest_cache/
