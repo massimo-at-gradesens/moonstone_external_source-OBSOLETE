@@ -9,7 +9,6 @@ def test_http_request_processor():
             ("sed{do}", "{eiusmod}tempor"),
         ),
     )
-
     params = {
         "dolor": "ut",
         "sit": "labore",
