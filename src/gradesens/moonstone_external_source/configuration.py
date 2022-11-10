@@ -14,6 +14,8 @@ import abc
 import asyncio
 from typing import Any, Dict, Iterable, Sequence, Tuple, Union
 
+from .error import Error, PatternError
+
 
 class Settings(dict):
     """
@@ -44,6 +46,12 @@ class Settings(dict):
     InputItemType = Tuple[KeyType, InputValueType]
     InputType = Union["Settings", Dict[KeyType, InputValueType]]
 
+    InterpolationParametersType = Dict[str, Any]
+    InterpolatedValueType = Union[str, None]
+    InterpolatedType = Dict[
+        str, Union[InterpolatedValueType, "InterpolatedType"]
+    ]
+
     def __init__(
         self,
         other: Union[
@@ -51,6 +59,7 @@ class Settings(dict):
             Iterable[InputItemType],
             None,
         ] = None,
+        _raw_init=False,
         **kwargs: InputType,
     ):
         if other is None:
@@ -59,11 +68,12 @@ class Settings(dict):
             assert not kwargs
             init_dict = dict(other)
 
-        init_dict = self.__normalize_values(init_dict, force_copy=True)
+        if not _raw_init:
+            init_dict = self.__normalize_values(init_dict, force_copy=True)
         super().__init__(**init_dict)
 
     def __setitem__(self, key: KeyType, value: InputValueType):
-        super().__setitem__(self, key, self.__normalize_value(value))
+        super().__setitem__(key, self.__normalize_value(value))
 
     def setdefault(
         self, key: KeyType, default: InputValueType = None
@@ -79,18 +89,24 @@ class Settings(dict):
     def update(self, other: InputType):
         """
         :meth:`.update` method's behavior differs from the behavior of its
-        :meth:`dict.update` counterpart, because it is applied hierarchically
-        to values which are themselves of type :class:`Settings`.
-        I.e., if both ``self[key]`` and ``other[key]`` exist for the same key,
-        and their respective values are both of type :class:`Settings` (or of
-        type :class:`dict`, which get automatically converted to
-        :class:`Settings`), then the equivalent of
-        ``self[key].update(other[key])`` is applied, instead of plainly
-        replacing the target value as would be done by
-        ``self[key] = other[key]``.
+        :meth:`dict.update` counterpart on different points.
+        1. :meth:`.update` is applied hierarchically to values which are
+           themselves of type :class:`Settings`. I.e., if both ``self[key]``
+           and ``other[key]`` exist for the same key, and their respective
+           values are both of type :class:`Settings` (or of type :class:`dict`,
+           which get automatically converted to :class:`Settings`), then the
+           equivalent of ``self[key].update(other[key])`` is applied, instead
+           of plainly replacing the target value as would be done by
+           ``self[key] = other[key]``.
+        2. For a give key, if ``other[key]`` is None, ``self[key]`` is not
+           modified.
         """
         other = self.__normalize_value(other)
         for key, value in other.items():
+            if value is None:
+                self.setdefault(key, None)
+                continue
+
             if isinstance(value, Settings):
                 try:
                     self_value = self[key]
@@ -100,6 +116,7 @@ class Settings(dict):
                     if isinstance(self_value, Settings):
                         self_value.update(value)
                         continue
+
             self[key] = value
 
     def __normalize_values(self, other: InputType, force_copy: bool = False):
@@ -123,58 +140,53 @@ class Settings(dict):
 
         return value
 
-    class InterpolatedSettings:
-        """
-        A proxy to provide simplified :class:`dict`-like access to interpolated
-        settings, i.e. settings where patterns have been interpolated through
-        :meth:`str.format`.
-        """
-
-        InterpolationParametersType = Dict[str, Any]
-
-        def __init__(
-            self,
-            settings: "Settings",
-            parameters: InterpolationParametersType,
-        ):
-            self.settings = settings
-            self.parameters = parameters
-
-        def __len__(self):
-            return len(self.settings)
-
-        def __iter__(self):
-            return iter(self.settings)
-
-        def __getitem__(self, key: "Settings.KeyType") -> "Settings.ValueType":
-            return self.__interpolate_setting(self.settings[key])
-
-        def get(
-            self,
-            key: "Settings.KeyType",
-            default: "Settings.ValueType" = None,
-        ) -> "Settings.ValueType":
-            return self.__interpolate_setting(self.settings.get(key, default))
-
-        def items(self) -> Iterable["Settings.ItemType"]:
-            for setting, value in self.settings.items():
-                yield setting, self.__interpolate_setting_value(value)
-
-        def __interpolate_setting(self, value):
-            if value is None:
-                return None
-            if isinstance(value, Settings):
-                return value.apply(self.parameters)
-            return value.format(**self.parameters)
-
     def apply(
         self,
-        parameters: InterpolatedSettings.InterpolationParametersType,
-    ) -> InterpolatedSettings:
-        return self.InterpolatedSettings(self, parameters)
+        parameters: InterpolationParametersType,
+    ) -> InterpolatedType:
+        return {
+            key: self.__interpolate_value(
+                key=key,
+                value=value,
+                parameters=parameters,
+            )
+            for key, value in self.items()
+        }
+
+    def __interpolate_value(self, key, value, parameters):
+        if value is None:
+            return None
+        if isinstance(value, Settings):
+            return value.apply(parameters)
+        try:
+            try:
+                try:
+                    return value.format(**parameters)
+                except NameError as err:
+                    raise KeyError(err.name) from None
+                except ValueError as err:
+                    raise PatternError(str(err)) from None
+            except KeyError as err:
+                try:
+                    missing_key = err.args[0]
+                except IndexError:
+                    raise PatternError(str(err)) from None
+                raise PatternError(
+                    f"key {missing_key!r} is not defined.\n"
+                    "Valid keys:"
+                    f" {', '.join(map(repr, parameters.keys()))}"
+                ) from None
+        except PatternError as err:
+            raise PatternError(
+                f"For key {key!r}:"
+                f" unable to interpolate pattern {value!r}: {err}"
+            ) from None
+
+    def __str__(self):
+        return super().__str__()
 
 
-class AuthenticationContext(Settings, abc.ABC):
+class AuthenticationContext(Settings):
     """
     An :class:`AuthenticationContext` is nothing more than a ``[key, value]``
     dictionary of authentication data.
@@ -200,22 +212,48 @@ class AuthenticationContext(Settings, abc.ABC):
             assert not kwargs
             super().__init__(other)
 
-    @classmethod
-    @abc.abstractmethod
-    async def retrieve(cls, identifier: Identifier) -> "AuthenticationContext":
+    class LoadDriver(abc.ABC):
         """
-        Retrieve the :class:`AuthenticationContext` for a given ID.
+        The load driver for :class:`AuthenticationContext`, which provides the
+        actual load functionality for :meth:`AuthenticationContext.load` to
+        work.
+
+        In order to call :meth:`AuthenticationContext.load`, an instance of a
+        class derived by this abstract class must first be registered with
+        :meth:`AuthenticationContext.register_load_driver`.
+        """
+
+        @abc.abstractmethod
+        async def load(
+            self, identifier: "AuthenticationContext.Identifier"
+        ) -> "AuthenticationContext":
+            """
+            The actual load method, to be implemented by derived classes.
+            """
+
+    __load_driver: Union[LoadDriver, None] = None
+
+    @classmethod
+    def register_load_driver(cls, load_driver: LoadDriver):
+        cls.__load_driver = load_driver
+
+    @classmethod
+    async def load(cls, identifier: Identifier) -> "AuthenticationContext":
+        """
+        Load the :class:`AuthenticationContext` for a given ID.
         To be implemented by derived classes.
         """
-        pass
+        if cls.__load_driver is None:
+            raise Error(f"{cls.__name__}: no LoadDriver registered")
+        return await cls.__load_driver.load(identifier)
 
 
-class CommonConfiguration(Settings, abc.ABC):
+class CommonConfiguration(Settings):
     """
     An :class:`CommonConfiguration` is nothing more than a ``[key, value]``
     dictionary of configuration data, optionally referenced by
     :class:`MeasurementConfiguration` and :class:`MachineConfiguration` objects
-    to retrieve configuration data from a common shared configuration point.
+    to load configuration data from a common shared configuration point.
 
     The actual contents, including the list of keys, are strictly customer-
     and API-specific, and are not under the responsibility of this class.
@@ -238,14 +276,40 @@ class CommonConfiguration(Settings, abc.ABC):
             assert not kwargs
             super().__init__(other)
 
-    @classmethod
-    @abc.abstractmethod
-    async def retrieve(cls, identifier: Identifier) -> "CommonConfiguration":
+    class LoadDriver(abc.ABC):
         """
-        Retrieve the :class:`CommonConfiguration` for a given ID.
+        The load driver for :class:`CommonConfiguration`, which provides the
+        actual load functionality for :meth:`CommonConfiguration.load` to
+        work.
+
+        In order to call :meth:`CommonConfiguration.load`, an instance of a
+        class derived by this abstract class must first be registered with
+        :meth:`CommonConfiguration.register_load_driver`.
+        """
+
+        @abc.abstractmethod
+        async def load(
+            self, identifier: "CommonConfiguration.Identifier"
+        ) -> "CommonConfiguration":
+            """
+            The actual load method, to be implemented by derived classes.
+            """
+
+    __load_driver: Union[LoadDriver, None] = None
+
+    @classmethod
+    def register_load_driver(cls, load_driver: LoadDriver):
+        cls.__load_driver = load_driver
+
+    @classmethod
+    async def load(cls, identifier: Identifier) -> "CommonConfiguration":
+        """
+        Load the :class:`CommonConfiguration` for a given ID.
         To be implemented by derived classes.
         """
-        pass
+        if cls.__load_driver is None:
+            raise Error(f"{cls.__name__}: no LoadDriver registered")
+        return await cls.__load_driver.load(identifier)
 
 
 class _MeasurementConfigurationSettings(Settings):
@@ -306,7 +370,7 @@ class _MeasurementConfigurationSettings(Settings):
     async def get_common_configuration(self) -> Dict[str, str]:
         if self.common_configuration_identifier is None:
             return Settings()
-        common_configuration = await CommonConfiguration.retrieve(
+        common_configuration = await CommonConfiguration.load(
             self.common_configuration_identifier
         )
         return common_configuration
@@ -339,7 +403,7 @@ class MeasurementConfiguration(_MeasurementConfigurationSettings):
             super().__init__(other)
 
 
-class MachineConfiguration(_MeasurementConfigurationSettings, abc.ABC):
+class MachineConfiguration(_MeasurementConfigurationSettings):
     """
     Configuration for one machine, containing a machine-specific number of
     :class:`MeasurementConfiguration`s.
@@ -373,16 +437,50 @@ class MachineConfiguration(_MeasurementConfigurationSettings, abc.ABC):
             assert not kwargs
             super().__init__(other)
 
-    @classmethod
-    @abc.abstractmethod
-    async def retrieve(cls, identifier: Identifier) -> "MachineConfiguration":
+    class LoadDriver(abc.ABC):
         """
-        Retrieve the :class:`MachineConfiguration` for a given ID.
+        The load driver for :class:`MachineConfiguration`, which provides the
+        actual load functionality for :meth:`MachineConfiguration.load` to
+        work.
+
+        In order to call :meth:`MachineConfiguration.load`, an instance of a
+        class derived by this abstract class must first be registered with
+        :meth:`MachineConfiguration.register_load_driver`.
+        """
+
+        @abc.abstractmethod
+        async def load(
+            self, identifier: "MachineConfiguration.Identifier"
+        ) -> "MachineConfiguration":
+            """
+            The actual load method, to be implemented by derived classes.
+            """
+
+    __load_driver: Union[LoadDriver, None] = None
+
+    @classmethod
+    def register_load_driver(cls, load_driver: LoadDriver):
+        cls.__load_driver = load_driver
+
+    @classmethod
+    async def load(cls, identifier: Identifier) -> "MachineConfiguration":
+        """
+        Load the :class:`MachineConfiguration` for a given ID.
         To be implemented by derived classes.
         """
-        pass
+        if cls.__load_driver is None:
+            raise Error(f"{cls.__name__}: no LoadDriver registered")
+        return await cls.__load_driver.load(identifier)
 
     class __ResolutionContext:
+        # Build the list of actual settings to be retains after resolution
+        __RESULT_KEYS = set(
+            filter(
+                lambda key: not key.endswith("_identifier"),
+                _MeasurementConfigurationSettings().keys(),
+            )
+        )
+
         def __init__(self, parent: "MachineConfiguration"):
             self.parent = parent
 
@@ -393,27 +491,29 @@ class MachineConfiguration(_MeasurementConfigurationSettings, abc.ABC):
 
         async def get_measurement_settings(
             self, identifier: MeasurementConfiguration.Identifier
-        ) -> Settings.InterpolatedSettings:
+        ) -> Settings.InterpolatedValueType:
             settings = Settings(self.parent)
 
-            measurement_configuration = self.parent[
-                "measurement_configurations"
-            ][identifier]
-            settings.update(measurement_configuration)
+            measurement = self.parent["measurements"][identifier]
+            settings.update(measurement)
 
-            try:
-                common_configuration_identifier = self.common_configurations[
+            common_configuration_identifier = measurement[
+                "common_configuration_identifier"
+            ]
+            if common_configuration_identifier is None:
+                common_configuration_identifier = self.parent[
                     "common_configuration_identifier"
                 ]
-            except KeyError:
-                pass
-            else:
+
+            if common_configuration_identifier is not None:
                 try:
                     common_configuration = self.common_configurations[
                         common_configuration_identifier
                     ]
                 except KeyError:
-                    common_configuration = await CommonConfiguration.retrieve(
+                    common_configuration = None
+                if common_configuration is None:
+                    common_configuration = await CommonConfiguration.load(
                         common_configuration_identifier
                     )
                     self.common_configurations[
@@ -426,19 +526,21 @@ class MachineConfiguration(_MeasurementConfigurationSettings, abc.ABC):
             authentication_context_identifier = settings[
                 "authentication_context_identifier"
             ]
-            try:
-                authentication_context = self.authentication_contexts[
-                    authentication_context_identifier
-                ]
-            except KeyError:
-                authentication_context = await AuthenticationContext.retrieve(
-                    authentication_context_identifier
-                )
-                self.authentication_contexts[
-                    authentication_context_identifier
-                ] = authentication_context
+            if authentication_context_identifier is not None:
+                try:
+                    authentication_context = self.authentication_contexts[
+                        authentication_context_identifier
+                    ]
+                except KeyError:
+                    authentication_context = None
+                if authentication_context is None:
+                    authentication_context = await AuthenticationContext.load(
+                        authentication_context_identifier
+                    )
+                    self.authentication_contexts[
+                        authentication_context_identifier
+                    ] = authentication_context
 
-            if authentication_context is not None:
                 new_settings = Settings(authentication_context)
                 new_settings.update(settings)
                 settings = new_settings
@@ -450,31 +552,56 @@ class MachineConfiguration(_MeasurementConfigurationSettings, abc.ABC):
             # query string, headers), as well as values required to interpolate
             # possible patterns. Therefore, use settings as the base parameters
             # to interpolate the patterns in its own values.
-            result = settings.apply(settings)
+            # Anyway, only keep the scalar settings as interpolation
+            # parameters, and insert the machine and measurement identifiers
+            parameters = {
+                "machine": self.parent["identifier"],
+                "measurement": measurement["identifier"],
+            }
+            parameters.update(
+                {
+                    key: value
+                    for key, value in settings.items()
+                    if not isinstance(value, Settings)
+                }
+            )
+
+            # As for settings, only keep the keys specified for
+            # _MeasurementConfigurationSettings, as they are the only relevant
+            # fields to be presented to the backend driver.
+
+            settings = Settings(
+                _raw_init=True,
+                **{
+                    key: value
+                    for key, value in settings.items()
+                    if key in self.__RESULT_KEYS
+                },
+            )
+            result = settings.apply(parameters)
             return result
 
     async def get_measurement_settings(
         self, identifier: MeasurementConfiguration.Identifier
-    ) -> Settings.InterpolatedSettings:
-        resolution_context = self.__ResolutionContext()
-        return await resolution_context.get_measurement_configuration(
+    ) -> Settings.InterpolatedValueType:
+        resolution_context = self.__ResolutionContext(self)
+        return await resolution_context.get_measurement_settings(
             identifier=identifier
         )
 
     async def get_all_measurement_settings(
         self,
-    ) -> Settings.InterpolatedSettings:
-        resolution_context = self.__ResolutionContext()
+    ) -> Dict[str, Settings.InterpolatedValueType]:
+        resolution_context = self.__ResolutionContext(self)
+        measurements = list(self["measurements"].values())
         tasks = [
             resolution_context.get_measurement_settings(
-                identifier=measurement_configuration["identifier"]
+                identifier=measurement["identifier"]
             )
-            for measurement_configuration in self["measurement_configurations"]
+            for measurement in measurements
         ]
         results = await asyncio.gather(tasks)
         return {
-            measurement_configuration.identifier: result
-            for measurement_configuration, result in zip(
-                self["measurement_configurations"], results
-            )
+            measurement.identifier: result
+            for measurement, result in zip(measurements, results)
         }

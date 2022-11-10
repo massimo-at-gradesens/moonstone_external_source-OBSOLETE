@@ -16,3 +16,7 @@ class HttpError(Error):
 
     def __str__(self):
         return f"HTTP ERROR (status={self.status}): {super().__str__()}"
+
+
+class PatternError(Error):
+    pass

@@ -4,6 +4,7 @@ import pytest
 import yaml
 
 from gradesens.moonstone_external_source import (
+    AuthenticationContext,
     CommonConfiguration,
     MachineConfiguration,
     MeasurementConfiguration,
@@ -108,11 +109,13 @@ def test_settings_patterns():
 
         values = settings.apply(params)
 
-        assert isinstance(values, Settings.InterpolatedSettings)
-        assert isinstance(values["sub"], Settings.InterpolatedSettings)
-        assert isinstance(
-            values["sub"]["inner"], Settings.InterpolatedSettings
-        )
+        for value in (
+            values,
+            values["sub"],
+            values["sub"]["inner"],
+        ):
+            assert isinstance(value, dict)
+            assert not isinstance(value, Settings)
 
         assert len(values) == len(settings)
         assert len(values["sub"]) == len(settings["sub"])
@@ -131,19 +134,30 @@ def load_yaml(text):
 
 
 @pytest.fixture
+def authentication_context_1_text():
+    return textwrap.dedent(
+        """
+    identifier: ac1
+    token: i am secret
+    """
+    )
+
+
+@pytest.fixture
 def common_configuration_1_text():
     return textwrap.dedent(
         """
     identifier: cc1
     url:
-        "https://gradesens.com/{zone}/{machine.identifier}\\
-        /{device}/{measurement.identifier}"
+        "https://gradesens.com/{zone}/{machine}/{device}/{measurement}"
     zone: area42
     query_string:
         hello: "{region}@world"
     headers:
         head: oval
-        fingers: count_{finger_count}
+        fingers: "count_{finger_count}"
+        bearer: "{token}"
+    device: "best device ever"
     """
     )
 
@@ -154,6 +168,10 @@ def common_configuration_2_text():
         """
     identifier: cc2
     zone: Connecticut
+    param: I am a parameter
+    device: "better than cc1 device"
+    headers:
+        hello: world
     """
     )
 
@@ -163,18 +181,20 @@ def machine_configuration_1_text():
     return textwrap.dedent(
         """
     identifier: mach1
-    common_configuration: cc1
+    common_configuration_identifier: cc1
+    url:
+        "https://gradesens.com/{zone}/MACHINE/{machine}/{device}/{measurement}"
     measurements:
         -   identifier: temperature
             common_configuration_identifier: cc2
             query_string:
                 depth: "12"
-                param: P_{param}_xx
+                width: P_{param}_xx
 
         -   identifier: rpm
             url:
-                "https://gradesens.com/{zone}/{machine.identifier}\\
-                /{device}/RPM/{measurement.identifier}"
+                "https://gradesens.com/{zone}/{machine}\\
+                /{device}/RPM/{measurement}"
 
         -   identifier: power
             common_configuration_identifier: cc2
@@ -182,6 +202,12 @@ def machine_configuration_1_text():
                 animal: cow
     """
     )
+
+
+@pytest.fixture
+def authentication_context_1(authentication_context_1_text):
+    params = load_yaml(authentication_context_1_text)
+    return AuthenticationContext(**params)
 
 
 @pytest.fixture
@@ -202,13 +228,58 @@ def machine_configuration_1(machine_configuration_1_text):
     return MachineConfiguration(**params)
 
 
+@pytest.fixture
+def common_configuration_ld(
+    common_configuration_1,
+    common_configuration_2,
+):
+    items = {
+        item["identifier"]: item
+        for item in [
+            common_configuration_1,
+            common_configuration_2,
+        ]
+    }
+
+    class CommonConfigurationLD(CommonConfiguration.LoadDriver):
+        __items = dict(items)
+
+        async def load(
+            self, identifier: CommonConfiguration.Identifier
+        ) -> CommonConfiguration:
+            return self.__items[identifier]
+
+    CommonConfiguration.register_load_driver(CommonConfigurationLD())
+
+
+@pytest.fixture
+def authentication_context_ld(
+    authentication_context_1,
+):
+    items = {
+        item["identifier"]: item
+        for item in [
+            authentication_context_1,
+        ]
+    }
+
+    class AuthenticationContextLD(AuthenticationContext.LoadDriver):
+        __items = dict(items)
+
+        async def load(
+            self, identifier: AuthenticationContext.Identifier
+        ) -> AuthenticationContext:
+            return self.__items[identifier]
+
+    AuthenticationContext.register_load_driver(AuthenticationContextLD())
+
+
 def test_common_configuration(common_configuration_1):
     assert isinstance(common_configuration_1, CommonConfiguration)
     assert common_configuration_1 == {
         "identifier": "cc1",
         "url": (
-            "https://gradesens.com/{zone}/{machine.identifier}"
-            "/{device}/{measurement.identifier}"
+            "https://gradesens.com/{zone}/{machine}" "/{device}/{measurement}"
         ),
         "zone": "area42",
         "query_string": {
@@ -217,7 +288,9 @@ def test_common_configuration(common_configuration_1):
         "headers": {
             "head": "oval",
             "fingers": "count_{finger_count}",
+            "bearer": "{token}",
         },
+        "device": "best device ever",
     }
 
 
@@ -229,12 +302,14 @@ def test_machine_configuration(machine_configuration_1):
 
     assert machine_configuration_1 == {
         "identifier": "mach1",
-        "common_configuration": "cc1",
+        "common_configuration_identifier": "cc1",
         "authentication_context_identifier": None,
-        "url": None,
+        "url": (
+            "https://gradesens.com/{zone}/MACHINE/{machine}/{device}"
+            "/{measurement}"
+        ),
         "query_string": {},
         "headers": {},
-        "common_configuration_identifier": None,
         "measurements": {
             "temperature": {
                 "identifier": "temperature",
@@ -243,7 +318,7 @@ def test_machine_configuration(machine_configuration_1):
                 "url": None,
                 "query_string": {
                     "depth": "12",
-                    "param": "P_{param}_xx",
+                    "width": "P_{param}_xx",
                 },
                 "headers": {},
             },
@@ -252,8 +327,8 @@ def test_machine_configuration(machine_configuration_1):
                 "common_configuration_identifier": None,
                 "authentication_context_identifier": None,
                 "url": (
-                    "https://gradesens.com/{zone}/{machine.identifier}"
-                    "/{device}/RPM/{measurement.identifier}"
+                    "https://gradesens.com/{zone}/{machine}"
+                    "/{device}/RPM/{measurement}"
                 ),
                 "query_string": {},
                 "headers": {},
@@ -268,5 +343,33 @@ def test_machine_configuration(machine_configuration_1):
                     "animal": "cow",
                 },
             },
+        },
+    }
+
+
+@pytest.mark.asyncio
+async def test_interpolated_measurement_settings(
+    machine_configuration_1,
+    common_configuration_ld,
+    authentication_context_ld,
+):
+    assert isinstance(machine_configuration_1, MachineConfiguration)
+    settings = await machine_configuration_1.get_measurement_settings(
+        "temperature"
+    )
+    assert isinstance(settings, dict)
+    assert not isinstance(settings, Settings)
+
+    assert settings == {
+        "url": (
+            "https://gradesens.com/Connecticut/MACHINE"
+            "/mach1/better than cc1 device/temperature"
+        ),
+        "query_string": {
+            "depth": "12",
+            "width": "P_I am a parameter_xx",
+        },
+        "headers": {
+            "hello": "world",
         },
     }

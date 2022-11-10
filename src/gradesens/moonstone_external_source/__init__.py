@@ -19,21 +19,22 @@ from .configuration import (
     MeasurementConfiguration,
     Settings,
 )
-from .error import Error, HttpError
+from .error import Error, HttpError, PatternError
 from .external_source import ExternalSource
 
 __all__ = [
-    "Settings",
+    "AsyncConcurrentPool",
+    "BackendDriver",
+    "HttpBackendDriver",
+    "HttpRequestProcessor",
+    "KeyValuePatterns",
     "AuthenticationContext",
     "CommonConfiguration",
-    "MeasurementConfiguration",
     "MachineConfiguration",
+    "MeasurementConfiguration",
+    "Settings",
     "Error",
-    "ExternalSource",
     "HttpError",
-    "KeyValuePatterns",
-    "BackendDriver",
-    "HttpRequestProcessor",
-    "HttpBackendDriver",
-    "AsyncConcurrentPool",
+    "PatternError",
+    "ExternalSource",
 ]
