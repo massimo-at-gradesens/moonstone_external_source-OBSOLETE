@@ -333,7 +333,6 @@ class _MeasurementConfigurationSettings(Settings):
         authentication_context_identifier: Union[
             AuthenticationContext.Identifier, None
         ] = None,
-        _valid_kwarg_keys: Union[Iterable[str], None] = None,
         **kwargs: Settings.InputType,
     ):
         if other is not None:
@@ -345,14 +344,6 @@ class _MeasurementConfigurationSettings(Settings):
             assert not kwargs
             super().__init__(other)
         else:
-            if _valid_kwarg_keys is not None:
-                _valid_kwarg_keys = set(_valid_kwarg_keys)
-                for key in kwargs.keys():
-                    if key not in _valid_kwarg_keys:
-                        raise TypeError(
-                            "__init__() got an unexpected keyword argument"
-                            f" {key!r}"
-                        )
             super().__init__(
                 other,
                 url=url,
@@ -394,7 +385,6 @@ class MeasurementConfiguration(_MeasurementConfigurationSettings):
             assert identifier is not None
             super().__init__(
                 identifier=identifier,
-                _valid_kwarg_keys=("identifier",),
                 **kwargs,
             )
         else:
@@ -600,8 +590,8 @@ class MachineConfiguration(_MeasurementConfigurationSettings):
             )
             for measurement in measurements
         ]
-        results = await asyncio.gather(tasks)
+        results = await asyncio.gather(*tasks)
         return {
-            measurement.identifier: result
+            measurement["identifier"]: result
             for measurement, result in zip(measurements, results)
         }

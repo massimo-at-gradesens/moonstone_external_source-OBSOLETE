@@ -11,6 +11,8 @@ from gradesens.moonstone_external_source import (
     Settings,
 )
 
+from .utils import assert_eq_dicts
+
 
 def test_settings_init():
     settings = Settings(
@@ -138,7 +140,7 @@ def authentication_context_1_text():
     return textwrap.dedent(
         """
     identifier: ac1
-    token: i am secret
+    token: I am a secret
     """
     )
 
@@ -148,11 +150,12 @@ def common_configuration_1_text():
     return textwrap.dedent(
         """
     identifier: cc1
+    authentication_context_identifier: ac1
     url:
         "https://gradesens.com/{zone}/{machine}/{device}/{measurement}"
     zone: area42
     query_string:
-        hello: "{region}@world"
+        HELLO: "{region}@world"
     headers:
         head: oval
         fingers: "count_{finger_count}"
@@ -182,6 +185,7 @@ def machine_configuration_1_text():
         """
     identifier: mach1
     common_configuration_identifier: cc1
+    finger_count: 5
     url:
         "https://gradesens.com/{zone}/MACHINE/{machine}/{device}/{measurement}"
     measurements:
@@ -192,9 +196,12 @@ def machine_configuration_1_text():
                 width: P_{param}_xx
 
         -   identifier: rpm
+            region: Wallis
             url:
                 "https://gradesens.com/{zone}/{machine}\\
                 /{device}/RPM/{measurement}"
+            query_string:
+                dune: worms
 
         -   identifier: power
             common_configuration_identifier: cc2
@@ -276,14 +283,15 @@ def authentication_context_ld(
 
 def test_common_configuration(common_configuration_1):
     assert isinstance(common_configuration_1, CommonConfiguration)
-    assert common_configuration_1 == {
+    expected = {
         "identifier": "cc1",
+        "authentication_context_identifier": "ac1",
         "url": (
             "https://gradesens.com/{zone}/{machine}" "/{device}/{measurement}"
         ),
         "zone": "area42",
         "query_string": {
-            "hello": "{region}@world",
+            "HELLO": "{region}@world",
         },
         "headers": {
             "head": "oval",
@@ -292,6 +300,7 @@ def test_common_configuration(common_configuration_1):
         },
         "device": "best device ever",
     }
+    assert_eq_dicts(common_configuration_1, expected)
 
 
 def test_machine_configuration(machine_configuration_1):
@@ -300,7 +309,7 @@ def test_machine_configuration(machine_configuration_1):
         assert isinstance(conf, MeasurementConfiguration)
         assert identifier == conf["identifier"]
 
-    assert machine_configuration_1 == {
+    expected = {
         "identifier": "mach1",
         "common_configuration_identifier": "cc1",
         "authentication_context_identifier": None,
@@ -310,6 +319,7 @@ def test_machine_configuration(machine_configuration_1):
         ),
         "query_string": {},
         "headers": {},
+        "finger_count": 5,
         "measurements": {
             "temperature": {
                 "identifier": "temperature",
@@ -330,8 +340,11 @@ def test_machine_configuration(machine_configuration_1):
                     "https://gradesens.com/{zone}/{machine}"
                     "/{device}/RPM/{measurement}"
                 ),
-                "query_string": {},
+                "query_string": {
+                    "dune": "worms",
+                },
                 "headers": {},
+                "region": "Wallis",
             },
             "power": {
                 "identifier": "power",
@@ -345,6 +358,8 @@ def test_machine_configuration(machine_configuration_1):
             },
         },
     }
+
+    assert_eq_dicts(machine_configuration_1, expected)
 
 
 @pytest.mark.asyncio
@@ -360,7 +375,7 @@ async def test_interpolated_measurement_settings(
     assert isinstance(settings, dict)
     assert not isinstance(settings, Settings)
 
-    assert settings == {
+    expected = {
         "url": (
             "https://gradesens.com/Connecticut/MACHINE"
             "/mach1/better than cc1 device/temperature"
@@ -373,3 +388,59 @@ async def test_interpolated_measurement_settings(
             "hello": "world",
         },
     }
+    assert_eq_dicts(settings, expected)
+
+
+@pytest.mark.asyncio
+async def test_interpolated_measurement_all_settings(
+    machine_configuration_1,
+    common_configuration_ld,
+    authentication_context_ld,
+):
+    assert isinstance(machine_configuration_1, MachineConfiguration)
+    settings = await machine_configuration_1.get_all_measurement_settings()
+    assert isinstance(settings, dict)
+    assert not isinstance(settings, Settings)
+
+    expected = {
+        "temperature": {
+            "url": (
+                "https://gradesens.com/Connecticut/MACHINE"
+                "/mach1/better than cc1 device/temperature"
+            ),
+            "query_string": {
+                "depth": "12",
+                "width": "P_I am a parameter_xx",
+            },
+            "headers": {
+                "hello": "world",
+            },
+        },
+        "rpm": {
+            "url": (
+                "https://gradesens.com/area42/mach1"
+                "/best device ever/RPM/rpm"
+            ),
+            "query_string": {
+                "HELLO": "Wallis@world",
+                "dune": "worms",
+            },
+            "headers": {
+                "head": "oval",
+                "fingers": "count_5",
+                "bearer": "I am a secret",
+            },
+        },
+        "power": {
+            "url": (
+                "https://gradesens.com/Connecticut/MACHINE"
+                "/mach1/better than cc1 device/power"
+            ),
+            "query_string": {},
+            "headers": {
+                "hello": "world",
+                "animal": "cow",
+            },
+        },
+    }
+    assert_eq_dicts(settings, expected)

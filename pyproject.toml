@@ -11,6 +11,7 @@ maintainers = ["Massimo Ravasi <massimo@gradesens.com>"]
 packages = [
     { from = "src", include = "gradesens" }
 ]
+exclude = ["**/tests/", "**/test/"]
 
 [tool.poetry.dependencies]
 # IMPORTANT: when updating these dependencies, you MUST update correspondingly
