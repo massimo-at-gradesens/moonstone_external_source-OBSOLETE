@@ -16,14 +16,16 @@ from typing import TYPE_CHECKING, Any, Dict, Iterable, Sequence, Tuple, Union
 if TYPE_CHECKING:
     from .io_driver import IODriver
 
-from .error import PatternError
+from .error import Error, PatternError
 
 
 class Settings(dict):
     """
     A :class:`dict` specialization containing a list of ``[key, value]``
     entries, where a ``value`` may either be a plain :class:`str` or a
-    :meth:`str.format`-ready pattern to be interpolated with :meth:`.apply`.
+    python `formatted string literal
+    <https://docs.python.org/3/tutorial/inputoutput.html\
+#formatted-string-literals>`_ to be interpolated by calling :meth:`.apply`.
 
     .. note::
         All the methods or operations that change the contents of a
@@ -163,10 +165,12 @@ class Settings(dict):
         try:
             try:
                 try:
-                    return value.format(**parameters)
+                    return eval("f" + repr(value), {}, parameters)
+                except KeyError:
+                    raise
                 except NameError as err:
                     raise KeyError(err.name) from None
-                except ValueError as err:
+                except Exception as err:
                     raise PatternError(str(err)) from None
             except KeyError as err:
                 try:
@@ -305,6 +309,7 @@ class MeasurementConfiguration(_MeasurementConfigurationSettings):
     """
 
     Identifier = str
+    SettingsType = Settings.InterpolatedType
 
     def __init__(
         self,
@@ -324,6 +329,108 @@ class MeasurementConfiguration(_MeasurementConfigurationSettings):
             assert not kwargs
             super().__init__(other)
 
+    class _SettingResolver:
+        # Build the list of actual settings to be retained after resolution.
+        # Simple solution: create a bare _MeasurementConfigurationSettings
+        # instance and get its list of keys(), but filter out the few unwanted
+        # ones.
+        __RESULT_KEYS = set(
+            filter(
+                lambda key: not (
+                    key.endswith("_identifier") or key == "identifier"
+                ),
+                _MeasurementConfigurationSettings().keys(),
+            )
+        )
+
+        def __init__(
+            self,
+            measurement_configuration: "MeasurementConfiguration",
+            machine_configuration: "MachineConfiguration",
+            io_driver: "IODriver",
+        ):
+            self.measurement_configuration = measurement_configuration
+            self.machine_configuration = machine_configuration
+            self.io_driver = io_driver
+
+        async def get_settings(
+            self,
+        ) -> "MeasurementConfiguration.SettingsType":
+            settings = Settings(self.machine_configuration)
+            settings.update(self.measurement_configuration)
+
+            common_configuration_identifier = self.measurement_configuration[
+                "common_configuration_identifier"
+            ]
+            if common_configuration_identifier is None:
+                common_configuration_identifier = self.machine_configuration[
+                    "common_configuration_identifier"
+                ]
+
+            if common_configuration_identifier is not None:
+                common_configuration = (
+                    await self.io_driver.common_configurations.get(
+                        common_configuration_identifier
+                    )
+                )
+                new_settings = Settings(common_configuration)
+                new_settings.update(settings)
+                settings = new_settings
+
+            authentication_context_identifier = settings[
+                "authentication_context_identifier"
+            ]
+            if authentication_context_identifier is not None:
+                authentication_context = (
+                    await self.io_driver.authentication_contexts.get(
+                        authentication_context_identifier
+                    )
+                )
+                new_settings = Settings(authentication_context)
+                new_settings.update(settings)
+                settings = new_settings
+
+            # Now settings contains the merging of AuthenticatioContext,
+            # the optional CommonConfiguration, the MachineConfiguration, and
+            # the MeasurementConfiguration.
+            # Furthermore, it contains both the relevant fields (i.e., URL,
+            # query string, headers), as well as values required to interpolate
+            # possible patterns. Therefore, use settings as the base parameters
+            # to interpolate the patterns in its own values.
+            # Anyway, only keep the scalar settings as interpolation
+            # parameters, and insert the machine and measurement identifiers
+            parameters = {
+                "machine": self.machine_configuration["identifier"],
+                "measurement": self.measurement_configuration["identifier"],
+            }
+            parameters.update(
+                {
+                    key: value
+                    for key, value in settings.items()
+                    if not (
+                        isinstance(value, Settings)
+                        or key[0] == "_"
+                        or key.endswith("_identifier")
+                        or key == "identifier"
+                    )
+                }
+            )
+
+            # As for settings, only keep the keys specified for
+            # _MeasurementConfigurationSettings, as they are the only relevant
+            # fields to be presented to the backend driver.
+
+            settings = Settings(
+                _raw_init=True,
+                **{
+                    key: value
+                    for key, value in settings.items()
+                    if key in self.__RESULT_KEYS
+                },
+            )
+            result = settings.apply(parameters)
+            return result
+
 
 class MachineConfiguration(_MeasurementConfigurationSettings):
     """
@@ -331,6 +438,7 @@ class MachineConfiguration(_MeasurementConfigurationSettings):
     :class:`MeasurementConfiguration`s.
     """
 
+    SettingsType = Dict[str, "MeasurementConfiguration.SettingsType"]
     Identifier = str
 
     def __init__(
@@ -359,134 +467,53 @@ class MachineConfiguration(_MeasurementConfigurationSettings):
             assert not kwargs
             super().__init__(other)
 
-    class __Resolver:
-        # Build the list of actual settings to be retained after resolution
-        __RESULT_KEYS = set(
-            filter(
-                lambda key: not (
-                    key.endswith("_identifier") or key == "indentifier"
-                ),
-                _MeasurementConfigurationSettings().keys(),
-            )
-        )
-
+    class _SettingResolver:
         def __init__(
             self,
-            parent: "MachineConfiguration",
+            machine_configuration: "MachineConfiguration",
             io_driver: "IODriver",
         ):
-            self.parent = parent
+            self.machine_configuration = machine_configuration
             self.io_driver = io_driver
 
-            # simple caches to avoid attempting retrieving multiple times the
-            # same CommonConfiguration's and/or AuthenticationContext's
-            self.common_configurations = {}
-            self.authentication_contexts = {}
+        class __MeasurementProxy:
+            def __init__(self, parent):
+                self.parent = parent
 
-        async def get_measurement_settings(
-            self, identifier: MeasurementConfiguration.Identifier
-        ) -> Settings.InterpolatedValueType:
-            settings = Settings(self.parent)
-
-            measurement = self.parent["measurements"][identifier]
-            settings.update(measurement)
-
-            common_configuration_identifier = measurement[
-                "common_configuration_identifier"
-            ]
-            if common_configuration_identifier is None:
-                common_configuration_identifier = self.parent[
-                    "common_configuration_identifier"
+            def __getitem__(
+                self, identifier: MeasurementConfiguration.Identifier
+            ) -> MeasurementConfiguration._SettingResolver:
+                measurements = self.parent.machine_configuration[
+                    "measurements"
                 ]
-
-            if common_configuration_identifier is not None:
                 try:
-                    common_configuration = self.common_configurations[
-                        common_configuration_identifier
-                    ]
+                    measurement_configuration = measurements[identifier]
                 except KeyError:
-                    common_configuration = None
-                if common_configuration is None:
-                    common_configuration = (
-                        await self.io_driver.load_common_configuration(
-                            common_configuration_identifier
-                        )
-                    )
-                    self.common_configurations[
-                        common_configuration_identifier
-                    ] = common_configuration
-                new_settings = Settings(common_configuration)
-                new_settings.update(settings)
-                settings = new_settings
-
-            authentication_context_identifier = settings[
-                "authentication_context_identifier"
-            ]
-            if authentication_context_identifier is not None:
-                try:
-                    authentication_context = self.authentication_contexts[
-                        authentication_context_identifier
-                    ]
-                except KeyError:
-                    authentication_context = None
-                if authentication_context is None:
-                    authentication_context = (
-                        await self.io_driver.load_authentication_context(
-                            authentication_context_identifier
-                        )
-                    )
-                    self.authentication_contexts[
-                        authentication_context_identifier
-                    ] = authentication_context
-
-                new_settings = Settings(authentication_context)
-                new_settings.update(settings)
-                settings = new_settings
-
-            # Now settings contains the merging of AuthenticatioContext,
-            # the optional CommonConfiguration, the MachineConfiguration, and
-            # the MeasurementConfiguration.
-            # Furthermore, it contains both the relevant fields (i.e., URL,
-            # query string, headers), as well as values required to interpolate
-            # possible patterns. Therefore, use settings as the base parameters
-            # to interpolate the patterns in its own values.
-            # Anyway, only keep the scalar settings as interpolation
-            # parameters, and insert the machine and measurement identifiers
-            parameters = {
-                "machine": self.parent["identifier"],
-                "measurement": measurement["identifier"],
-            }
-            parameters.update(
-                {
-                    key: value
-                    for key, value in settings.items()
-                    if not isinstance(value, Settings)
-                }
-            )
-
-            # As for settings, only keep the keys specified for
-            # _MeasurementConfigurationSettings, as they are the only relevant
-            # fields to be presented to the backend driver.
-
-            settings = Settings(
-                _raw_init=True,
-                **{
-                    key: value
-                    for key, value in settings.items()
-                    if key in self.__RESULT_KEYS
-                },
-            )
-            result = settings.apply(parameters)
-            return result
-
-        async def get_all_measurement_settings(
-            self,
-        ) -> Dict[str, Settings.InterpolatedValueType]:
-            measurements = list(self.parent["measurements"].values())
-            tasks = [
-                self.get_measurement_settings(
-                    identifier=measurement["identifier"]
+                    valid_identifiers = ", ".join(measurements.keys())
+                    raise Error(
+                        f"Unrecognized measurement identifier {identifier}."
+                        f" Valid identifiers: {valid_identifiers}"
+                    ) from None
+                return MeasurementConfiguration._SettingResolver(
+                    measurement_configuration=measurement_configuration,
+                    machine_configuration=self.parent.machine_configuration,
+                    io_driver=self.parent.io_driver,
                 )
+
+        def __getitem__(self, key):
+            if key == "measurements":
+                return self.__MeasurementProxy(self)
+            raise KeyError(key)
+
+        async def get_settings(
+            self,
+        ) -> "MachineConfiguration.SettingsType":
+            measurements = list(
+                self.machine_configuration["measurements"].values()
+            )
+            measurements_settings = self["measurements"]
+            tasks = [
+                measurements_settings[measurement["identifier"]].get_settings()
                 for measurement in measurements
             ]
             results = await asyncio.gather(*tasks)
@@ -495,5 +522,7 @@ class MachineConfiguration(_MeasurementConfigurationSettings):
                 for measurement, result in zip(measurements, results)
             }
 
-    def get_resolver(self, io_driver: "IODriver") -> __Resolver:
-        return self.__Resolver(parent=self, io_driver=io_driver)
+    def get_setting_resolver(self, io_driver: "IODriver") -> _SettingResolver:
+        return self._SettingResolver(
+            machine_configuration=self, io_driver=io_driver
+        )

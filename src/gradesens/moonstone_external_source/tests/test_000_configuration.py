@@ -244,14 +244,14 @@ def io_driver(
     machine_configuration_1,
 ):
     class TestIODriver(IODriver):
-        authentication_contexts = {
+        __authentication_contexts = {
             item["identifier"]: item
             for item in [
                 authentication_context_1,
             ]
         }
 
-        common_configurations = {
+        __common_configurations = {
             item["identifier"]: item
             for item in [
                 common_configuration_1,
@@ -259,7 +259,7 @@ def io_driver(
             ]
         }
 
-        machine_configurations = {
+        __machine_configurations = {
             item["identifier"]: item
             for item in [
                 machine_configuration_1,
@@ -269,17 +269,17 @@ def io_driver(
         async def load_authentication_context(
             self, identifier: AuthenticationContext.Identifier
         ) -> AuthenticationContext:
-            return self.authentication_contexts[identifier]
+            return self.__authentication_contexts[identifier]
 
         async def load_common_configuration(
             self, identifier: CommonConfiguration.Identifier
         ) -> CommonConfiguration:
-            return self.common_configurations[identifier]
+            return self.__common_configurations[identifier]
 
         async def load_machine_configuration(
             self, identifier: MachineConfiguration.Identifier
         ) -> MachineConfiguration:
-            return self.machine_configurations[identifier]
+            return self.__machine_configurations[identifier]
 
     return TestIODriver()
 
@@ -371,8 +371,8 @@ async def test_interpolated_measurement_settings(
     io_driver,
 ):
     assert isinstance(machine_configuration_1, MachineConfiguration)
-    resolver = machine_configuration_1.get_resolver(io_driver)
-    settings = await resolver.get_measurement_settings("temperature")
+    resolver = machine_configuration_1.get_setting_resolver(io_driver)
+    settings = await resolver["measurements"]["temperature"].get_settings()
     assert isinstance(settings, dict)
     assert not isinstance(settings, Settings)
 
@@ -398,8 +398,8 @@ async def test_interpolated_measurement_all_settings(
     io_driver,
 ):
     assert isinstance(machine_configuration_1, MachineConfiguration)
-    resolver = machine_configuration_1.get_resolver(io_driver)
-    settings = await resolver.get_all_measurement_settings()
+    resolver = machine_configuration_1.get_setting_resolver(io_driver)
+    settings = await resolver.get_settings()
     assert isinstance(settings, dict)
     assert not isinstance(settings, Settings)
 

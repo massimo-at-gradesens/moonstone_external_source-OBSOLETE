@@ -10,7 +10,6 @@ from .backend_driver import (
     BackendDriver,
     HttpBackendDriver,
     HttpRequestProcessor,
-    KeyValuePatterns,
 )
 from .configuration import (
     AuthenticationContext,
@@ -28,7 +27,6 @@ __all__ = [
     "BackendDriver",
     "HttpBackendDriver",
     "HttpRequestProcessor",
-    "KeyValuePatterns",
     "AuthenticationContext",
     "CommonConfiguration",
     "MachineConfiguration",

@@ -12,36 +12,12 @@ import abc
 import asyncio
 import json
 from http import HTTPStatus
-from typing import Callable, Dict, Iterable, Sequence, Tuple, Union
+from typing import Callable, Dict, Sequence, Tuple, Union
 
 import aiohttp
 
+from .configuration import MachineConfiguration, MeasurementConfiguration
 from .error import Error, HttpError
-
-
-class KeyValuePatterns:
-    """
-    A list of ``[key_pattern, value_pattern]`` entries, each of them applied
-    via ``str.format()`` over an input dictionary of ``[key, value]`` entries,
-    to produce a ``Backend``-specific output list of ``[key, value]`` to
-    be used in the actual backend request.
-    """
-
-    Patterns = Union[
-        Iterable[Tuple[str, str]],
-        dict,
-    ]
-
-    def __init__(self, patterns: Patterns):
-        if isinstance(patterns, dict):
-            patterns = patterns.items()
-        self.patterns = tuple(patterns)
-
-    def apply(self, params: Dict[str, str]) -> Sequence[Tuple[str, str]]:
-        return tuple(
-            (key_pattern.format(**params), value_pattern.format(**params))
-            for key_pattern, value_pattern in self.patterns
-        )
 
 
 class BackendDriver(abc.ABC):
@@ -51,6 +27,9 @@ class BackendDriver(abc.ABC):
     Backend drivers are responsible for formatting and performing requests to
     the target remote sources.
     """
+
+    def __init__(self, *, settings: MeasurementConfiguration.SettingsType):
+        self.settings = settings
 
     @abc.abstractclassmethod
     async def process(self, params: dict) -> Dict[str, str]:
@@ -62,19 +41,6 @@ class HttpRequestProcessor:
     An HTTP request processor takes care of applying input parameters over
     user-specified patterns to create a corresponding URL and query string
     """
-
-    QueryStringPatterns = Union[KeyValuePatterns.Patterns, KeyValuePatterns]
-
-    def __init__(
-        self,
-        *,
-        url_pattern: str,
-        query_string_patterns: QueryStringPatterns,
-    ):
-        self.url_pattern = url_pattern
-        if not isinstance(query_string_patterns, KeyValuePatterns):
-            query_string_patterns = KeyValuePatterns(query_string_patterns)
-        self.query_string_patterns = query_string_patterns
 
     def get_url(self, params: Dict[str, str]) -> str:
         """
@@ -114,8 +80,7 @@ class HttpBackendDriver(BackendDriver):
     def __init__(
         self,
         *,
-        url_pattern: str,
-        query_string_patterns: HttpRequestProcessor.QueryStringPatterns,
+        settings: MachineConfiguration.SettingsType,
         response_decoder: Callable[
             [Union[str, bytes]],
             Dict[str, str],
@@ -123,10 +88,7 @@ class HttpBackendDriver(BackendDriver):
         max_attempts: int = 1,
         attempt_delay: float = 0.5,
     ):
-        self.request_processor = HttpRequestProcessor(
-            url_pattern=url_pattern,
-            query_string_patterns=query_string_patterns,
-        )
+        self.request_processor = HttpRequestProcessor()
         self.response_decoder = response_decoder
         self.max_attempts = max_attempts
         self.attempt_delay = attempt_delay
