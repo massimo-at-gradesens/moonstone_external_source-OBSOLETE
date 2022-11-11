@@ -1,20 +1,22 @@
 """
-GradeSens - External Source package - machine configuration
+GradeSens - External Source package - Configuration support
 
-A machine configuration contains all the parameters requested to query the
-external measurements on that machine.
-This file provides both the configuration data classes and the facilities to
-retrieve the configuration for a given machine.
+This file provides the configuration data classes to handle machine,
+maeasurement and authorization configurations.
+These configurations contain all the parameters requested to query the
+external measurements on the target machnes.
 """
 __author__ = "Massimo Ravasi"
 __copyright__ = "Copyright 2022, Gradesens AG"
 
 
-import abc
 import asyncio
-from typing import Any, Dict, Iterable, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Sequence, Tuple, Union
 
-from .error import Error, PatternError
+if TYPE_CHECKING:
+    from .io_driver import IODriver
+
+from .error import PatternError
 
 
 class Settings(dict):
@@ -212,41 +214,6 @@ class AuthenticationContext(Settings):
             assert not kwargs
             super().__init__(other)
 
-    class LoadDriver(abc.ABC):
-        """
-        The load driver for :class:`AuthenticationContext`, which provides the
-        actual load functionality for :meth:`AuthenticationContext.load` to
-        work.
-
-        In order to call :meth:`AuthenticationContext.load`, an instance of a
-        class derived by this abstract class must first be registered with
-        :meth:`AuthenticationContext.register_load_driver`.
-        """
-
-        @abc.abstractmethod
-        async def load(
-            self, identifier: "AuthenticationContext.Identifier"
-        ) -> "AuthenticationContext":
-            """
-            The actual load method, to be implemented by derived classes.
-            """
-
-    __load_driver: Union[LoadDriver, None] = None
-
-    @classmethod
-    def register_load_driver(cls, load_driver: LoadDriver):
-        cls.__load_driver = load_driver
-
-    @classmethod
-    async def load(cls, identifier: Identifier) -> "AuthenticationContext":
-        """
-        Load the :class:`AuthenticationContext` for a given ID.
-        To be implemented by derived classes.
-        """
-        if cls.__load_driver is None:
-            raise Error(f"{cls.__name__}: no LoadDriver registered")
-        return await cls.__load_driver.load(identifier)
-
 
 class CommonConfiguration(Settings):
     """
@@ -275,41 +242,6 @@ class CommonConfiguration(Settings):
             assert identifier is None
             assert not kwargs
             super().__init__(other)
-
-    class LoadDriver(abc.ABC):
-        """
-        The load driver for :class:`CommonConfiguration`, which provides the
-        actual load functionality for :meth:`CommonConfiguration.load` to
-        work.
-
-        In order to call :meth:`CommonConfiguration.load`, an instance of a
-        class derived by this abstract class must first be registered with
-        :meth:`CommonConfiguration.register_load_driver`.
-        """
-
-        @abc.abstractmethod
-        async def load(
-            self, identifier: "CommonConfiguration.Identifier"
-        ) -> "CommonConfiguration":
-            """
-            The actual load method, to be implemented by derived classes.
-            """
-
-    __load_driver: Union[LoadDriver, None] = None
-
-    @classmethod
-    def register_load_driver(cls, load_driver: LoadDriver):
-        cls.__load_driver = load_driver
-
-    @classmethod
-    async def load(cls, identifier: Identifier) -> "CommonConfiguration":
-        """
-        Load the :class:`CommonConfiguration` for a given ID.
-        To be implemented by derived classes.
-        """
-        if cls.__load_driver is None:
-            raise Error(f"{cls.__name__}: no LoadDriver registered")
-        return await cls.__load_driver.load(identifier)
 
 
 class _MeasurementConfigurationSettings(Settings):
@@ -427,52 +359,24 @@ class MachineConfiguration(_MeasurementConfigurationSettings):
             assert not kwargs
             super().__init__(other)
 
-    class LoadDriver(abc.ABC):
-        """
-        The load driver for :class:`MachineConfiguration`, which provides the
-        actual load functionality for :meth:`MachineConfiguration.load` to
-        work.
-
-        In order to call :meth:`MachineConfiguration.load`, an instance of a
-        class derived by this abstract class must first be registered with
-        :meth:`MachineConfiguration.register_load_driver`.
-        """
-
-        @abc.abstractmethod
-        async def load(
-            self, identifier: "MachineConfiguration.Identifier"
-        ) -> "MachineConfiguration":
-            """
-            The actual load method, to be implemented by derived classes.
-            """
-
-    __load_driver: Union[LoadDriver, None] = None
-
-    @classmethod
-    def register_load_driver(cls, load_driver: LoadDriver):
-        cls.__load_driver = load_driver
-
-    @classmethod
-    async def load(cls, identifier: Identifier) -> "MachineConfiguration":
-        """
-        Load the :class:`MachineConfiguration` for a given ID.
-        To be implemented by derived classes.
-        """
-        if cls.__load_driver is None:
-            raise Error(f"{cls.__name__}: no LoadDriver registered")
-        return await cls.__load_driver.load(identifier)
-
-    class __ResolutionContext:
-        # Build the list of actual settings to be retains after resolution
+    class __Resolver:
+        # Build the list of actual settings to be retained after resolution
         __RESULT_KEYS = set(
             filter(
-                lambda key: not key.endswith("_identifier"),
+                lambda key: not (
+                    key.endswith("_identifier") or key == "indentifier"
+                ),
                 _MeasurementConfigurationSettings().keys(),
             )
         )
 
-        def __init__(self, parent: "MachineConfiguration"):
+        def __init__(
+            self,
+            parent: "MachineConfiguration",
+            io_driver: "IODriver",
+        ):
             self.parent = parent
+            self.io_driver = io_driver
 
             # simple caches to avoid attempting retrieving multiple times the
             # same CommonConfiguration's and/or AuthenticationContext's
@@ -503,8 +407,10 @@ class MachineConfiguration(_MeasurementConfigurationSettings):
                 except KeyError:
                     common_configuration = None
                 if common_configuration is None:
-                    common_configuration = await CommonConfiguration.load(
-                        common_configuration_identifier
+                    common_configuration = (
+                        await self.io_driver.load_common_configuration(
+                            common_configuration_identifier
+                        )
                     )
                     self.common_configurations[
                         common_configuration_identifier
@@ -524,8 +430,10 @@ class MachineConfiguration(_MeasurementConfigurationSettings):
                 except KeyError:
                     authentication_context = None
                 if authentication_context is None:
-                    authentication_context = await AuthenticationContext.load(
-                        authentication_context_identifier
+                    authentication_context = (
+                        await self.io_driver.load_authentication_context(
+                            authentication_context_identifier
+                        )
                     )
                     self.authentication_contexts[
                         authentication_context_identifier
@@ -571,27 +479,21 @@ class MachineConfiguration(_MeasurementConfigurationSettings):
             result = settings.apply(parameters)
             return result
 
-    async def get_measurement_settings(
-        self, identifier: MeasurementConfiguration.Identifier
-    ) -> Settings.InterpolatedValueType:
-        resolution_context = self.__ResolutionContext(self)
-        return await resolution_context.get_measurement_settings(
-            identifier=identifier
-        )
+        async def get_all_measurement_settings(
+            self,
+        ) -> Dict[str, Settings.InterpolatedValueType]:
+            measurements = list(self.parent["measurements"].values())
+            tasks = [
+                self.get_measurement_settings(
+                    identifier=measurement["identifier"]
+                )
+                for measurement in measurements
+            ]
+            results = await asyncio.gather(*tasks)
+            return {
+                measurement["identifier"]: result
+                for measurement, result in zip(measurements, results)
+            }
 
-    async def get_all_measurement_settings(
-        self,
-    ) -> Dict[str, Settings.InterpolatedValueType]:
-        resolution_context = self.__ResolutionContext(self)
-        measurements = list(self["measurements"].values())
-        tasks = [
-            resolution_context.get_measurement_settings(
-                identifier=measurement["identifier"]
-            )
-            for measurement in measurements
-        ]
-        results = await asyncio.gather(*tasks)
-        return {
-            measurement["identifier"]: result
-            for measurement, result in zip(measurements, results)
-        }
+    def get_resolver(self, io_driver: "IODriver") -> __Resolver:
+        return self.__Resolver(parent=self, io_driver=io_driver)

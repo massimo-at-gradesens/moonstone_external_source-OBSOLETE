@@ -1,5 +1,5 @@
 """
-GradeSens - External Source package - async pool
+GradeSens - External Source package - Async pool
 
 Simple-minded execution pool for any number of async tasks, but limiting the
 maximum number of concurrent tasks active at the same time.

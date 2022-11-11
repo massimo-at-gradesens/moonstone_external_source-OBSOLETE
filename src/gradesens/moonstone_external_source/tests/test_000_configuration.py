@@ -6,6 +6,7 @@ import yaml
 from gradesens.moonstone_external_source import (
     AuthenticationContext,
     CommonConfiguration,
+    IODriver,
     MachineConfiguration,
     MeasurementConfiguration,
     Settings,
@@ -236,49 +237,51 @@ def machine_configuration_1(machine_configuration_1_text):
 
 
 @pytest.fixture
-def common_configuration_ld(
+def io_driver(
+    authentication_context_1,
     common_configuration_1,
     common_configuration_2,
+    machine_configuration_1,
 ):
-    items = {
-        item["identifier"]: item
-        for item in [
-            common_configuration_1,
-            common_configuration_2,
-        ]
-    }
+    class TestIODriver(IODriver):
+        authentication_contexts = {
+            item["identifier"]: item
+            for item in [
+                authentication_context_1,
+            ]
+        }
 
-    class CommonConfigurationLD(CommonConfiguration.LoadDriver):
-        __items = dict(items)
+        common_configurations = {
+            item["identifier"]: item
+            for item in [
+                common_configuration_1,
+                common_configuration_2,
+            ]
+        }
 
-        async def load(
-            self, identifier: CommonConfiguration.Identifier
-        ) -> CommonConfiguration:
-            return self.__items[identifier]
+        machine_configurations = {
+            item["identifier"]: item
+            for item in [
+                machine_configuration_1,
+            ]
+        }
 
-    CommonConfiguration.register_load_driver(CommonConfigurationLD())
-
-
-@pytest.fixture
-def authentication_context_ld(
-    authentication_context_1,
-):
-    items = {
-        item["identifier"]: item
-        for item in [
-            authentication_context_1,
-        ]
-    }
-
-    class AuthenticationContextLD(AuthenticationContext.LoadDriver):
-        __items = dict(items)
-
-        async def load(
+        async def load_authentication_context(
             self, identifier: AuthenticationContext.Identifier
         ) -> AuthenticationContext:
-            return self.__items[identifier]
+            return self.authentication_contexts[identifier]
 
-    AuthenticationContext.register_load_driver(AuthenticationContextLD())
+        async def load_common_configuration(
+            self, identifier: CommonConfiguration.Identifier
+        ) -> CommonConfiguration:
+            return self.common_configurations[identifier]
+
+        async def load_machine_configuration(
+            self, identifier: MachineConfiguration.Identifier
+        ) -> MachineConfiguration:
+            return self.machine_configurations[identifier]
+
+    return TestIODriver()
 
 
 def test_common_configuration(common_configuration_1):
@@ -365,13 +368,11 @@ def test_machine_configuration(machine_configuration_1):
 @pytest.mark.asyncio
 async def test_interpolated_measurement_settings(
     machine_configuration_1,
-    common_configuration_ld,
-    authentication_context_ld,
+    io_driver,
 ):
     assert isinstance(machine_configuration_1, MachineConfiguration)
-    settings = await machine_configuration_1.get_measurement_settings(
-        "temperature"
-    )
+    resolver = machine_configuration_1.get_resolver(io_driver)
+    settings = await resolver.get_measurement_settings("temperature")
     assert isinstance(settings, dict)
     assert not isinstance(settings, Settings)
 
@@ -394,11 +395,11 @@ async def test_interpolated_measurement_settings(
 @pytest.mark.asyncio
 async def test_interpolated_measurement_all_settings(
     machine_configuration_1,
-    common_configuration_ld,
-    authentication_context_ld,
+    io_driver,
 ):
     assert isinstance(machine_configuration_1, MachineConfiguration)
-    settings = await machine_configuration_1.get_all_measurement_settings()
+    resolver = machine_configuration_1.get_resolver(io_driver)
+    settings = await resolver.get_all_measurement_settings()
     assert isinstance(settings, dict)
     assert not isinstance(settings, Settings)
 

@@ -1,5 +1,5 @@
 """
-GradeSens - External Source package - external sources
+GradeSens - External Source package - External sources
 
 The external sources are the main entry point of the External Source package.
 They provide access to the actual core functionality of the package:

@@ -21,6 +21,7 @@ from .configuration import (
 )
 from .error import Error, HttpError, PatternError
 from .external_source import ExternalSource
+from .io_driver import IODriver
 
 __all__ = [
     "AsyncConcurrentPool",
@@ -37,4 +38,5 @@ __all__ = [
     "HttpError",
     "PatternError",
     "ExternalSource",
+    "IODriver",
 ]

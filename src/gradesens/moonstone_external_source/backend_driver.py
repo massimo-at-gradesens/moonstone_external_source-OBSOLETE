@@ -1,5 +1,5 @@
 """
-GradeSens - External Source package - backend drivers
+GradeSens - External Source package - Backend drivers
 
 Backend drivers are responsible for formatting and performing requests to the
 target remote sources.
