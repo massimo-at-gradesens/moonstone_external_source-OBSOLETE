@@ -11,12 +11,15 @@ __copyright__ = "Copyright 2022, Gradesens AG"
 
 
 import asyncio
+import re
+from collections import OrderedDict
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, Iterable, Sequence, Tuple, Union
 
 if TYPE_CHECKING:
     from .io_driver import IODriver
 
-from .error import Error, PatternError
+from .error import Error, PatternError, TimeError
 
 
 class Settings(dict):
@@ -169,7 +172,16 @@ class Settings(dict):
                 except KeyError:
                     raise
                 except NameError as err:
-                    raise KeyError(err.name) from None
+                    try:
+                        name = err.name
+                    except AttributeError:
+                        # Given that is seems that err.name is available since
+                        # py 3.10, try retrieving the key name by parsing the
+                        # error string.
+                        err = str(err)
+                        re_match = re.match(r".*'([^']+)'.*", err)
+                        name = err if re_match is None else re_match.group(1)
+                    raise KeyError(name) from None
                 except Exception as err:
                     raise PatternError(str(err)) from None
             except KeyError as err:
@@ -355,8 +367,18 @@ class MeasurementConfiguration(_MeasurementConfigurationSettings):
 
         async def get_settings(
             self,
+            start_time: Union[datetime, None] = None,
+            end_time: Union[datetime, None] = None,
         ) -> "MeasurementConfiguration.SettingsType":
             settings = Settings(self.machine_configuration)
+
+            if start_time is not None:
+                self.__assert_aware_time("start_time", start_time)
+                settings["start_time"] = start_time
+            if end_time is not None:
+                self.__assert_aware_time("end_time", end_time)
+                settings["end_time"] = end_time
+
             settings.update(self.measurement_configuration)
 
             common_configuration_identifier = self.measurement_configuration[
@@ -429,6 +451,11 @@ class MeasurementConfiguration(_MeasurementConfigurationSettings):
             )
             result = settings.apply(parameters)
             return result
+
+        @staticmethod
+        def __assert_aware_time(description, time):
+            if time.tzinfo is None or time.tzinfo.utcoffset(time) is None:
+                raise TimeError(f"{description} is not timezone-aware: {time}")
 
 
 class MachineConfiguration(_MeasurementConfigurationSettings):
@@ -506,19 +533,44 @@ class MachineConfiguration(_MeasurementConfigurationSettings):
 
         async def get_settings(
             self,
+            measurement_identifiers: Union[
+                None, Iterable[MeasurementConfiguration.Identifier]
+            ] = None,
+            **kwargs,
         ) -> "MachineConfiguration.SettingsType":
-            measurements = list(
-                self.machine_configuration["measurements"].values()
+            if measurement_identifiers is None:
+                # If no identifiers are specified, return all measurements
+                measurement_identifiers = self.machine_configuration[
+                    "measurements"
+                ].keys()
+            measurement_identifiers = set(measurement_identifiers)
+
+            # Retain only the identifiers that actually match this machine
+            # measurements.
+            # Silently drop the other ones.
+            measurement_identifiers &= set(
+                self.machine_configuration["measurements"].keys()
             )
+
             measurements_settings = self["measurements"]
-            tasks = [
-                measurements_settings[measurement["identifier"]].get_settings()
-                for measurement in measurements
-            ]
-            results = await asyncio.gather(*tasks)
+
+            # Use an OrderedDict to guarantee order repeatability, so as to
+            # guarantee that identifiers and results can be correctly zipped
+            # together after asyncio.gather()
+            tasks = OrderedDict(
+                **{
+                    measurement_identifier: measurements_settings[
+                        measurement_identifier
+                    ].get_settings(**kwargs)
+                    for measurement_identifier in measurement_identifiers
+                }
+            )
+            results = await asyncio.gather(*tasks.values())
             return {
-                measurement["identifier"]: result
-                for measurement, result in zip(measurements, results)
+                measurement_identifier: result
+                for measurement_identifier, result in zip(
+                    tasks.keys(), results
+                )
             }
 
     def get_setting_resolver(self, io_driver: "IODriver") -> _SettingResolver:

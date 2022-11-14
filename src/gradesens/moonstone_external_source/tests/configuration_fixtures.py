@@ -146,12 +146,33 @@ def machine_configuration_2(machine_configuration_2_text):
 
 
 @pytest.fixture
+def machine_configuration_with_time_text():
+    return textwrap.dedent(
+        """
+    identifier: mach_w_time
+    measurements:
+        -   identifier: temperature
+            query_string:
+                start: "{start_time.isoformat()}"
+                end: "{end_time.isoformat()}"
+    """
+    )
+
+
+@pytest.fixture
+def machine_configuration_with_time(machine_configuration_with_time_text):
+    params = load_yaml(machine_configuration_with_time_text)
+    return MachineConfiguration(**params)
+
+
+@pytest.fixture
 def io_driver_1(
     authentication_context_1,
     common_configuration_1,
     common_configuration_2,
     machine_configuration_1,
     machine_configuration_2,
+    machine_configuration_with_time,
 ):
     class TestIODriver(IODriver):
         def __init__(
@@ -208,5 +229,6 @@ def io_driver_1(
         machine_configurations=[
             machine_configuration_1,
             machine_configuration_2,
+            machine_configuration_with_time,
         ],
     )

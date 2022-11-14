@@ -1,10 +1,14 @@
+from datetime import datetime, timezone
+
 import pytest
 
 from gradesens.moonstone_external_source import (
     CommonConfiguration,
     MachineConfiguration,
     MeasurementConfiguration,
+    PatternError,
     Settings,
+    TimeError,
 )
 
 from .utils import assert_eq_dicts
@@ -202,3 +206,56 @@ async def test_complex_interpolated_measurement_all_settings(
         }
     }
     assert_eq_dicts(settings, expected)
+
+
+@pytest.mark.usefixtures("io_driver_1")
+@pytest.mark.asyncio
+async def test_start_end_times(
+    io_driver_1,
+):
+    mach_conf_1 = await io_driver_1.machine_configurations.get("mach_w_time")
+    resolver = mach_conf_1.get_setting_resolver(io_driver_1)
+    with pytest.raises(TimeError) as exc_info:
+        await resolver.get_settings(start_time=datetime.now())
+    assert "start_time" in str(exc_info.value)
+
+    with pytest.raises(TimeError) as exc_info:
+        await resolver.get_settings(end_time=datetime.now())
+    assert "end_time" in str(exc_info.value)
+
+    with pytest.raises(PatternError) as exc_info:
+        await resolver.get_settings()
+    with pytest.raises(PatternError) as exc_info:
+        await resolver["measurements"]["temperature"].get_settings()
+    with pytest.raises(PatternError) as exc_info:
+        await resolver.get_settings(start_time=datetime.now(timezone.utc))
+    with pytest.raises(PatternError) as exc_info:
+        await resolver.get_settings(end_time=datetime.now(timezone.utc))
+
+    settings = await resolver["measurements"]["temperature"].get_settings(
+        start_time=datetime(
+            year=2022,
+            month=11,
+            day=14,
+            hour=17,
+            minute=34,
+            second=17,
+            tzinfo=timezone.utc,
+        ),
+        end_time=datetime(
+            year=3022,
+            month=9,
+            day=2,
+            hour=5,
+            minute=27,
+            second=3,
+            tzinfo=timezone.utc,
+        ),
+    )
+    query_string = settings["query_string"]
+
+    assert isinstance(query_string["start"], str)
+    assert query_string["start"] == "2022-11-14T17:34:17+00:00"
+
+    assert isinstance(query_string["end"], str)
+    assert query_string["end"] == "3022-09-02T05:27:03+00:00"

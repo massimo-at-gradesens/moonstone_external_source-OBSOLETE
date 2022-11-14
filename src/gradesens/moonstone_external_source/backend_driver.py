@@ -10,14 +10,12 @@ __copyright__ = "Copyright 2022, Gradesens AG"
 
 import abc
 import asyncio
-import json
 from http import HTTPStatus
-from typing import Callable, Dict, Sequence, Tuple, Union
+from typing import Dict
 
 import aiohttp
 
-from .configuration import MachineConfiguration, MeasurementConfiguration
-from .error import Error, HttpError
+from .error import HTTPError
 
 
 class BackendDriver(abc.ABC):
@@ -28,51 +26,17 @@ class BackendDriver(abc.ABC):
     the target remote sources.
     """
 
-    def __init__(self, *, settings: MeasurementConfiguration.SettingsType):
-        self.settings = settings
-
     @abc.abstractclassmethod
-    async def process(self, params: dict) -> Dict[str, str]:
+    async def process(
+        self,
+        url: str,
+        headers: Dict[str, str] = {},
+        query_string: Dict[str, str] = {},
+    ) -> str:
         pass
 
 
-class HttpRequestProcessor:
-    """
-    An HTTP request processor takes care of applying input parameters over
-    user-specified patterns to create a corresponding URL and query string
-    """
-
-    def get_url(self, params: Dict[str, str]) -> str:
-        """
-        Return the URL for the user-specified parameters
-        """
-        try:
-            return self.url_pattern.format(**params)
-        except Exception as excp:
-            raise Error(
-                f"Unable to expand URL pattern {self.url_pattern!r}"
-                f" with params {params}:\n"
-                f"   {excp}"
-            ) from None
-
-    def get_query_string_params(
-        self, params: Dict[str, str]
-    ) -> Sequence[Tuple[str, str]]:
-        """
-        Return the query string parameters for the user-specified parameters
-        """
-        try:
-            return self.query_string_patterns.apply(params)
-        except Exception as excp:
-            raise Error(
-                "Unable to expand query string patterns"
-                f" {self.query_string_patterns.patterns}"
-                f" with params {params}:\n"
-                f"   {excp}"
-            ) from None
-
-
-class HttpBackendDriver(BackendDriver):
+class HTTPBackendDriver(BackendDriver):
     """
     HTTP backend driver.
     """
@@ -80,24 +44,18 @@ class HttpBackendDriver(BackendDriver):
     def __init__(
         self,
         *,
-        settings: MachineConfiguration.SettingsType,
-        response_decoder: Callable[
-            [Union[str, bytes]],
-            Dict[str, str],
-        ] = json.loads,
         max_attempts: int = 1,
         attempt_delay: float = 0.5,
     ):
-        self.request_processor = HttpRequestProcessor()
-        self.response_decoder = response_decoder
         self.max_attempts = max_attempts
         self.attempt_delay = attempt_delay
 
-    async def process(self, params: dict) -> Dict[str, str]:
-        url = self.request_processor.get_url(params)
-        query_string_params = self.request_processpr.get_query_string_params(
-            params
-        )
+    async def process(
+        self,
+        url: str,
+        headers: Dict[str, str] = {},
+        query_string_params: Dict[str, str] = {},
+    ) -> str:
 
         async with aiohttp.ClientSession() as session:
             status = None
@@ -114,7 +72,7 @@ class HttpBackendDriver(BackendDriver):
 
                     remaining_attempts -= 1
                     if remaining_attempts <= 0:
-                        raise HttpError(
+                        raise HTTPError(
                             f"HTTP request to {url!r} failed"
                             f" after {self.max_attempts} attempts",
                             status=status,

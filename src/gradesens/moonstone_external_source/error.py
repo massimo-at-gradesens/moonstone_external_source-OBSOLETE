@@ -9,7 +9,7 @@ class Error(Exception):
     pass
 
 
-class HttpError(Error):
+class HTTPError(Error):
     def __init__(self, msg, status):
         super().__init__(msg)
         self.status = status
@@ -19,4 +19,8 @@ class HttpError(Error):
 
 
 class PatternError(Error):
+    pass
+
+
+class TimeError(Error):
     pass
