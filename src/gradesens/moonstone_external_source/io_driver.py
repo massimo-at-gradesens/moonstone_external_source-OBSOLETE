@@ -29,7 +29,7 @@ class IODriver(abc.ABC):
     The actual implementation is to be provided by application-specific
     integrations.
 
-    On top of the load methods to be speicialized in derived classes,
+    On top of the load methods to be specialized in derived classes,
     :class:`IODriver` provides a simple time-based-expiration caching
     layer so as to minimize IO operations.
     """
@@ -86,6 +86,7 @@ class IODriver(abc.ABC):
 
     def __init__(
         self,
+        *,
         cache_expiration_delay: timedelta = DEFAULT_CACHE_EXPIRATION_DELAY,
     ):
 

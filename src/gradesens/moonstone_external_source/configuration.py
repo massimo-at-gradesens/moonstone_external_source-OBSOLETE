@@ -408,8 +408,7 @@ class MeasurementConfiguration(_MeasurementConfigurationSettings):
                     key: value
                     for key, value in settings.items()
                     if not (
-                        isinstance(value, Settings)
-                        or key[0] == "_"
+                        key[0] == "_"
                         or key.endswith("_identifier")
                         or key == "identifier"
                     )
