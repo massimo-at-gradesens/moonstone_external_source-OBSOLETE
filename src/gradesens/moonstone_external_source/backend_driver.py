@@ -14,6 +14,7 @@ from http import HTTPStatus
 from typing import Dict
 
 import aiohttp
+from multidict import CIMultiDict
 
 from .error import HTTPError
 
@@ -26,13 +27,22 @@ class BackendDriver(abc.ABC):
     the target remote sources.
     """
 
+    class Response:
+        def __init__(
+            self,
+            text: str,
+            headers: CIMultiDict,
+        ):
+            self.text = text
+            self.headers = headers
+
     @abc.abstractclassmethod
     async def process(
         self,
         url: str,
         headers: Dict[str, str] = {},
         query_string: Dict[str, str] = {},
-    ) -> str:
+    ) -> Response:
         pass
 
 
@@ -55,7 +65,7 @@ class HTTPBackendDriver(BackendDriver):
         url: str,
         headers: Dict[str, str] = {},
         query_string_params: Dict[str, str] = {},
-    ) -> str:
+    ) -> BackendDriver.Response:
 
         async with aiohttp.ClientSession() as session:
             status = None
@@ -65,10 +75,13 @@ class HTTPBackendDriver(BackendDriver):
                     url, params=query_string_params
                 ) as resp:
                     status = resp.status
-                    text = await resp.text()
 
                     if status == HTTPStatus.OK:
-                        return self.response_decoder(text)
+                        text = await resp.text()
+                        return self.Response(
+                            text=text,
+                            headers=resp.headers,
+                        )
 
                     remaining_attempts -= 1
                     if remaining_attempts <= 0:

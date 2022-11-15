@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterable, Sequence, Tuple, Union
 if TYPE_CHECKING:
     from .io_driver import IODriver
 
-from .error import Error, PatternError, TimeError
+from .error import ConfigurationError, PatternError, TimeError
 
 
 class Settings(dict):
@@ -168,7 +168,7 @@ class Settings(dict):
         try:
             try:
                 try:
-                    return eval("f" + repr(value), {}, parameters)
+                    return eval(f"f{value!r}", {}, parameters)
                 except KeyError:
                     raise
                 except NameError as err:
@@ -223,7 +223,10 @@ class AuthenticationContext(Settings):
         **kwargs: Settings.InputType,
     ):
         if other is None:
-            assert identifier is not None
+            if identifier is None:
+                raise ConfigurationError(
+                    "Missing authentication context identifier"
+                )
             super().__init__(identifier=identifier, **kwargs)
         else:
             assert identifier is None
@@ -231,77 +234,88 @@ class AuthenticationContext(Settings):
             super().__init__(other)
 
 
-class CommonConfiguration(Settings):
+class _MeasurementSettings(Settings):
     """
-    An :class:`CommonConfiguration` is nothing more than a ``[key, value]``
-    dictionary of configuration data, optionally referenced by
-    :class:`MeasurementConfiguration` and :class:`MachineConfiguration` objects
-    to load configuration data from a common shared configuration point.
+    Generic configuration settings for a single measurement, shared by
+    :class:`CommonConfiguration`s, :class:`MeasurementConfiguration`s and
+    :class:`MachineConfiguration`s.
 
-    The actual contents, including the list of keys, are strictly customer-
-    and API-specific, and are not under the responsibility of this class.
+    It provides all the settings for a given single measurement.
     """
 
-    Identifier = str
+    MeasurementResults = 0
 
     def __init__(
         self,
-        other: Union["CommonConfiguration", None] = None,
-        *,
-        identifier: Union[Identifier, None] = None,
-        **kwargs: Settings.InputType,
-    ):
-        if other is None:
-            assert identifier is not None
-            super().__init__(identifier=identifier, **kwargs)
-        else:
-            assert identifier is None
-            assert not kwargs
-            super().__init__(other)
-
-
-class _MeasurementConfigurationSettings(Settings):
-    """
-    Generic configuration shared by :class:`CommonConfiguration`s,
-    :class:`MeasurementConfigurationBase`s.
-
-    It provides all the settings for a given measurement.
-    """
-
-    def __init__(
-        self,
-        other: Union["_MeasurementConfigurationSettings", None] = None,
+        other: Union["_MeasurementSettings", None] = None,
         *,
         url: str = None,
         query_string: Union[Settings.InputType, None] = None,
         headers: Union[Settings.InputType, None] = None,
-        common_configuration_identifier: Union[
-            CommonConfiguration.Identifier, None
-        ] = None,
         authentication_context_identifier: Union[
             AuthenticationContext.Identifier, None
         ] = None,
+        # measurement_results: Union[
+        #     Sequence[MeasurementResults.InputType], None
+        #     ] = None,
         **kwargs: Settings.InputType,
     ):
         if other is not None:
             assert url is None
             assert query_string is None
             assert headers is None
-            assert common_configuration_identifier is None
             assert authentication_context_identifier is None
             assert not kwargs
             super().__init__(other)
         else:
+            # if measurements is None:
+            #     measurements = []
+            # measurements = {
+            #     measurement["identifier"]: measurement
+            #     for measurement in map(
+            #         lambda m: MeasurementConfiguration(**m), measurements
+            #     )
+            # }
             super().__init__(
                 other,
                 url=url,
                 query_string=Settings(query_string),
                 headers=Settings(headers),
-                common_configuration_identifier=(
-                    common_configuration_identifier
-                ),
                 authentication_context_identifier=(
                     authentication_context_identifier
+                ),
+                **kwargs,
+            )
+
+
+class _CommonConfigurationIdentifierSettings(Settings):
+    """
+    Mixin to provide the optional setting
+    :attr:`.common_configuration_identifier` to reference to a
+    :class:`CommonConfiguration` instance.
+
+    These configuration settings are used by :class:`MeasurementConfiguration`s
+    and :class:`MachineConfiguration`s.
+    """
+
+    def __init__(
+        self,
+        other: Union["_CommonConfigurationIdentifierSettings", None] = None,
+        *,
+        common_configuration_identifier: Union[
+            "CommonConfiguration.Identifier", None
+        ] = None,
+        **kwargs: Settings.InputType,
+    ):
+        if other is not None:
+            assert common_configuration_identifier is None
+            assert not kwargs
+            super().__init__(other)
+        else:
+            super().__init__(
+                other,
+                common_configuration_identifier=(
+                    common_configuration_identifier
                 ),
                 **kwargs,
             )
@@ -315,7 +329,9 @@ class _MeasurementConfigurationSettings(Settings):
         return common_configuration
 
 
-class MeasurementConfiguration(_MeasurementConfigurationSettings):
+class MeasurementConfiguration(
+    _CommonConfigurationIdentifierSettings, _MeasurementSettings
+):
     """
     Configuration for a single measurement (e.g. temperature, RPM, etc.).
     """
@@ -331,7 +347,10 @@ class MeasurementConfiguration(_MeasurementConfigurationSettings):
         **kwargs: Settings.InputType,
     ):
         if other is None:
-            assert identifier is not None
+            if identifier is None:
+                raise ConfigurationError(
+                    "Missing measurement configuration identifier"
+                )
             super().__init__(
                 identifier=identifier,
                 **kwargs,
@@ -343,15 +362,14 @@ class MeasurementConfiguration(_MeasurementConfigurationSettings):
 
     class _SettingResolver:
         # Build the list of actual settings to be retained after resolution.
-        # Simple solution: create a bare _MeasurementConfigurationSettings
-        # instance and get its list of keys(), but filter out the few unwanted
-        # ones.
+        # Simple solution: create a bare _MeasurementSettings instance and get
+        # its list of keys(), but filter out the few unwanted ones.
         __RESULT_KEYS = set(
             filter(
                 lambda key: not (
                     key.endswith("_identifier") or key == "identifier"
                 ),
-                _MeasurementConfigurationSettings().keys(),
+                _MeasurementSettings().keys(),
             )
         )
 
@@ -438,9 +456,8 @@ class MeasurementConfiguration(_MeasurementConfigurationSettings):
             )
 
             # As for settings, only keep the keys specified for
-            # _MeasurementConfigurationSettings, as they are the only relevant
-            # fields to be presented to the backend driver.
-
+            # _MeasurementSettings, as they are the only relevant fields to be
+            # presented to the backend driver.
             settings = Settings(
                 _raw_init=True,
                 **{
@@ -458,38 +475,104 @@ class MeasurementConfiguration(_MeasurementConfigurationSettings):
                 raise TimeError(f"{description} is not timezone-aware: {time}")
 
 
-class MachineConfiguration(_MeasurementConfigurationSettings):
+class _MachineConfigurationSettings(_MeasurementSettings):
     """
-    Configuration for one machine, containing a machine-specific number of
-    :class:`MeasurementConfiguration`s.
-    """
+    Configuration settings for one machine, containing a machine-specific
+    number of :class:`MeasurementConfiguration`s.
 
-    SettingsType = Dict[str, "MeasurementConfiguration.SettingsType"]
-    Identifier = str
+    These configuration settings are used by :class:`CommonConfiguration`s and
+    :class:`MachineConfiguration`s.
+    """
 
     def __init__(
         self,
-        other: Union["MeasurementConfiguration", None] = None,
+        other: Union["_MachineConfigurationSettings", None] = None,
         *,
-        identifier: Union[Identifier, None] = None,
         measurements: Union[Sequence[Settings.InputType], None] = None,
         **kwargs,
     ):
         if other is None:
-            assert identifier is not None
-            assert measurements is not None
+            if measurements is None:
+                measurements = []
             measurements = {
                 measurement["identifier"]: measurement
                 for measurement in map(
                     lambda m: MeasurementConfiguration(**m), measurements
                 )
             }
-            super().__init__(
-                identifier=identifier, measurements=measurements, **kwargs
-            )
+            super().__init__(measurements=measurements, **kwargs)
+        else:
+            assert measurements is None
+            assert not kwargs
+            super().__init__(other)
+
+
+class CommonConfiguration(_MachineConfigurationSettings):
+    """
+    An :class:`CommonConfiguration` is nothing more than a ``[key, value]``
+    dictionary of configuration data, optionally referenced by
+    :class:`MeasurementConfiguration` and :class:`MachineConfiguration`
+    instances to load configuration data from a common shared configuration
+    point.
+
+    The actual contents, including the list of keys, are strictly customer-
+    and API-specific, and are not under the responsibility of this class.
+    """
+
+    Identifier = str
+
+    def __init__(
+        self,
+        other: Union["CommonConfiguration", None] = None,
+        *,
+        identifier: Union[Identifier, None] = None,
+        **kwargs: Settings.InputType,
+    ):
+        if other is None:
+            if identifier is None:
+                raise ConfigurationError(
+                    "Missing common configuration identifier"
+                )
+            super().__init__(identifier=identifier, **kwargs)
         else:
             assert identifier is None
-            assert measurements is None
+            assert not kwargs
+            super().__init__(other)
+
+
+class MachineConfiguration(
+    _MachineConfigurationSettings, _CommonConfigurationIdentifierSettings
+):
+    """
+    Configuration for one machine, containing a machine-specific number of
+    :class:`MeasurementConfiguration`s.
+    """
+
+    Identifier = str
+    SettingsType = Dict[str, "MeasurementConfiguration.SettingsType"]
+    MeasurementIdentifiersType = Union[
+        None, Iterable[MeasurementConfiguration.Identifier]
+    ]
+
+    def __init__(
+        self,
+        other: Union["MeasurementConfiguration", None] = None,
+        *,
+        identifier: Union[Identifier, None] = None,
+        **kwargs,
+    ):
+        if other is None:
+            if identifier is None:
+                raise ConfigurationError(
+                    "Missing machine configuration identifier"
+                )
+            super().__init__(identifier=identifier, **kwargs)
+            if not self["measurements"]:
+                raise ConfigurationError(
+                    "Missing machine configuration measurements"
+                )
+        else:
+            assert identifier is None
             assert not kwargs
             super().__init__(other)
 
@@ -516,7 +599,7 @@ class MachineConfiguration(_MeasurementConfigurationSettings):
                     measurement_configuration = measurements[identifier]
                 except KeyError:
                     valid_identifiers = ", ".join(measurements.keys())
-                    raise Error(
+                    raise ConfigurationError(
                         f"Unrecognized measurement identifier {identifier}."
                         f" Valid identifiers: {valid_identifiers}"
                     ) from None
@@ -533,9 +616,9 @@ class MachineConfiguration(_MeasurementConfigurationSettings):
 
         async def get_settings(
             self,
-            measurement_identifiers: Union[
-                None, Iterable[MeasurementConfiguration.Identifier]
-            ] = None,
+            measurement_identifiers: (
+                "MachineConfiguration.MeasurementIdentifiersType"
+            ) = None,
             **kwargs,
         ) -> "MachineConfiguration.SettingsType":
             if measurement_identifiers is None:

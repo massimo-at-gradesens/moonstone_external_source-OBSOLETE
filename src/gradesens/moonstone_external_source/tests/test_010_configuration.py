@@ -33,6 +33,7 @@ def test_common_configuration(common_configuration_1):
             "bearer": "{token}",
         },
         "device": "best device ever",
+        "measurements": {},
     }
     assert_eq_dicts(common_configuration_1, expected)
 

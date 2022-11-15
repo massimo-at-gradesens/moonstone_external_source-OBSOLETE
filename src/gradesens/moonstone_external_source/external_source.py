@@ -10,14 +10,15 @@ __copyright__ = "Copyright 2022, Gradesens AG"
 
 
 import asyncio
+import json
 from collections import OrderedDict
 from datetime import datetime, timedelta
-from typing import Iterable, Type, Union
+from typing import Any, Dict, List, Type, Union
 
 from .async_concurrent_pool import AsyncConcurrentPool
 from .backend_driver import BackendDriver, HTTPBackendDriver
 from .configuration import MachineConfiguration, MeasurementConfiguration
-from .error import Error
+from .error import Error, HTTPResponseError
 from .io_driver import IODriver
 
 
@@ -28,6 +29,18 @@ class ExternalSource:
     The total number of concurrent requests active at the same is limited via
     an ``AsyncConcurrentPool``
     """
+
+    class Result:
+        def __init__(
+            self,
+            timestamp: datetime,
+            value: Any,
+        ):
+            self.timestamp = timestamp
+            self.value = value
+
+    ResultListType = List[Result]
+    ResultsType = Dict[MeasurementConfiguration.Identifier, ResultListType]
 
     DEFAULT_TIME_MARGIN = timedelta(minutes=5)
 
@@ -71,24 +84,24 @@ class ExternalSource:
         start_time: datetime,
         end_time: datetime,
         machine_identifier: MachineConfiguration.Identifier,
-        measurements_identifiers: Union[
-            None, Iterable[MeasurementConfiguration.Identifier]
-        ] = None,
+        measurements_identifiers: (
+            MachineConfiguration.MeasurementIdentifiersType
+        ) = None,
         time_margin: Union[timedelta, None] = None,
         start_time_margin: Union[timedelta, None] = None,
         end_time_margin: Union[timedelta, None] = None,
-    ):
-        time_margin = self.__first_non_none(time_margin, self.time_margin)
-
+    ) -> ResultsType:
         start_time_margin = self.__first_non_none(
             start_time_margin,
             self.start_time_margin,
             time_margin,
+            self.time_margin,
         )
         end_time_margin = self.__first_non_none(
             end_time_margin,
             self.end_time_margin,
             time_margin,
+            self.time_margin,
         )
 
         machine_configuration = (
@@ -96,6 +109,8 @@ class ExternalSource:
         )
         resolver = machine_configuration.get_setting_resolver(self.io_driver)
         settings = await resolver.get_settings(
+            start_time=start_time - start_time_margin,
+            end_time=end_time + end_time_margin,
             measurements_identifiers=measurements_identifiers,
         )
 
@@ -111,13 +126,50 @@ class ExternalSource:
                 self.backend_driver.process(measurement_settings)
             )
 
-        results = await asyncio.gather(*request_tasks.values())
+        responses = await asyncio.gather(*request_tasks.values())
         return {
-            measurement_identifier: result
-            for measurement_identifier, result in zip(
-                request_tasks.keys(), results
+            measurement_identifier: self.process_response(
+                response=response,
+                start_time=start_time,
+                end_time=end_time,
+                settings=measurement_settings[measurement_identifier],
+            )
+            for measurement_identifier, response in zip(
+                request_tasks.keys(), responses
             )
         }
+
+    CONTENT_TYPE_HANDLERS = {"application/json": json.loads}
+
+    def process_response(
+        self,
+        response: BackendDriver.Response,
+        start_time: datetime,
+        end_time: datetime,
+        settings: MeasurementConfiguration.SettingsType,
+    ):
+        content_type = response.headers["content-type"]
+
+        try:
+            content_type_handler = self.CONTENT_TYPE_HANDLERS[content_type]
+        except KeyError:
+            valid_content_type_handlers = ", ".join(
+                self.CONTENT_TYPE_HANDLERS.keys()
+            )
+            raise HTTPResponseError(
+                f"Unable to process content-type {content_type}.\n"
+                f"Supported content-types: {valid_content_type_handlers}"
+            )
+        result = content_type_handler(response.text)
+        if not isinstance(result, list):
+            result = [result]
+
+    def process_single_result(
+        self,
+        raw_result,
+        settings: MeasurementConfiguration.SettingsType,
+    ):
+        pass
 
     @staticmethod
     def __first_non_null(*values):

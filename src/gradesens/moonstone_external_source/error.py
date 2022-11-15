@@ -10,12 +10,23 @@ class Error(Exception):
 
 
 class HTTPError(Error):
-    def __init__(self, msg, status):
+    def __init__(self, msg, status=None):
         super().__init__(msg)
         self.status = status
 
     def __str__(self):
-        return f"HTTP ERROR (status={self.status}): {super().__str__()}"
+        status_suffix = (
+            "" if self.status is None else f"(status={self.status})"
+        )
+        return f"HTTP ERROR{status_suffix}: {super().__str__()}"
+
+
+class ConfigurationError(Error):
+    pass
+
+
+class HTTPResponseError(HTTPError):
+    pass
 
 
 class PatternError(Error):

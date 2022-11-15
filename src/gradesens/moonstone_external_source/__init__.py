@@ -14,7 +14,14 @@ from .configuration import (
     MeasurementConfiguration,
     Settings,
 )
-from .error import Error, HTTPError, PatternError, TimeError
+from .error import (
+    ConfigurationError,
+    Error,
+    HTTPError,
+    HTTPResponseError,
+    PatternError,
+    TimeError,
+)
 from .external_source import ExternalSource
 from .io_driver import IODriver
 
@@ -27,8 +34,10 @@ __all__ = [
     "MachineConfiguration",
     "MeasurementConfiguration",
     "Settings",
+    "ConfigurationError",
     "Error",
     "HTTPError",
+    "HTTPResponseError",
     "TimeError",
     "PatternError",
     "ExternalSource",
