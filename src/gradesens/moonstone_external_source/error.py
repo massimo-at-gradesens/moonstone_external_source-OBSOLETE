@@ -35,3 +35,7 @@ class PatternError(Error):
 
 class TimeError(Error):
     pass
+
+
+class DataTypeError(Error):
+    pass

@@ -16,6 +16,7 @@ from .configuration import (
 )
 from .error import (
     ConfigurationError,
+    DataTypeError,
     Error,
     HTTPError,
     HTTPResponseError,
@@ -35,6 +36,7 @@ __all__ = [
     "MeasurementConfiguration",
     "Settings",
     "ConfigurationError",
+    "DataTypeError",
     "Error",
     "HTTPError",
     "HTTPResponseError",

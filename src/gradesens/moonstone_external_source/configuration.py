@@ -11,15 +11,22 @@ __copyright__ = "Copyright 2022, Gradesens AG"
 
 
 import asyncio
+import builtins
+import collections
 import re
-from collections import OrderedDict
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, Iterable, Sequence, Tuple, Union
 
 if TYPE_CHECKING:
     from .io_driver import IODriver
 
-from .error import ConfigurationError, PatternError, TimeError
+from .error import (
+    ConfigurationError,
+    DataTypeError,
+    Error,
+    PatternError,
+    TimeError,
+)
 
 
 class Settings(dict):
@@ -67,11 +74,15 @@ class Settings(dict):
             None,
         ] = None,
         _raw_init=False,
+        _interpolatable=None,
         **kwargs: InputType,
     ):
         if other is None:
             init_dict = kwargs
+            if _interpolatable is not None:
+                kwargs["_interpolatable"] = _interpolatable
         else:
+            assert _interpolatable is None
             assert not kwargs
             init_dict = dict(other)
 
@@ -151,53 +162,59 @@ class Settings(dict):
         self,
         parameters: InterpolationParametersType,
     ) -> InterpolatedType:
-        return {
-            key: self.__interpolate_value(
-                key=key,
-                value=value,
-                parameters=parameters,
-            )
-            for key, value in self.items()
-        }
+        return dict(self.__interpolate_values(parameters))
 
-    def __interpolate_value(self, key, value, parameters):
-        if value is None:
-            return None
-        if isinstance(value, Settings):
-            return value.apply(parameters)
+    def __interpolate_values(self, parameters):
+        for key, value in self.items():
+            if key[:1] == "_":
+                continue
+
+            if isinstance(value, Settings):
+                if value.get("_interpolatable", True):
+                    yield key, value.apply(parameters)
+                continue
+
+            if value is None:
+                yield key, value
+                continue
+
+            try:
+                yield key, self.__interpolate_value(value, parameters)
+            except PatternError as err:
+                raise PatternError(
+                    f"For key {key!r}:"
+                    f" unable to interpolate pattern {value!r}: {err}"
+                ) from None
+
+    @classmethod
+    def __interpolate_value(cls, value, parameters):
         try:
             try:
+                return eval(f"f{value!r}", {}, parameters)
+            except KeyError:
+                raise
+            except NameError as err:
                 try:
-                    return eval(f"f{value!r}", {}, parameters)
-                except KeyError:
-                    raise
-                except NameError as err:
-                    try:
-                        name = err.name
-                    except AttributeError:
-                        # Given that is seems that err.name is available since
-                        # py 3.10, try retrieving the key name by parsing the
-                        # error string.
-                        err = str(err)
-                        re_match = re.match(r".*'([^']+)'.*", err)
-                        name = err if re_match is None else re_match.group(1)
-                    raise KeyError(name) from None
-                except Exception as err:
-                    raise PatternError(str(err)) from None
-            except KeyError as err:
-                try:
-                    missing_key = err.args[0]
-                except IndexError:
-                    raise PatternError(str(err)) from None
-                raise PatternError(
-                    f"key {missing_key!r} is not defined.\n"
-                    "Valid keys:"
-                    f" {', '.join(map(repr, parameters.keys()))}"
-                ) from None
-        except PatternError as err:
+                    name = err.name
+                except AttributeError:
+                    # Given that is seems that err.name is available since
+                    # py 3.10, try retrieving the key name by parsing the
+                    # error string.
+                    err = str(err)
+                    re_match = re.match(r".*'([^']+)'.*", err)
+                    name = err if re_match is None else re_match.group(1)
+                raise KeyError(name) from None
+            except Exception as err:
+                raise PatternError(str(err)) from None
+        except KeyError as err:
+            try:
+                missing_key = err.args[0]
+            except IndexError:
+                raise PatternError(str(err)) from None
             raise PatternError(
-                f"For key {key!r}:"
-                f" unable to interpolate pattern {value!r}: {err}"
+                f"key {missing_key!r} is not defined.\n"
+                "Valid keys:"
+                f" {', '.join(map(repr, parameters.keys()))}"
             ) from None
 
     def __str__(self):
@@ -225,7 +242,7 @@ class AuthenticationContext(Settings):
         if other is None:
             if identifier is None:
                 raise ConfigurationError(
-                    "Missing authentication context identifier"
+                    "Missing authentication context's 'identifier'"
                 )
             super().__init__(identifier=identifier, **kwargs)
         else:
@@ -234,13 +251,299 @@ class AuthenticationContext(Settings):
             super().__init__(other)
 
 
+class _RegexSettings(Settings):
+    """
+    Configuration settings for regular expression-based text substitutions
+    for measurement output data,
+    used by :class:`_MeasurementResultFieldSettings` for output data
+    processing.
+
+    This regular expression support is based on Python's own
+    `re module <https://docs.python.org/3/library/re.html>`, in particular on
+    `re.sub() <https://docs.python.org/3/library/re.html#re.sub>` function.
+    Refer to that function's manual for usage instructions.
+    """
+
+    def __init__(
+        self,
+        other: Union["_RegexSettings", None] = None,
+        *,
+        pattern: Union[str, None] = None,
+        replacement: Union[str, None] = None,
+        flags: Union[str, Iterable[str], int, None] = None,
+    ):
+        if other is not None:
+            assert pattern is None
+            assert replacement is None
+            assert flags is None
+            super().__init__(other)
+        else:
+            if pattern is None:
+                raise ConfigurationError(
+                    "Missing regular expression's 'pattern'"
+                )
+            if replacement is None:
+                raise ConfigurationError(
+                    "Missing regular expression's 'replacement' string"
+                )
+
+            if flags is None:
+                flags = []
+            elif isinstance(flags, str):
+                flags = [flags]
+            elif isinstance(flags, collections.abc.Iterable):
+                flags = list(flags)
+            else:
+                raise ConfigurationError(
+                    f"Invalid type {type(flags).__name__}"
+                    " for regular expression's flag."
+                    " Expected str or list of strings"
+                )
+            flags = list(map(lambda flag: str(flag).upper(), flags))
+            flags_value = 0
+            valid_flags = [re.IGNORECASE]
+            for flag in flags:
+                try:
+                    real_flag = re.RegexFlag[flag]
+                except KeyError:
+                    raise ConfigurationError(
+                        f"Invalid regular expression's flag {flag!r}"
+                    ) from None
+                if real_flag not in valid_flags:
+                    supported_flags = ", ".join(
+                        map(lambda flag: flag.name, valid_flags)
+                    )
+                    raise ConfigurationError(
+                        f"Unsupported regular expression's flag {flag!r}."
+                        f" Supported flags: {supported_flags}"
+                    )
+                flags_value |= int(real_flag)
+
+            try:
+                regular_expression = re.compile(pattern, flags=flags_value)
+            except re.error as err:
+                raise ConfigurationError(
+                    f"Invalid regular expression's pattern {pattern!r}:"
+                    f" {err}"
+                ) from None
+
+            super().__init__(
+                other,
+                regular_expression=regular_expression,
+                replacement=replacement,
+                flags=flags_value,
+            )
+
+    def process_result(self, str):
+        regular_expression = self["regular_expression"]
+        replacement = self["replacement"]
+        try:
+            return regular_expression.sub(replacement, str)
+        except Exception as err:
+            raise PatternError(
+                f"Failed processing '{str!r}'"
+                f" with regular expression {regular_expression.pattern!r}"
+                f" and replacement string {replacement!r}:"
+                f" {err}"
+            ) from None
+
+
+class _MeasurementResultFieldSettings(Settings):
+    """
+    Common configuration settings used to parse measurement raw result output
+    data. All result field settings classes derive from this class.
+    Specialized by :class:`_MeasurementResultValueFieldSettings` and
+    :class:`_MeasurementResultTimestampFieldSettings`.
+    """
+
+    DEFAULT_TYPE = "str"
+    VALID_TYPES = [
+        "str",
+        "float",
+        "int",
+        "bool",
+        "datetime",
+    ]
+
+    def __init__(
+        self,
+        other: Union["_MeasurementResultFieldSettings", None] = None,
+        *,
+        type: Union[str, None] = None,
+        raw_value: Union[str, None] = None,
+        regular_expression: Union[
+            Iterable[Settings.InputType], Settings.InputType, None
+        ] = None,
+    ):
+        if other is not None:
+            assert type is None
+            assert raw_value is None
+            assert regular_expression is None
+            super().__init__(other)
+        else:
+            # "restore" the normal 'type()' operation, after having overridden
+            # it with the 'type' parameter
+            field_type = type
+            type = builtins.type
+
+            if field_type is None:
+                field_type = self.DEFAULT_TYPE
+            if field_type not in self.VALID_TYPES:
+                valid_types = ", ".join(self.VALID_TYPES)
+                raise ConfigurationError(
+                    f"Invalid type {field_type}"
+                    " for measurement result value field."
+                    f" Valid types: {valid_types}"
+                )
+            field_type = eval(field_type)
+
+            if regular_expression is None:
+                regular_expressions = []
+            elif isinstance(regular_expression, dict):
+                regular_expressions = [regular_expression]
+            elif isinstance(regular_expression, collections.abc.Iterable):
+                regular_expressions = list(regular_expression)
+            else:
+                raise ConfigurationError(
+                    "Dictionary or list expected for regular expression field"
+                    f" instead of {type(regular_expression).__name__}:"
+                    f" {regular_expression!r}"
+                )
+            for regular_expression in regular_expressions:
+                if not isinstance(regular_expression, dict):
+                    raise ConfigurationError(
+                        "Dictionary expected for each regular expression"
+                        f" instead of {type(regular_expression).__name__}:"
+                        f" {regular_expression!r}"
+                    )
+            regular_expressions = list(
+                map(
+                    lambda regular_expression: _RegexSettings(
+                        **regular_expression
+                    ),
+                    regular_expressions,
+                )
+            )
+
+            kwargs = dict(
+                type=field_type,
+                regular_expressions=regular_expressions,
+            )
+            if raw_value is not None:
+                kwargs.update(
+                    raw_value=raw_value,
+                )
+
+            super().__init__(**kwargs)
+
+    def process_result(
+        self, raw_result: "_MeasurementResultSettings.RawResultType"
+    ):
+        try:
+            raw_value = self["raw_value"]
+        except KeyError:
+            raise ConfigurationError(
+                "Missing measurement result field's 'raw_value' field"
+            ) from None
+        try:
+            field_type = self["type"]
+        except KeyError:
+            raise ConfigurationError(
+                "Missing measurement result field's 'type' field"
+            ) from None
+
+        value = raw_value.apply(raw_result)
+
+        for regular_expression in self["regular_expressions"]:
+            value = regular_expression.process_result(value)
+
+        try:
+            return field_type(value)
+        except Exception as err:
+            raise DataTypeError(
+                f"Failed converting {value!r}"
+                f" to an object of type {field_type.__name__}:"
+                f" {err}"
+            ) from None
+
+        return value
+
+
+class _MeasurementResultTimestampFieldSettings(
+    _MeasurementResultFieldSettings
+):
+    """
+    Configuration settings used to parse measurement result raw output data
+    into the eventual output timestamp field.
+    These configuration settings are used by
+    :class:`_MeasurementResultSettings`s
+    """
+
+    def __init__(
+        self,
+        other: Union["_MeasurementResultTimestampFieldSettings", None] = None,
+        **kwargs: Settings.InputType,
+    ):
+        if other is not None:
+            assert not kwargs
+            super().__init__(other)
+        else:
+            super().__init__(type="datetime", **kwargs)
+
+
+class _MeasurementResultSettings(Settings):
+    """
+    Configuration settings for a single measurement's results.
+
+    These configuration settings are used by :class:`_MeasurementSettings`
+    instances.
+    """
+
+    RawResultValueType = Any
+    RawResultType = Dict[str, Union[RawResultValueType, "RawResultType"]]
+
+    def __init__(
+        self,
+        other: Union["_MeasurementResultSettings", None] = None,
+        *,
+        value: Union[_MeasurementResultFieldSettings.InputType, None] = None,
+        timestamp: Union[
+            _MeasurementResultTimestampFieldSettings.InputType, None
+        ] = None,
+    ):
+        if other is not None:
+            assert value is None
+            assert timestamp is None
+            super().__init__(other)
+        else:
+            kwargs = dict(
+                _interpolatable=False,
+            )
+            if value is not None:
+                kwargs.update(value=_MeasurementResultFieldSettings(**value))
+            if timestamp is not None:
+                kwargs.update(
+                    timestamp=_MeasurementResultTimestampFieldSettings(
+                        **timestamp
+                    )
+                )
+            super().__init__(**kwargs)
+
+    def process_result(self, raw_result: RawResultType):
+        result = {}
+        for key, value in self.items():
+            if value is None:
+                raise ConfigurationError(f"Field {key!r} is not specified")
+            result[key] = value.process_result(raw_result)
+        return result
+
+
 class _MeasurementSettings(Settings):
     """
-    Generic configuration settings for a single measurement, shared by
-    :class:`CommonConfiguration`s, :class:`MeasurementConfiguration`s and
-    :class:`MachineConfiguration`s.
+    Configuration settings for a single measurement.
 
-    It provides all the settings for a given single measurement.
+    These configuration settings are used by :class:`CommonConfiguration`s,
+    :class:`MeasurementConfiguration`s and :class:`MachineConfiguration`s.
     """
 
     MeasurementResults = 0
@@ -255,9 +558,7 @@ class _MeasurementSettings(Settings):
         authentication_context_identifier: Union[
             AuthenticationContext.Identifier, None
         ] = None,
-        # measurement_results: Union[
-        #     Sequence[MeasurementResults.InputType], None
-        #     ] = None,
+        result: Union[_MeasurementResultSettings, None] = None,
         **kwargs: Settings.InputType,
     ):
         if other is not None:
@@ -265,27 +566,48 @@ class _MeasurementSettings(Settings):
             assert query_string is None
             assert headers is None
             assert authentication_context_identifier is None
+            assert result is None
             assert not kwargs
             super().__init__(other)
         else:
-            # if measurements is None:
-            #     measurements = []
-            # measurements = {
-            #     measurement["identifier"]: measurement
-            #     for measurement in map(
-            #         lambda m: MeasurementConfiguration(**m), measurements
-            #     )
-            # }
+            query_string = Settings(query_string)
+            headers = Settings(headers)
+
+            # Force a non-copy creation, so as to instantiate the
+            # field-specific settings classes, required for proper result
+            # parsing.
+            # Furthermore, always force the creation a result settings object,
+            # even if empty, to make sure the _interpolatable field is set.
+            if result is None:
+                result = {}
+            result = _MeasurementResultSettings(**result)
+
             super().__init__(
                 other,
                 url=url,
-                query_string=Settings(query_string),
-                headers=Settings(headers),
+                query_string=query_string,
+                headers=headers,
                 authentication_context_identifier=(
                     authentication_context_identifier
                 ),
+                result=result,
                 **kwargs,
             )
+
+    def process_result(
+        self, raw_result: _MeasurementResultSettings.RawResultType
+    ):
+        result = self["result"]
+        try:
+            if result is None:
+                raise ConfigurationError("Field 'result' is not specified")
+            return result.process_result(raw_result)
+        except Error as err:
+            identifier = self.get("identifier", None)
+            if identifier is None:
+                raise err from None
+            err_msg = f"For {identifier!r}: {err}"
+            raise type(err)(err_msg) from None
 
 
 class _CommonConfigurationIdentifierSettings(Settings):
@@ -349,7 +671,7 @@ class MeasurementConfiguration(
         if other is None:
             if identifier is None:
                 raise ConfigurationError(
-                    "Missing measurement configuration identifier"
+                    "Missing measurement configuration's 'identifier'"
                 )
             super().__init__(
                 identifier=identifier,
@@ -531,7 +853,7 @@ class CommonConfiguration(_MachineConfigurationSettings):
         if other is None:
             if identifier is None:
                 raise ConfigurationError(
-                    "Missing common configuration identifier"
+                    "Missing common configuration's 'identifier'"
                 )
             super().__init__(identifier=identifier, **kwargs)
         else:
@@ -564,12 +886,12 @@ class MachineConfiguration(
         if other is None:
             if identifier is None:
                 raise ConfigurationError(
-                    "Missing machine configuration identifier"
+                    "Missing machine configuration'a 'identifier'"
                 )
             super().__init__(identifier=identifier, **kwargs)
             if not self["measurements"]:
                 raise ConfigurationError(
-                    "Missing machine configuration measurements"
+                    "Missing machine configuration's 'measurements'"
                 )
         else:
             assert identifier is None
@@ -640,7 +962,7 @@ class MachineConfiguration(
             # Use an OrderedDict to guarantee order repeatability, so as to
             # guarantee that identifiers and results can be correctly zipped
             # together after asyncio.gather()
-            tasks = OrderedDict(
+            tasks = collections.OrderedDict(
                 **{
                     measurement_identifier: measurements_settings[
                         measurement_identifier

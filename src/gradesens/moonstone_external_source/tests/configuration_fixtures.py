@@ -81,6 +81,27 @@ def common_configuration_2(common_configuration_2_text):
 
 
 @pytest.fixture
+def common_configuration_with_result_text():
+    return textwrap.dedent(
+        r"""
+    identifier: cc_w_result
+    result:
+        value:
+            type: int
+            regular_expression:
+                pattern: "^(.*)$"
+                replacement: ">>\\1<<"
+    """
+    )
+
+
+@pytest.fixture
+def common_configuration_with_result(common_configuration_with_result_text):
+    params = load_yaml(common_configuration_with_result_text)
+    return CommonConfiguration(**params)
+
+
+@pytest.fixture
 def machine_configuration_1_text():
     return textwrap.dedent(
         """
@@ -166,13 +187,47 @@ def machine_configuration_with_time(machine_configuration_with_time_text):
 
 
 @pytest.fixture
+def machine_configuration_with_result_text():
+    return textwrap.dedent(
+        r"""
+    identifier: mach_w_result
+    common_configuration_identifier: cc_w_result
+    result:
+        timestamp:
+            regular_expression:
+                pattern: "(?P<hello>[a-g]+)"
+                replacement: "YX \\g<hello> XY"
+                flags: ignorecase
+    measurements:
+        -   identifier: temperature
+        -   identifier: rpm
+            result:
+                timestamp:
+                    regular_expression:
+                        -   pattern: "(.*)"
+                            replacement: "\\1\\1"
+                        -   pattern: "(.*)([0-9a-f]+)(.*)"
+                            replacement: "\\3\\1"
+    """
+    )
+
+
+@pytest.fixture
+def machine_configuration_with_result(machine_configuration_with_result_text):
+    params = load_yaml(machine_configuration_with_result_text)
+    return MachineConfiguration(**params)
+
+
+@pytest.fixture
 def io_driver_1(
     authentication_context_1,
     common_configuration_1,
     common_configuration_2,
+    common_configuration_with_result,
     machine_configuration_1,
     machine_configuration_2,
     machine_configuration_with_time,
+    machine_configuration_with_result,
 ):
     class TestIODriver(IODriver):
         def __init__(
@@ -225,10 +280,12 @@ def io_driver_1(
         common_configurations=[
             common_configuration_1,
             common_configuration_2,
+            common_configuration_with_result,
         ],
         machine_configurations=[
             machine_configuration_1,
             machine_configuration_2,
             machine_configuration_with_time,
+            machine_configuration_with_result,
         ],
     )
