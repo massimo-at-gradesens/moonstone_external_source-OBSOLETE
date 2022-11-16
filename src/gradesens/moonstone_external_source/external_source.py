@@ -40,7 +40,7 @@ class ExternalSource:
             self.value = value
 
     ResultListType = List[Result]
-    ResultsType = Dict[MeasurementConfiguration.Identifier, ResultListType]
+    ResultsType = Dict[MeasurementConfiguration.Id, ResultListType]
 
     DEFAULT_TIME_MARGIN = timedelta(minutes=5)
 
@@ -83,10 +83,8 @@ class ExternalSource:
         *,
         start_time: datetime,
         end_time: datetime,
-        machine_id: MachineConfiguration.Identifier,
-        measurements_ids: (
-            MachineConfiguration.MeasurementIdentifiersType
-        ) = None,
+        machine_id: MachineConfiguration.Id,
+        measurements_ids: (MachineConfiguration.MeasurementIdsType) = None,
         time_margin: Union[timedelta, None] = None,
         start_time_margin: Union[timedelta, None] = None,
         end_time_margin: Union[timedelta, None] = None,

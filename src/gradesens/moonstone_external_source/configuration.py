@@ -237,13 +237,13 @@ class AuthenticationContext(Settings):
     and API-specific, and are not under the responsibility of this class.
     """
 
-    Identifier = str
+    Id = str
 
     def __init__(
         self,
         other: Union["AuthenticationContext", None] = None,
         *,
-        id: Union[Identifier, None] = None,
+        id: Union[Id, None] = None,
         **kwargs: Settings.InputType,
     ):
         if other is None:
@@ -569,7 +569,7 @@ class _MeasurementSettings(Settings):
         query_string: Union[Settings.InputType, None] = None,
         headers: Union[Settings.InputType, None] = None,
         authentication_context_id: Union[
-            AuthenticationContext.Identifier, None
+            AuthenticationContext.Id, None
         ] = None,
         result: Union[_MeasurementResultSettings, None] = None,
         **kwargs: Settings.InputType,
@@ -621,7 +621,7 @@ class _MeasurementSettings(Settings):
             raise type(err)(err_msg) from None
 
 
-class _CommonConfigurationIdentifierSettings(Settings):
+class _CommonConfigurationIdSettings(Settings):
     """
     Mixin to provide the optional setting
     :attr:`.common_configuration_id` to reference to a
@@ -633,11 +633,9 @@ class _CommonConfigurationIdentifierSettings(Settings):
 
     def __init__(
         self,
-        other: Union["_CommonConfigurationIdentifierSettings", None] = None,
+        other: Union["_CommonConfigurationIdSettings", None] = None,
         *,
-        common_configuration_id: Union[
-            "CommonConfiguration.Identifier", None
-        ] = None,
+        common_configuration_id: Union["CommonConfiguration.Id", None] = None,
         **kwargs: Settings.InputType,
     ):
         if other is not None:
@@ -661,20 +659,20 @@ class _CommonConfigurationIdentifierSettings(Settings):
 
 
 class MeasurementConfiguration(
-    _CommonConfigurationIdentifierSettings, _MeasurementSettings
+    _CommonConfigurationIdSettings, _MeasurementSettings
 ):
     """
     Configuration for a single measurement (e.g. temperature, RPM, etc.).
     """
 
-    Identifier = str
+    Id = str
     SettingsType = Settings.InterpolatedType
 
     def __init__(
         self,
         other: Union["MeasurementConfiguration", None] = None,
         *,
-        id: Union[Identifier, None] = None,
+        id: Union[Id, None] = None,
         **kwargs: Settings.InputType,
     ):
         if other is None:
@@ -844,13 +842,13 @@ class CommonConfiguration(_MachineConfigurationSettings):
     and API-specific, and are not under the responsibility of this class.
     """
 
-    Identifier = str
+    Id = str
 
     def __init__(
         self,
         other: Union["CommonConfiguration", None] = None,
         *,
-        id: Union[Identifier, None] = None,
+        id: Union[Id, None] = None,
         **kwargs: Settings.InputType,
     ):
         if other is None:
@@ -864,24 +862,22 @@ class CommonConfiguration(_MachineConfigurationSettings):
 
 
 class MachineConfiguration(
-    _MachineConfigurationSettings, _CommonConfigurationIdentifierSettings
+    _MachineConfigurationSettings, _CommonConfigurationIdSettings
 ):
     """
     Configuration for one machine, containing a machine-specific number of
     :class:`MeasurementConfiguration`s.
     """
 
-    Identifier = str
+    Id = str
     SettingsType = Dict[str, "MeasurementConfiguration.SettingsType"]
-    MeasurementIdentifiersType = Union[
-        None, Iterable[MeasurementConfiguration.Identifier]
-    ]
+    MeasurementIdsType = Union[None, Iterable[MeasurementConfiguration.Id]]
 
     def __init__(
         self,
         other: Union["MeasurementConfiguration", None] = None,
         *,
-        id: Union[Identifier, None] = None,
+        id: Union[Id, None] = None,
         **kwargs,
     ):
         if other is None:
@@ -913,7 +909,7 @@ class MachineConfiguration(
                 self.parent = parent
 
             def __getitem__(
-                self, id: MeasurementConfiguration.Identifier
+                self, id: MeasurementConfiguration.Id
             ) -> MeasurementConfiguration._SettingResolver:
                 measurements = self.parent.machine_configuration[
                     "measurements"
@@ -940,7 +936,7 @@ class MachineConfiguration(
         async def get_settings(
             self,
             measurement_ids: (
-                "MachineConfiguration.MeasurementIdentifiersType"
+                "MachineConfiguration.MeasurementIdsType"
             ) = None,
             **kwargs,
         ) -> "MachineConfiguration.SettingsType":

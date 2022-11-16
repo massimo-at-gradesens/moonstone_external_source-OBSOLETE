@@ -116,7 +116,7 @@ class IODriver(abc.ABC):
 
     @abc.abstractmethod
     async def load_authentication_context(
-        self, id: AuthenticationContext.Identifier
+        self, id: AuthenticationContext.Id
     ) -> AuthenticationContext:
         """
         The actual load method, to be implemented by derived classes.
@@ -124,7 +124,7 @@ class IODriver(abc.ABC):
 
     @abc.abstractmethod
     async def load_common_configuration(
-        self, id: CommonConfiguration.Identifier
+        self, id: CommonConfiguration.Id
     ) -> CommonConfiguration:
         """
         The actual load method, to be implemented by derived classes.
@@ -132,7 +132,7 @@ class IODriver(abc.ABC):
 
     @abc.abstractmethod
     async def load_machine_configuration(
-        self, id: MachineConfiguration.Identifier
+        self, id: MachineConfiguration.Id
     ) -> MachineConfiguration:
         """
         The actual load method, to be implemented by derived classes.

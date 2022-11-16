@@ -234,19 +234,19 @@ def io_driver_1(
             self.machine_configuration_load_count = 0
 
         async def load_authentication_context(
-            self, id: AuthenticationContext.Identifier
+            self, id: AuthenticationContext.Id
         ) -> AuthenticationContext:
             self.authentication_context_load_count += 1
             return self.__authentication_contexts[id]
 
         async def load_common_configuration(
-            self, id: CommonConfiguration.Identifier
+            self, id: CommonConfiguration.Id
         ) -> CommonConfiguration:
             self.common_configuration_load_count += 1
             return self.__common_configurations[id]
 
         async def load_machine_configuration(
-            self, id: MachineConfiguration.Identifier
+            self, id: MachineConfiguration.Id
         ) -> MachineConfiguration:
             self.machine_configuration_load_count += 1
             return self.__machine_configurations[id]
