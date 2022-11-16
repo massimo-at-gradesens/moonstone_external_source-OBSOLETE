@@ -12,31 +12,28 @@ from gradesens.moonstone_external_source import (
 
 
 def load_yaml(text):
-    if not isinstance(text, str):
+    if isinstance(text, str):
+        text = textwrap.dedent(text)
+    else:
         with open(text, "rt") as f:
             text = f.read()
     return yaml.load(text, yaml.Loader)
 
 
 @pytest.fixture
-def authentication_context_1_text():
-    return textwrap.dedent(
+def authentication_context_1():
+    params = load_yaml(
         """
     identifier: ac1
     token: I am a secret
     """
     )
-
-
-@pytest.fixture
-def authentication_context_1(authentication_context_1_text):
-    params = load_yaml(authentication_context_1_text)
     return AuthenticationContext(**params)
 
 
 @pytest.fixture
-def common_configuration_1_text():
-    return textwrap.dedent(
+def common_configuration_1():
+    params = load_yaml(
         """
     identifier: cc1
     authentication_context_identifier: ac1
@@ -52,17 +49,12 @@ def common_configuration_1_text():
     device: "best device ever"
     """
     )
-
-
-@pytest.fixture
-def common_configuration_1(common_configuration_1_text):
-    params = load_yaml(common_configuration_1_text)
     return CommonConfiguration(**params)
 
 
 @pytest.fixture
-def common_configuration_2_text():
-    return textwrap.dedent(
+def common_configuration_2():
+    params = load_yaml(
         """
     identifier: cc2
     zone: Connecticut
@@ -72,38 +64,12 @@ def common_configuration_2_text():
         hello: world
     """
     )
-
-
-@pytest.fixture
-def common_configuration_2(common_configuration_2_text):
-    params = load_yaml(common_configuration_2_text)
     return CommonConfiguration(**params)
 
 
 @pytest.fixture
-def common_configuration_with_result_text():
-    return textwrap.dedent(
-        r"""
-    identifier: cc_w_result
-    result:
-        value:
-            type: int
-            regular_expression:
-                pattern: "^(.*)$"
-                replacement: ">>\\1<<"
-    """
-    )
-
-
-@pytest.fixture
-def common_configuration_with_result(common_configuration_with_result_text):
-    params = load_yaml(common_configuration_with_result_text)
-    return CommonConfiguration(**params)
-
-
-@pytest.fixture
-def machine_configuration_1_text():
-    return textwrap.dedent(
+def machine_configuration_1():
+    params = load_yaml(
         """
     identifier: mach1
     common_configuration_identifier: cc1
@@ -131,17 +97,12 @@ def machine_configuration_1_text():
                 animal: cow
     """
     )
-
-
-@pytest.fixture
-def machine_configuration_1(machine_configuration_1_text):
-    params = load_yaml(machine_configuration_1_text)
     return MachineConfiguration(**params)
 
 
 @pytest.fixture
-def machine_configuration_2_text():
-    return textwrap.dedent(
+def machine_configuration_2():
+    params = load_yaml(
         """
     identifier: mach2
     key: "hello"
@@ -158,17 +119,12 @@ def machine_configuration_2_text():
                 plain: I am a plain string
     """
     )
-
-
-@pytest.fixture
-def machine_configuration_2(machine_configuration_2_text):
-    params = load_yaml(machine_configuration_2_text)
     return MachineConfiguration(**params)
 
 
 @pytest.fixture
-def machine_configuration_with_time_text():
-    return textwrap.dedent(
+def machine_configuration_with_time():
+    params = load_yaml(
         """
     identifier: mach_w_time
     measurements:
@@ -178,17 +134,34 @@ def machine_configuration_with_time_text():
                 end: "{end_time.isoformat()}"
     """
     )
-
-
-@pytest.fixture
-def machine_configuration_with_time(machine_configuration_with_time_text):
-    params = load_yaml(machine_configuration_with_time_text)
     return MachineConfiguration(**params)
 
 
 @pytest.fixture
-def machine_configuration_with_result_text():
-    return textwrap.dedent(
+def common_configuration_with_result():
+    params = load_yaml(
+        r"""
+    identifier: cc_w_result
+    measurements:
+        -   identifier: temperature
+            result:
+                value:
+                    type: float
+                    regular_expression:
+                        pattern: "^(.*)$"
+                        replacement: ">>\\1<<"
+        -   identifier: rpm
+            result:
+                timestamp:
+                    raw_value: "{out_field1}"
+    """
+    )
+    return CommonConfiguration(**params)
+
+
+@pytest.fixture
+def machine_configuration_with_result():
+    params = load_yaml(
         r"""
     identifier: mach_w_result
     common_configuration_identifier: cc_w_result
@@ -196,10 +169,15 @@ def machine_configuration_with_result_text():
         timestamp:
             regular_expression:
                 pattern: "(?P<hello>[a-g]+)"
+                flags: i
                 replacement: "YX \\g<hello> XY"
-                flags: ignorecase
+        value:
+            raw_value: "{get}{the}{raw}"
     measurements:
         -   identifier: temperature
+            result:
+                value:
+                    type: float
         -   identifier: rpm
             result:
                 timestamp:
@@ -208,13 +186,12 @@ def machine_configuration_with_result_text():
                             replacement: "\\1\\1"
                         -   pattern: "(.*)([0-9a-f]+)(.*)"
                             replacement: "\\3\\1"
+        -   identifier: humidity
+            result:
+                timestamp:
+                    raw_value: "{out_field2}"
     """
     )
-
-
-@pytest.fixture
-def machine_configuration_with_result(machine_configuration_with_result_text):
-    params = load_yaml(machine_configuration_with_result_text)
     return MachineConfiguration(**params)
 
 

@@ -1,7 +1,8 @@
 def key_path_prefix(key_path, suffix=" "):
-    if key_path:
-        return f"At {'.'.join(map(repr, key_path))}:{suffix}"
-    return ""
+    if not key_path:
+        return ""
+    key_path = "".join(map(lambda key: f"[{key!r}]", key_path))
+    return f"@{key_path}:{suffix}"
 
 
 def assert_eq_dicts(dict1, dict2, key_path=()):
@@ -9,13 +10,15 @@ def assert_eq_dicts(dict1, dict2, key_path=()):
         assert dict1 == dict2
         return
 
+    keys1 = set(dict1.keys())
+    keys2 = set(dict2.keys())
     try:
-        assert set(dict1.keys()) == set(dict2.keys())
+        assert keys1 == keys2
     except AssertionError:
         raise AssertionError(
             f"{key_path_prefix(key_path)}Different keys:\n"
-            f"Left : {set(dict1.keys())}\n"
-            f"Right: {set(dict2.keys())}"
+            f"dict1 extra keys: {list(keys1 - keys2)}\n"
+            f"dict2 extra keys: {list(keys2 - keys1)}"
         ) from None
 
     for key, value1 in dict1.items():
@@ -29,6 +32,6 @@ def assert_eq_dicts(dict1, dict2, key_path=()):
         except AssertionError:
             raise AssertionError(
                 f"{key_path_prefix(this_key_path)}\n"
-                f"Left : {type(value1).__name__}, {value1}\n"
-                f"Right: {type(value2).__name__}, {value2}"
+                f"dict1 value: {type(value1).__name__}, {value1}\n"
+                f"dict2 value: {type(value2).__name__}, {value2}"
             ) from None

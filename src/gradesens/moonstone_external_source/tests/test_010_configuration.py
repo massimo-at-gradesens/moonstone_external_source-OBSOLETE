@@ -35,7 +35,7 @@ def test_common_configuration(common_configuration_1):
         "device": "best device ever",
         "measurements": {},
         "result": {
-            "_interpolatable": False,
+            "_interpolate": False,
         },
     }
     assert_eq_dicts(common_configuration_1, expected)
@@ -60,7 +60,7 @@ def test_machine_configuration(machine_configuration_1):
         "headers": {},
         "finger_count": 5,
         "result": {
-            "_interpolatable": False,
+            "_interpolate": False,
         },
         "measurements": {
             "temperature": {
@@ -74,7 +74,7 @@ def test_machine_configuration(machine_configuration_1):
                 },
                 "headers": {},
                 "result": {
-                    "_interpolatable": False,
+                    "_interpolate": False,
                 },
             },
             "rpm": {
@@ -91,7 +91,7 @@ def test_machine_configuration(machine_configuration_1):
                 "headers": {},
                 "region": "Wallis",
                 "result": {
-                    "_interpolatable": False,
+                    "_interpolate": False,
                 },
             },
             "power": {
@@ -104,7 +104,7 @@ def test_machine_configuration(machine_configuration_1):
                     "animal": "cow",
                 },
                 "result": {
-                    "_interpolatable": False,
+                    "_interpolate": False,
                 },
             },
         },
@@ -138,6 +138,7 @@ async def test_interpolated_measurement_settings(
         "headers": {
             "hello": "world",
         },
+        "result": {},
     }
     assert_eq_dicts(settings, expected)
 
@@ -168,6 +169,7 @@ async def test_interpolated_measurement_all_settings(
             "headers": {
                 "hello": "world",
             },
+            "result": {},
         },
         "rpm": {
             "url": (
@@ -183,6 +185,7 @@ async def test_interpolated_measurement_all_settings(
                 "fingers": "count_5",
                 "bearer": "I am a secret",
             },
+            "result": {},
         },
         "power": {
             "url": (
@@ -194,6 +197,7 @@ async def test_interpolated_measurement_all_settings(
                 "hello": "world",
                 "animal": "cow",
             },
+            "result": {},
         },
     }
     assert_eq_dicts(settings, expected)
@@ -219,6 +223,7 @@ async def test_complex_interpolated_measurement_all_settings(
                 "plain": "I am a plain string",
             },
             "headers": {},
+            "result": {},
         }
     }
     assert_eq_dicts(settings, expected)

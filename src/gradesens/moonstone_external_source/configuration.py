@@ -74,15 +74,15 @@ class Settings(dict):
             None,
         ] = None,
         _raw_init=False,
-        _interpolatable=None,
+        _interpolate=None,
         **kwargs: InputType,
     ):
         if other is None:
             init_dict = kwargs
-            if _interpolatable is not None:
-                kwargs["_interpolatable"] = _interpolatable
+            if _interpolate is not None:
+                kwargs["_interpolate"] = _interpolate
         else:
-            assert _interpolatable is None
+            assert _interpolate is None
             assert not kwargs
             init_dict = dict(other)
 
@@ -120,22 +120,22 @@ class Settings(dict):
            modified.
         """
         other = self.__normalize_value(other)
-        for key, value in other.items():
-            if value is None:
+        for key, other_value in other.items():
+            if other_value is None:
                 self.setdefault(key, None)
                 continue
 
-            if isinstance(value, Settings):
+            if isinstance(other_value, Settings):
                 try:
                     self_value = self[key]
                 except KeyError:
                     pass
                 else:
                     if isinstance(self_value, Settings):
-                        self_value.update(value)
+                        self_value.update(other_value)
                         continue
 
-            self[key] = value
+            self[key] = other_value
 
     def __normalize_values(self, other: InputType, force_copy: bool = False):
         return {
@@ -161,20 +161,27 @@ class Settings(dict):
     def apply(
         self,
         parameters: InterpolationParametersType,
+        interpolate=True,
     ) -> InterpolatedType:
-        return dict(self.__interpolate_values(parameters))
+        return dict(
+            self.__interpolate_values(parameters, interpolate=interpolate)
+        )
 
-    def __interpolate_values(self, parameters):
+    def __interpolate_values(self, parameters, interpolate):
         for key, value in self.items():
             if key[:1] == "_":
                 continue
 
             if isinstance(value, Settings):
-                if value.get("_interpolatable", True):
-                    yield key, value.apply(parameters)
+                yield key, value.apply(
+                    parameters,
+                    interpolate=(
+                        interpolate and value.get("_interpolate", True)
+                    ),
+                )
                 continue
 
-            if value is None:
+            if value is None or not interpolate:
                 yield key, value
                 continue
 
@@ -331,7 +338,6 @@ class _RegexSettings(Settings):
                 other,
                 regular_expression=regular_expression,
                 replacement=replacement,
-                flags=flags_value,
             )
 
     def process_result(self, str):
@@ -356,7 +362,7 @@ class _MeasurementResultFieldSettings(Settings):
     :class:`_MeasurementResultTimestampFieldSettings`.
     """
 
-    DEFAULT_TYPE = "str"
+    DEFAULT_TYPE = str
     VALID_TYPES = [
         "str",
         "float",
@@ -386,49 +392,56 @@ class _MeasurementResultFieldSettings(Settings):
             field_type = type
             type = builtins.type
 
-            if field_type is None:
-                field_type = self.DEFAULT_TYPE
-            if field_type not in self.VALID_TYPES:
-                valid_types = ", ".join(self.VALID_TYPES)
-                raise ConfigurationError(
-                    f"Invalid type {field_type}"
-                    " for measurement result value field."
-                    f" Valid types: {valid_types}"
-                )
-            field_type = eval(field_type)
-
-            if regular_expression is None:
-                regular_expressions = []
-            elif isinstance(regular_expression, dict):
-                regular_expressions = [regular_expression]
-            elif isinstance(regular_expression, collections.abc.Iterable):
-                regular_expressions = list(regular_expression)
-            else:
-                raise ConfigurationError(
-                    "Dictionary or list expected for regular expression field"
-                    f" instead of {type(regular_expression).__name__}:"
-                    f" {regular_expression!r}"
-                )
-            for regular_expression in regular_expressions:
-                if not isinstance(regular_expression, dict):
+            if field_type is not None:
+                if field_type not in self.VALID_TYPES:
+                    valid_types = ", ".join(self.VALID_TYPES)
                     raise ConfigurationError(
-                        "Dictionary expected for each regular expression"
+                        f"Invalid type {field_type}"
+                        " for measurement result value field."
+                        f" Valid types: {valid_types}"
+                    )
+                field_type = eval(field_type)
+
+            kwargs = dict()
+
+            if regular_expression is not None:
+                if isinstance(regular_expression, dict):
+                    regular_expressions = [regular_expression]
+                elif isinstance(regular_expression, collections.abc.Iterable):
+                    regular_expressions = list(regular_expression)
+                else:
+                    raise ConfigurationError(
+                        "Dictionary or list expected"
+                        " for regular expression field"
                         f" instead of {type(regular_expression).__name__}:"
                         f" {regular_expression!r}"
                     )
-            regular_expressions = list(
-                map(
-                    lambda regular_expression: _RegexSettings(
-                        **regular_expression
-                    ),
-                    regular_expressions,
+                for regular_expression in regular_expressions:
+                    if not isinstance(regular_expression, dict):
+                        raise ConfigurationError(
+                            "Dictionary expected for each regular expression"
+                            f" instead of {type(regular_expression).__name__}:"
+                            f" {regular_expression!r}"
+                        )
+                regular_expressions = list(
+                    map(
+                        lambda regular_expression: _RegexSettings(
+                            **regular_expression
+                        ),
+                        regular_expressions,
+                    )
                 )
-            )
 
-            kwargs = dict(
-                type=field_type,
-                regular_expressions=regular_expressions,
-            )
+                kwargs.update(
+                    dict(
+                        regular_expressions=regular_expressions,
+                    )
+                )
+
+            if field_type is not None:
+                kwargs.update(
+                    type=field_type,
+                )
             if raw_value is not None:
                 kwargs.update(
                     raw_value=raw_value,
@@ -517,7 +530,7 @@ class _MeasurementResultSettings(Settings):
             super().__init__(other)
         else:
             kwargs = dict(
-                _interpolatable=False,
+                _interpolate=False,
             )
             if value is not None:
                 kwargs.update(value=_MeasurementResultFieldSettings(**value))
@@ -577,7 +590,7 @@ class _MeasurementSettings(Settings):
             # field-specific settings classes, required for proper result
             # parsing.
             # Furthermore, always force the creation a result settings object,
-            # even if empty, to make sure the _interpolatable field is set.
+            # even if empty, to make sure the _interpolate field is set.
             if result is None:
                 result = {}
             result = _MeasurementResultSettings(**result)
