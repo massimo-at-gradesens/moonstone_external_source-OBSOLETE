@@ -11,9 +11,9 @@ from .utils import assert_eq_dicts
 async def test_machine_configuration_with_result(io_driver_1):
     mach_conf = await io_driver_1.machine_configurations.get("mach_w_result")
     expected = {
-        "identifier": "mach_w_result",
-        "common_configuration_identifier": "cc_w_result",
-        "authentication_context_identifier": None,
+        "id": "mach_w_result",
+        "common_configuration_id": "cc_w_result",
+        "authentication_context_id": None,
         "url": None,
         "query_string": {},
         "headers": {},
@@ -36,9 +36,9 @@ async def test_machine_configuration_with_result(io_driver_1):
         },
         "measurements": {
             "temperature": {
-                "identifier": "temperature",
-                "common_configuration_identifier": None,
-                "authentication_context_identifier": None,
+                "id": "temperature",
+                "common_configuration_id": None,
+                "authentication_context_id": None,
                 "url": None,
                 "query_string": {},
                 "headers": {},
@@ -50,9 +50,9 @@ async def test_machine_configuration_with_result(io_driver_1):
                 },
             },
             "rpm": {
-                "identifier": "rpm",
-                "common_configuration_identifier": None,
-                "authentication_context_identifier": None,
+                "id": "rpm",
+                "common_configuration_id": None,
+                "authentication_context_id": None,
                 "url": None,
                 "query_string": {},
                 "headers": {},
@@ -76,9 +76,9 @@ async def test_machine_configuration_with_result(io_driver_1):
                 },
             },
             "humidity": {
-                "identifier": "humidity",
-                "common_configuration_identifier": None,
-                "authentication_context_identifier": None,
+                "id": "humidity",
+                "common_configuration_id": None,
+                "authentication_context_id": None,
                 "url": None,
                 "query_string": {},
                 "headers": {},

@@ -243,17 +243,17 @@ class AuthenticationContext(Settings):
         self,
         other: Union["AuthenticationContext", None] = None,
         *,
-        identifier: Union[Identifier, None] = None,
+        id: Union[Identifier, None] = None,
         **kwargs: Settings.InputType,
     ):
         if other is None:
-            if identifier is None:
+            if id is None:
                 raise ConfigurationError(
-                    "Missing authentication context's 'identifier'"
+                    "Missing authentication context's 'id'"
                 )
-            super().__init__(identifier=identifier, **kwargs)
+            super().__init__(id=id, **kwargs)
         else:
-            assert identifier is None
+            assert id is None
             assert not kwargs
             super().__init__(other)
 
@@ -568,7 +568,7 @@ class _MeasurementSettings(Settings):
         url: str = None,
         query_string: Union[Settings.InputType, None] = None,
         headers: Union[Settings.InputType, None] = None,
-        authentication_context_identifier: Union[
+        authentication_context_id: Union[
             AuthenticationContext.Identifier, None
         ] = None,
         result: Union[_MeasurementResultSettings, None] = None,
@@ -578,7 +578,7 @@ class _MeasurementSettings(Settings):
             assert url is None
             assert query_string is None
             assert headers is None
-            assert authentication_context_identifier is None
+            assert authentication_context_id is None
             assert result is None
             assert not kwargs
             super().__init__(other)
@@ -600,9 +600,7 @@ class _MeasurementSettings(Settings):
                 url=url,
                 query_string=query_string,
                 headers=headers,
-                authentication_context_identifier=(
-                    authentication_context_identifier
-                ),
+                authentication_context_id=(authentication_context_id),
                 result=result,
                 **kwargs,
             )
@@ -616,17 +614,17 @@ class _MeasurementSettings(Settings):
                 raise ConfigurationError("Field 'result' is not specified")
             return result.process_result(raw_result)
         except Error as err:
-            identifier = self.get("identifier", None)
-            if identifier is None:
+            id = self.get("id", None)
+            if id is None:
                 raise err from None
-            err_msg = f"For {identifier!r}: {err}"
+            err_msg = f"For {id!r}: {err}"
             raise type(err)(err_msg) from None
 
 
 class _CommonConfigurationIdentifierSettings(Settings):
     """
     Mixin to provide the optional setting
-    :attr:`.common_configuration_identifier` to reference to a
+    :attr:`.common_configuration_id` to reference to a
     :class:`CommonConfiguration` instance.
 
     These configuration settings are used by :class:`MeasurementConfiguration`s
@@ -637,29 +635,27 @@ class _CommonConfigurationIdentifierSettings(Settings):
         self,
         other: Union["_CommonConfigurationIdentifierSettings", None] = None,
         *,
-        common_configuration_identifier: Union[
+        common_configuration_id: Union[
             "CommonConfiguration.Identifier", None
         ] = None,
         **kwargs: Settings.InputType,
     ):
         if other is not None:
-            assert common_configuration_identifier is None
+            assert common_configuration_id is None
             assert not kwargs
             super().__init__(other)
         else:
             super().__init__(
                 other,
-                common_configuration_identifier=(
-                    common_configuration_identifier
-                ),
+                common_configuration_id=(common_configuration_id),
                 **kwargs,
             )
 
     async def get_common_configuration(self) -> Dict[str, str]:
-        if self.common_configuration_identifier is None:
+        if self.common_configuration_id is None:
             return Settings()
         common_configuration = await CommonConfiguration.load(
-            self.common_configuration_identifier
+            self.common_configuration_id
         )
         return common_configuration
 
@@ -678,20 +674,20 @@ class MeasurementConfiguration(
         self,
         other: Union["MeasurementConfiguration", None] = None,
         *,
-        identifier: Union[Identifier, None] = None,
+        id: Union[Identifier, None] = None,
         **kwargs: Settings.InputType,
     ):
         if other is None:
-            if identifier is None:
+            if id is None:
                 raise ConfigurationError(
-                    "Missing measurement configuration's 'identifier'"
+                    "Missing measurement configuration's 'id'"
                 )
             super().__init__(
-                identifier=identifier,
+                id=id,
                 **kwargs,
             )
         else:
-            assert identifier is None
+            assert id is None
             assert not kwargs
             super().__init__(other)
 
@@ -701,9 +697,7 @@ class MeasurementConfiguration(
         # its list of keys(), but filter out the few unwanted ones.
         __RESULT_KEYS = set(
             filter(
-                lambda key: not (
-                    key.endswith("_identifier") or key == "identifier"
-                ),
+                lambda key: not (key.endswith("_id") or key == "id"),
                 _MeasurementSettings().keys(),
             )
         )
@@ -734,31 +728,29 @@ class MeasurementConfiguration(
 
             settings.update(self.measurement_configuration)
 
-            common_configuration_identifier = self.measurement_configuration[
-                "common_configuration_identifier"
+            common_configuration_id = self.measurement_configuration[
+                "common_configuration_id"
             ]
-            if common_configuration_identifier is None:
-                common_configuration_identifier = self.machine_configuration[
-                    "common_configuration_identifier"
+            if common_configuration_id is None:
+                common_configuration_id = self.machine_configuration[
+                    "common_configuration_id"
                 ]
 
-            if common_configuration_identifier is not None:
+            if common_configuration_id is not None:
                 common_configuration = (
                     await self.io_driver.common_configurations.get(
-                        common_configuration_identifier
+                        common_configuration_id
                     )
                 )
                 new_settings = Settings(common_configuration)
                 new_settings.update(settings)
                 settings = new_settings
 
-            authentication_context_identifier = settings[
-                "authentication_context_identifier"
-            ]
-            if authentication_context_identifier is not None:
+            authentication_context_id = settings["authentication_context_id"]
+            if authentication_context_id is not None:
                 authentication_context = (
                     await self.io_driver.authentication_contexts.get(
-                        authentication_context_identifier
+                        authentication_context_id
                     )
                 )
                 new_settings = Settings(authentication_context)
@@ -773,19 +765,17 @@ class MeasurementConfiguration(
             # possible patterns. Therefore, use settings as the base parameters
             # to interpolate the patterns in its own values.
             # Anyway, only keep the scalar settings as interpolation
-            # parameters, and insert the machine and measurement identifiers
+            # parameters, and insert the machine and measurement ids
             parameters = {
-                "machine": self.machine_configuration["identifier"],
-                "measurement": self.measurement_configuration["identifier"],
+                "machine_id": self.machine_configuration["id"],
+                "measurement_id": self.measurement_configuration["id"],
             }
             parameters.update(
                 {
                     key: value
                     for key, value in settings.items()
                     if not (
-                        key[0] == "_"
-                        or key.endswith("_identifier")
-                        or key == "identifier"
+                        key[0] == "_" or key.endswith("_id") or key == "id"
                     )
                 }
             )
@@ -830,7 +820,7 @@ class _MachineConfigurationSettings(_MeasurementSettings):
             if measurements is None:
                 measurements = []
             measurements = {
-                measurement["identifier"]: measurement
+                measurement["id"]: measurement
                 for measurement in map(
                     lambda m: MeasurementConfiguration(**m), measurements
                 )
@@ -860,17 +850,15 @@ class CommonConfiguration(_MachineConfigurationSettings):
         self,
         other: Union["CommonConfiguration", None] = None,
         *,
-        identifier: Union[Identifier, None] = None,
+        id: Union[Identifier, None] = None,
         **kwargs: Settings.InputType,
     ):
         if other is None:
-            if identifier is None:
-                raise ConfigurationError(
-                    "Missing common configuration's 'identifier'"
-                )
-            super().__init__(identifier=identifier, **kwargs)
+            if id is None:
+                raise ConfigurationError("Missing common configuration's 'id'")
+            super().__init__(id=id, **kwargs)
         else:
-            assert identifier is None
+            assert id is None
             assert not kwargs
             super().__init__(other)
 
@@ -893,21 +881,21 @@ class MachineConfiguration(
         self,
         other: Union["MeasurementConfiguration", None] = None,
         *,
-        identifier: Union[Identifier, None] = None,
+        id: Union[Identifier, None] = None,
         **kwargs,
     ):
         if other is None:
-            if identifier is None:
+            if id is None:
                 raise ConfigurationError(
-                    "Missing machine configuration'a 'identifier'"
+                    "Missing machine configuration'a 'id'"
                 )
-            super().__init__(identifier=identifier, **kwargs)
+            super().__init__(id=id, **kwargs)
             if not self["measurements"]:
                 raise ConfigurationError(
                     "Missing machine configuration's 'measurements'"
                 )
         else:
-            assert identifier is None
+            assert id is None
             assert not kwargs
             super().__init__(other)
 
@@ -925,18 +913,18 @@ class MachineConfiguration(
                 self.parent = parent
 
             def __getitem__(
-                self, identifier: MeasurementConfiguration.Identifier
+                self, id: MeasurementConfiguration.Identifier
             ) -> MeasurementConfiguration._SettingResolver:
                 measurements = self.parent.machine_configuration[
                     "measurements"
                 ]
                 try:
-                    measurement_configuration = measurements[identifier]
+                    measurement_configuration = measurements[id]
                 except KeyError:
-                    valid_identifiers = ", ".join(measurements.keys())
+                    valid_ids = ", ".join(measurements.keys())
                     raise ConfigurationError(
-                        f"Unrecognized measurement identifier {identifier}."
-                        f" Valid identifiers: {valid_identifiers}"
+                        f"Unrecognized measurement id {id}."
+                        f" Valid ids: {valid_ids}"
                     ) from None
                 return MeasurementConfiguration._SettingResolver(
                     measurement_configuration=measurement_configuration,
@@ -951,44 +939,42 @@ class MachineConfiguration(
 
         async def get_settings(
             self,
-            measurement_identifiers: (
+            measurement_ids: (
                 "MachineConfiguration.MeasurementIdentifiersType"
             ) = None,
             **kwargs,
         ) -> "MachineConfiguration.SettingsType":
-            if measurement_identifiers is None:
-                # If no identifiers are specified, return all measurements
-                measurement_identifiers = self.machine_configuration[
+            if measurement_ids is None:
+                # If no ids are specified, return all measurements
+                measurement_ids = self.machine_configuration[
                     "measurements"
                 ].keys()
-            measurement_identifiers = set(measurement_identifiers)
+            measurement_ids = set(measurement_ids)
 
-            # Retain only the identifiers that actually match this machine
+            # Retain only the ids that actually match this machine
             # measurements.
             # Silently drop the other ones.
-            measurement_identifiers &= set(
+            measurement_ids &= set(
                 self.machine_configuration["measurements"].keys()
             )
 
             measurements_settings = self["measurements"]
 
             # Use an OrderedDict to guarantee order repeatability, so as to
-            # guarantee that identifiers and results can be correctly zipped
+            # guarantee that ids and results can be correctly zipped
             # together after asyncio.gather()
             tasks = collections.OrderedDict(
                 **{
-                    measurement_identifier: measurements_settings[
-                        measurement_identifier
+                    measurement_id: measurements_settings[
+                        measurement_id
                     ].get_settings(**kwargs)
-                    for measurement_identifier in measurement_identifiers
+                    for measurement_id in measurement_ids
                 }
             )
             results = await asyncio.gather(*tasks.values())
             return {
-                measurement_identifier: result
-                for measurement_identifier, result in zip(
-                    tasks.keys(), results
-                )
+                measurement_id: result
+                for measurement_id, result in zip(tasks.keys(), results)
             }
 
     def get_setting_resolver(self, io_driver: "IODriver") -> _SettingResolver:

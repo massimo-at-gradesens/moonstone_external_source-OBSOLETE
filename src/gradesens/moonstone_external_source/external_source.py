@@ -83,8 +83,8 @@ class ExternalSource:
         *,
         start_time: datetime,
         end_time: datetime,
-        machine_identifier: MachineConfiguration.Identifier,
-        measurements_identifiers: (
+        machine_id: MachineConfiguration.Identifier,
+        measurements_ids: (
             MachineConfiguration.MeasurementIdentifiersType
         ) = None,
         time_margin: Union[timedelta, None] = None,
@@ -105,36 +105,34 @@ class ExternalSource:
         )
 
         machine_configuration = (
-            await self.io_driver.machine_configurations.get(machine_identifier)
+            await self.io_driver.machine_configurations.get(machine_id)
         )
         resolver = machine_configuration.get_setting_resolver(self.io_driver)
         settings = await resolver.get_settings(
             start_time=start_time - start_time_margin,
             end_time=end_time + end_time_margin,
-            measurements_identifiers=measurements_identifiers,
+            measurements_ids=measurements_ids,
         )
 
         # Use an OrderedDict to guarantee order repeatability, so as to
-        # guarantee that identifiers and results can be correctly zipped
+        # guarantee that ids and results can be correctly zipped
         # together after asyncio.gather()
         request_tasks = OrderedDict()
 
-        for measurement_identifier, measurement_settings in settings.items():
-            request_tasks[
-                measurement_identifier
-            ] = self.request_task_pool.schedule(
+        for measurement_id, measurement_settings in settings.items():
+            request_tasks[measurement_id] = self.request_task_pool.schedule(
                 self.backend_driver.process(measurement_settings)
             )
 
         responses = await asyncio.gather(*request_tasks.values())
         return {
-            measurement_identifier: self.process_response(
+            measurement_id: self.process_response(
                 response=response,
                 start_time=start_time,
                 end_time=end_time,
-                settings=measurement_settings[measurement_identifier],
+                settings=measurement_settings[measurement_id],
             )
-            for measurement_identifier, response in zip(
+            for measurement_id, response in zip(
                 request_tasks.keys(), responses
             )
         }

@@ -18,10 +18,11 @@ from .utils import assert_eq_dicts
 def test_common_configuration(common_configuration_1):
     assert isinstance(common_configuration_1, CommonConfiguration)
     expected = {
-        "identifier": "cc1",
-        "authentication_context_identifier": "ac1",
+        "id": "cc1",
+        "authentication_context_id": "ac1",
         "url": (
-            "https://gradesens.com/{zone}/{machine}" "/{device}/{measurement}"
+            "https://gradesens.com/{zone}/{machine_id}"
+            "/{device}/{measurement_id}"
         ),
         "zone": "area42",
         "query_string": {
@@ -44,17 +45,17 @@ def test_common_configuration(common_configuration_1):
 @pytest.mark.usefixtures("machine_configuration_1")
 def test_machine_configuration(machine_configuration_1):
     assert isinstance(machine_configuration_1, MachineConfiguration)
-    for identifier, conf in machine_configuration_1["measurements"].items():
+    for id, conf in machine_configuration_1["measurements"].items():
         assert isinstance(conf, MeasurementConfiguration)
-        assert identifier == conf["identifier"]
+        assert id == conf["id"]
 
     expected = {
-        "identifier": "mach1",
-        "common_configuration_identifier": "cc1",
-        "authentication_context_identifier": None,
+        "id": "mach1",
+        "common_configuration_id": "cc1",
+        "authentication_context_id": None,
         "url": (
-            "https://gradesens.com/{zone}/MACHINE/{machine}/{device}"
-            "/{measurement}"
+            "https://gradesens.com/{zone}/MACHINE/{machine_id}/{device}"
+            "/{measurement_id}"
         ),
         "query_string": {},
         "headers": {},
@@ -64,9 +65,9 @@ def test_machine_configuration(machine_configuration_1):
         },
         "measurements": {
             "temperature": {
-                "identifier": "temperature",
-                "common_configuration_identifier": "cc2",
-                "authentication_context_identifier": None,
+                "id": "temperature",
+                "common_configuration_id": "cc2",
+                "authentication_context_id": None,
                 "url": None,
                 "query_string": {
                     "depth": "12",
@@ -78,12 +79,12 @@ def test_machine_configuration(machine_configuration_1):
                 },
             },
             "rpm": {
-                "identifier": "rpm",
-                "common_configuration_identifier": None,
-                "authentication_context_identifier": None,
+                "id": "rpm",
+                "common_configuration_id": None,
+                "authentication_context_id": None,
                 "url": (
-                    "https://gradesens.com/{zone}/{machine}"
-                    "/{device}/RPM/{measurement}"
+                    "https://gradesens.com/{zone}/{machine_id}"
+                    "/{device}/RPM/{measurement_id}"
                 ),
                 "query_string": {
                     "dune": "worms",
@@ -95,9 +96,9 @@ def test_machine_configuration(machine_configuration_1):
                 },
             },
             "power": {
-                "identifier": "power",
-                "common_configuration_identifier": "cc2",
-                "authentication_context_identifier": None,
+                "id": "power",
+                "common_configuration_id": "cc2",
+                "authentication_context_id": None,
                 "url": None,
                 "query_string": {},
                 "headers": {
