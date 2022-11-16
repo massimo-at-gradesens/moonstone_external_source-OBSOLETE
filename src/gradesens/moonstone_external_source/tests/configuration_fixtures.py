@@ -169,9 +169,9 @@ def machine_configuration_with_result():
     result:
         timestamp:
             regular_expression:
-                pattern: "(?P<hello>[a-g]+)"
+                pattern: "^(|.*[^0-9])(?P<year>[0-9]+).*"
                 flags: i
-                replacement: "YX \\g<hello> XY"
+                replacement: "20\\g<year>-11-15"
         value:
             raw_value: "{get}{the}{raw}"
     measurements:
@@ -179,14 +179,24 @@ def machine_configuration_with_result():
             result:
                 value:
                     type: float
+                timestamp:
+                    raw_value: "{temp_ts_raw}"
         -   id: rpm
             result:
-                timestamp:
+                value:
+                    type: int
                     regular_expression:
-                        -   pattern: "(.*)"
-                            replacement: "\\1\\1"
-                        -   pattern: "(.*)([0-9a-f]+)(.*)"
-                            replacement: "\\3\\1"
+                        -   pattern: "^(.*)$"
+                            replacement: "0x\\1"
+                        -   pattern: "[83]"
+                            replacement: "7"
+                timestamp:
+                    raw_value: 23
+                    regular_expression:
+                        -   pattern: "^(.*)$"
+                            replacement: "17-\\1\\1-08"
+                        -   pattern: "^(?P<d>.*)-(?P<y>.*)-(?P<m>.*)$"
+                            replacement: "\\g<y>-\\g<m>-\\g<d>"
         -   id: humidity
             result:
                 timestamp:

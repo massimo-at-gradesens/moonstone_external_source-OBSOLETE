@@ -15,7 +15,16 @@ import builtins
 import collections
 import re
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Sequence, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 if TYPE_CHECKING:
     from .io_driver import IODriver
@@ -35,7 +44,8 @@ class Settings(dict):
     entries, where a ``value`` may either be a plain :class:`str` or a
     python `formatted string literal
     <https://docs.python.org/3/tutorial/inputoutput.html\
-#formatted-string-literals>`_ to be interpolated by calling :meth:`.apply`.
+#formatted-string-literals>`_ to be interpolated by calling
+    :meth:`.interpolate`.
 
     .. note::
         All the methods or operations that change the contents of a
@@ -60,11 +70,9 @@ class Settings(dict):
     InputItemType = Tuple[KeyType, InputValueType]
     InputType = Union["Settings", Dict[KeyType, InputValueType]]
 
-    InterpolationParametersType = Dict[str, Any]
     InterpolatedValueType = Union[str, None]
-    InterpolatedType = Dict[
-        str, Union[InterpolatedValueType, "InterpolatedType"]
-    ]
+    InterpolatedItemsType = Union["InterpolatedValueType", "InterpolatedType"]
+    InterpolatedType = Dict[str, InterpolatedItemsType]
 
     def __init__(
         self,
@@ -158,35 +166,31 @@ class Settings(dict):
 
         return value
 
-    def apply(
-        self,
-        parameters: InterpolationParametersType,
-        interpolate=True,
-    ) -> InterpolatedType:
-        return dict(
-            self.__interpolate_values(parameters, interpolate=interpolate)
-        )
+    class InterpolationContext(dict):
+        ParametersType = Dict[str, Any]
 
-    def __interpolate_values(self, parameters, interpolate):
+        def __init__(self, parameters: ParametersType, **kwargs):
+            super().__init__(kwargs)
+            self.parameters = parameters
+
+    def interpolate(self, *args, **kwargs) -> InterpolatedType:
+        return dict(self.interpolated_items(*args, **kwargs))
+
+    def interpolated_items(
+        self,
+        context: InterpolationContext,
+        _interpolate: bool = True,
+    ) -> Iterable[InterpolatedItemsType]:
         for key, value in self.items():
             if key[:1] == "_":
                 continue
 
-            if isinstance(value, Settings):
-                yield key, value.apply(
-                    parameters,
-                    interpolate=(
-                        interpolate and value.get("_interpolate", True)
-                    ),
-                )
-                continue
-
-            if value is None or not interpolate:
-                yield key, value
-                continue
-
             try:
-                yield key, self.__interpolate_value(value, parameters)
+                yield key, self.__interpolate_value(
+                    value=value,
+                    context=context,
+                    _interpolate=_interpolate,
+                )
             except PatternError as err:
                 raise PatternError(
                     f"For key {key!r}:"
@@ -194,7 +198,44 @@ class Settings(dict):
                 ) from None
 
     @classmethod
-    def __interpolate_value(cls, value, parameters):
+    def __interpolate_value(cls, value, context, _interpolate):
+        if value is None:
+            return value
+
+        if isinstance(value, Settings):
+            return value.interpolate(
+                context=context,
+                _interpolate=(
+                    _interpolate and value.get("_interpolate", True)
+                ),
+            )
+
+        if isinstance(value, list):
+            return [
+                cls.__interpolate_value(
+                    value=item,
+                    context=context,
+                    _interpolate=_interpolate,
+                )
+                for item in value
+            ]
+
+        if not _interpolate:
+            return value
+
+        return cls.interpolate_value(
+            value=value, parameters=context.parameters
+        )
+
+    @classmethod
+    def interpolate_value(
+        cls,
+        value: str,
+        parameters: InterpolationContext.ParametersType,
+    ) -> str:
+        if not isinstance(value, str):
+            return value
+
         try:
             try:
                 return eval(f"f{value!r}", {}, parameters)
@@ -219,9 +260,10 @@ class Settings(dict):
             except IndexError:
                 raise PatternError(str(err)) from None
             raise PatternError(
+                f"For pattern {value!r}: "
                 f"key {missing_key!r} is not defined.\n"
                 "Valid keys:"
-                f" {', '.join(map(repr, parameters.keys()))}"
+                f" {list(parameters.keys())}"
             ) from None
 
     def __str__(self):
@@ -340,18 +382,24 @@ class _RegexSettings(Settings):
                 replacement=replacement,
             )
 
-    def process_result(self, str):
-        regular_expression = self["regular_expression"]
-        replacement = self["replacement"]
-        try:
-            return regular_expression.sub(replacement, str)
-        except Exception as err:
-            raise PatternError(
-                f"Failed processing '{str!r}'"
-                f" with regular expression {regular_expression.pattern!r}"
-                f" and replacement string {replacement!r}:"
-                f" {err}"
-            ) from None
+    class InterpolatedSettings(dict):
+        def process_result(self, value: str) -> str:
+            regular_expression = self["regular_expression"]
+            replacement = self["replacement"]
+            try:
+                return regular_expression.sub(replacement, str(value))
+            except Exception as err:
+                raise PatternError(
+                    f"Failed processing '{value!r}'"
+                    f" with regular expression {regular_expression.pattern!r}"
+                    f" and replacement string {replacement!r}:"
+                    f" {err}"
+                ) from None
+
+    def interpolate(self, *args, **kwargs) -> InterpolatedSettings:
+        return self.InterpolatedSettings(
+            self.interpolated_items(*args, **kwargs)
+        )
 
 
 class _MeasurementResultFieldSettings(Settings):
@@ -362,14 +410,36 @@ class _MeasurementResultFieldSettings(Settings):
     :class:`_MeasurementResultTimestampFieldSettings`.
     """
 
-    DEFAULT_TYPE = str
-    VALID_TYPES = [
-        "str",
-        "float",
-        "int",
-        "bool",
-        "datetime",
-    ]
+    class Converter:
+        def __init__(
+            self,
+            convert_func: Callable,
+            name: Union[str, None] = None,
+        ):
+            self.convert_func = convert_func
+            self.name = name if name is not None else convert_func.__name__
+
+        def __call__(self, value: str) -> Any:
+            return self.convert_func(value)
+
+        def __str__(self):
+            return self.name
+
+        def __repr__(self):
+            return f"{type(self).__name__}[{self.name}]"
+
+    VALID_TYPES = collections.OrderedDict(
+        tuple(
+            (converter.name, converter)
+            for converter in (
+                Converter(str),
+                Converter(lambda value: int(value, 0), "int"),
+                Converter(float),
+                Converter(bool),
+                Converter(datetime.fromisoformat, "datetime"),
+            )
+        )
+    )
 
     def __init__(
         self,
@@ -393,14 +463,15 @@ class _MeasurementResultFieldSettings(Settings):
             type = builtins.type
 
             if field_type is not None:
-                if field_type not in self.VALID_TYPES:
-                    valid_types = ", ".join(self.VALID_TYPES)
+                try:
+                    field_type = self.VALID_TYPES[field_type]
+                except KeyError:
+                    valid_types = ", ".join(map(repr, self.VALID_TYPES))
                     raise ConfigurationError(
-                        f"Invalid type {field_type}"
+                        f"Invalid type {field_type!r}"
                         " for measurement result value field."
                         f" Valid types: {valid_types}"
-                    )
-                field_type = eval(field_type)
+                    ) from None
 
             kwargs = dict()
 
@@ -449,37 +520,46 @@ class _MeasurementResultFieldSettings(Settings):
 
             super().__init__(**kwargs)
 
-    def process_result(
-        self, raw_result: "_MeasurementResultSettings.RawResultType"
-    ):
-        try:
-            raw_value = self["raw_value"]
-        except KeyError:
-            raise ConfigurationError(
-                "Missing measurement result field's 'raw_value' field"
-            ) from None
-        try:
-            field_type = self["type"]
-        except KeyError:
-            raise ConfigurationError(
-                "Missing measurement result field's 'type' field"
-            ) from None
+    class InterpolatedSettings(dict):
+        def process_result(
+            self, raw_result: "_MeasurementResultSettings.RawResultType"
+        ) -> "_MeasurementResultSettings.ResultValueType":
+            try:
+                raw_value = self["raw_value"]
+            except KeyError:
+                raise ConfigurationError(
+                    "Missing measurement result field's 'raw_value' field"
+                ) from None
+            try:
+                field_type = self["type"]
+            except KeyError:
+                raise ConfigurationError(
+                    "Missing measurement result field's 'type' field"
+                ) from None
 
-        value = raw_value.apply(raw_result)
+            value = Settings.interpolate_value(
+                value=raw_value,
+                parameters=raw_result,
+            )
 
-        for regular_expression in self["regular_expressions"]:
-            value = regular_expression.process_result(value)
+            for regular_expression in self.get("regular_expressions", []):
+                value = regular_expression.process_result(value)
 
-        try:
-            return field_type(value)
-        except Exception as err:
-            raise DataTypeError(
-                f"Failed converting {value!r}"
-                f" to an object of type {field_type.__name__}:"
-                f" {err}"
-            ) from None
+            try:
+                return field_type(value)
+            except Exception as err:
+                raise DataTypeError(
+                    f"Failed converting {value!r}"
+                    f" to an object of type {str(field_type)!r}:"
+                    f" {err}"
+                ) from None
 
-        return value
+            return value
+
+    def interpolate(self, *args, **kwargs) -> InterpolatedSettings:
+        return self.InterpolatedSettings(
+            self.interpolated_items(*args, **kwargs)
+        )
 
 
 class _MeasurementResultTimestampFieldSettings(
@@ -514,6 +594,8 @@ class _MeasurementResultSettings(Settings):
 
     RawResultValueType = Any
     RawResultType = Dict[str, Union[RawResultValueType, "RawResultType"]]
+    ResultValueType = Any
+    ResultType = Dict[str, ResultValueType]
 
     def __init__(
         self,
@@ -542,13 +624,42 @@ class _MeasurementResultSettings(Settings):
                 )
             super().__init__(**kwargs)
 
-    def process_result(self, raw_result: RawResultType):
-        result = {}
-        for key, value in self.items():
-            if value is None:
-                raise ConfigurationError(f"Field {key!r} is not specified")
-            result[key] = value.process_result(raw_result)
-        return result
+    class InterpolatedSettings(dict):
+        def __init__(
+            self, *, context: Settings.InterpolationContext, **kwargs
+        ):
+            self.__context = context
+            super().__init__(kwargs)
+
+        def process_result(
+            self, raw_result: "_MeasurementResultSettings.RawResultType"
+        ) -> "_MeasurementResultSettings.ResultType":
+            result = {}
+            for key, value in self.items():
+                if value is None:
+                    raise ConfigurationError(f"Field {key!r} is not specified")
+                try:
+                    result[key] = value.process_result(raw_result)
+                except Error as err:
+                    machine_id = self.__context["machine_configuration"]["id"]
+                    measurement_id = self.__context[
+                        "measurement_configuration"
+                    ]["id"]
+                    raise type(err)(
+                        f"Machine {machine_id!r}: "
+                        f"Measurement {measurement_id!r}: "
+                        f"Field {key!r}: "
+                        f"{err}"
+                    ) from None
+            return result
+
+    def interpolate(
+        self, *args, context: Settings.InterpolationContext, **kwargs
+    ) -> InterpolatedSettings:
+        return self.InterpolatedSettings(
+            context=context,
+            **dict(self.interpolated_items(*args, context=context, **kwargs)),
+        )
 
 
 class _MeasurementSettings(Settings):
@@ -605,21 +716,6 @@ class _MeasurementSettings(Settings):
                 **kwargs,
             )
 
-    def process_result(
-        self, raw_result: _MeasurementResultSettings.RawResultType
-    ):
-        result = self["result"]
-        try:
-            if result is None:
-                raise ConfigurationError("Field 'result' is not specified")
-            return result.process_result(raw_result)
-        except Error as err:
-            id = self.get("id", None)
-            if id is None:
-                raise err from None
-            err_msg = f"For {id!r}: {err}"
-            raise type(err)(err_msg) from None
-
 
 class _CommonConfigurationIdSettings(Settings):
     """
@@ -659,14 +755,15 @@ class _CommonConfigurationIdSettings(Settings):
 
 
 class MeasurementConfiguration(
-    _CommonConfigurationIdSettings, _MeasurementSettings
+    _MeasurementSettings,
+    _CommonConfigurationIdSettings,
 ):
     """
     Configuration for a single measurement (e.g. temperature, RPM, etc.).
     """
 
     Id = str
-    SettingsType = Settings.InterpolatedType
+    SettingsType = "MeasurementConfiguration.InterpolatedSettings"
 
     def __init__(
         self,
@@ -689,7 +786,7 @@ class MeasurementConfiguration(
             assert not kwargs
             super().__init__(other)
 
-    class _SettingResolver:
+    class _SettingsResolver:
         # Build the list of actual settings to be retained after resolution.
         # Simple solution: create a bare _MeasurementSettings instance and get
         # its list of keys(), but filter out the few unwanted ones.
@@ -789,7 +886,12 @@ class MeasurementConfiguration(
                     if key in self.__RESULT_KEYS
                 },
             )
-            result = settings.apply(parameters)
+            interpolation_context = Settings.InterpolationContext(
+                parameters=parameters,
+                machine_configuration=self.machine_configuration,
+                measurement_configuration=self.measurement_configuration,
+            )
+            result = settings.interpolate(context=interpolation_context)
             return result
 
         @staticmethod
@@ -895,7 +997,7 @@ class MachineConfiguration(
             assert not kwargs
             super().__init__(other)
 
-    class _SettingResolver:
+    class _SettingsResolver:
         def __init__(
             self,
             machine_configuration: "MachineConfiguration",
@@ -910,7 +1012,7 @@ class MachineConfiguration(
 
             def __getitem__(
                 self, id: MeasurementConfiguration.Id
-            ) -> MeasurementConfiguration._SettingResolver:
+            ) -> MeasurementConfiguration._SettingsResolver:
                 measurements = self.parent.machine_configuration[
                     "measurements"
                 ]
@@ -922,7 +1024,7 @@ class MachineConfiguration(
                         f"Unrecognized measurement id {id}."
                         f" Valid ids: {valid_ids}"
                     ) from None
-                return MeasurementConfiguration._SettingResolver(
+                return MeasurementConfiguration._SettingsResolver(
                     measurement_configuration=measurement_configuration,
                     machine_configuration=self.parent.machine_configuration,
                     io_driver=self.parent.io_driver,
@@ -973,7 +1075,7 @@ class MachineConfiguration(
                 for measurement_id, result in zip(tasks.keys(), results)
             }
 
-    def get_setting_resolver(self, io_driver: "IODriver") -> _SettingResolver:
-        return self._SettingResolver(
+    def get_setting_resolver(self, io_driver: "IODriver") -> _SettingsResolver:
+        return self._SettingsResolver(
             machine_configuration=self, io_driver=io_driver
         )

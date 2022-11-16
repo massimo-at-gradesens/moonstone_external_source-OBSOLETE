@@ -99,7 +99,7 @@ def test_settings_patterns():
         assert params is not orig_params
         assert len(params) == len(orig_params)
 
-        values = settings.apply(params)
+        values = settings.interpolate(Settings.InterpolationContext(params))
 
         for value in (
             values,
