@@ -7,7 +7,7 @@ from gradesens.moonstone_external_source import configuration
 
 from .utils import assert_eq_dicts
 
-converters = configuration._MeasurementResultFieldSettings.VALID_TYPES
+converters = configuration._HTTPResultFieldSettings.VALID_TYPES
 
 
 @pytest.mark.usefixtures("io_driver_1")
