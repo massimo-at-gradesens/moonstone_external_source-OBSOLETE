@@ -5,8 +5,26 @@ __author__ = "Massimo Ravasi"
 __copyright__ = "Copyright 2022, Gradesens AG"
 
 
+from collections.abc import Iterable
+
+
 class Error(Exception):
-    pass
+    def __init__(self, *args, index=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if index is None:
+            index = []
+        elif isinstance(index, str) or not isinstance(index, Iterable):
+            index = [index]
+        else:
+            index = list(index)
+        self.index = index
+
+    def __str__(self):
+        msg = super().__str__()
+        if len(self.index) == 0:
+            return msg
+        index = "".join(f"[{elem!r}]" for elem in self.index)
+        return f"@{index}: {msg}"
 
 
 class HTTPError(Error):

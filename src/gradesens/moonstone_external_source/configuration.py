@@ -13,6 +13,7 @@ __copyright__ = "Copyright 2022, Gradesens AG"
 import asyncio
 import builtins
 import collections
+import itertools
 import re
 from datetime import datetime
 from typing import (
@@ -22,6 +23,7 @@ from typing import (
     Dict,
     Iterable,
     Sequence,
+    Set,
     Tuple,
     Union,
 )
@@ -95,7 +97,7 @@ class Settings(dict):
             init_dict = dict(other)
 
         if not _raw_init:
-            init_dict = self.__normalize_values(init_dict, force_copy=True)
+            init_dict = self.__normalize_values(init_dict)
         super().__init__(**init_dict)
 
     def __setitem__(self, key: KeyType, value: InputValueType):
@@ -145,24 +147,17 @@ class Settings(dict):
 
             self[key] = other_value
 
-    def __normalize_values(self, other: InputType, force_copy: bool = False):
+    def __normalize_values(self, other: InputType):
         return {
-            key: self.__normalize_value(value, force_copy=force_copy)
-            for key, value in other.items()
+            key: self.__normalize_value(value) for key, value in other.items()
         }
 
-    def __normalize_value(
-        self, value: InputValueType, force_copy: bool = False
-    ):
+    def __normalize_value(self, value: InputValueType):
         if isinstance(value, Settings):
-            if force_copy:
-                return type(value)(value)
-            return value
+            return type(value)(value)
 
         if isinstance(value, dict):
-            return Settings(
-                self.__normalize_values(value, force_copy=force_copy)
-            )
+            return Settings(self.__normalize_values(value))
 
         return value
 
@@ -192,10 +187,8 @@ class Settings(dict):
                     _interpolate=_interpolate,
                 )
             except PatternError as err:
-                raise PatternError(
-                    f"For key {key!r}:"
-                    f" unable to interpolate pattern {value!r}: {err}"
-                ) from None
+                err.index.insert(0, key)
+                raise err from None
 
     @classmethod
     def __interpolate_value(cls, value, context, _interpolate):
@@ -210,15 +203,15 @@ class Settings(dict):
                 ),
             )
 
-        if isinstance(value, list):
-            return [
+        if isinstance(value, Iterable) and not isinstance(value, str):
+            return type(value)(
                 cls.__interpolate_value(
                     value=item,
                     context=context,
                     _interpolate=_interpolate,
                 )
                 for item in value
-            ]
+            )
 
         if not _interpolate:
             return value
@@ -260,7 +253,7 @@ class Settings(dict):
             except IndexError:
                 raise PatternError(str(err)) from None
             raise PatternError(
-                f"For pattern {value!r}: "
+                f"Pattern {value!r}: "
                 f"key {missing_key!r} is not defined.\n"
                 "Valid keys:"
                 f" {list(parameters.keys())}"
@@ -477,9 +470,9 @@ class _MeasurementResultFieldSettings(Settings):
 
             if regular_expression is not None:
                 if isinstance(regular_expression, dict):
-                    regular_expressions = [regular_expression]
+                    regular_expressions = (regular_expression,)
                 elif isinstance(regular_expression, collections.abc.Iterable):
-                    regular_expressions = list(regular_expression)
+                    regular_expressions = tuple(regular_expression)
                 else:
                     raise ConfigurationError(
                         "Dictionary or list expected"
@@ -494,7 +487,7 @@ class _MeasurementResultFieldSettings(Settings):
                             f" instead of {type(regular_expression).__name__}:"
                             f" {regular_expression!r}"
                         )
-                regular_expressions = list(
+                regular_expressions = tuple(
                     map(
                         lambda regular_expression: _RegexSettings(
                             **regular_expression
@@ -662,7 +655,83 @@ class _MeasurementResultSettings(Settings):
         )
 
 
-class _MeasurementSettings(Settings):
+class _CommonConfigurationIdSettings(Settings):
+    """
+    Mixin to provide the optional setting
+    :attr:`._common_configuration_ids` to reference to zero or more
+    :class:`CommonConfiguration`s.
+
+    These configuration settings are used by
+    :class:`_MeasurementSettings`s, :class:`MachineConfiguration`s :class:`
+    and :class:`AuthorizationConfiguration`s.
+    """
+
+    def __init__(
+        self,
+        other: Union["_CommonConfigurationIdSettings", None] = None,
+        *,
+        common_configuration_ids: Union[
+            Iterable["CommonConfiguration.Id"],
+            "CommonConfiguration.Id",
+            None,
+        ] = None,
+        **kwargs: Settings.InputType,
+    ):
+        if other is not None:
+            assert common_configuration_ids is None
+            assert not kwargs
+            super().__init__(other)
+        else:
+            if common_configuration_ids is None:
+                common_configuration_ids = ()
+            elif isinstance(common_configuration_ids, CommonConfiguration.Id):
+                common_configuration_ids = (common_configuration_ids,)
+            elif isinstance(common_configuration_ids, Iterable):
+                common_configuration_ids = tuple(common_configuration_ids)
+            else:
+                common_configuration_ids = (common_configuration_ids,)
+            super().__init__(
+                other,
+                _common_configuration_ids=(common_configuration_ids),
+                **kwargs,
+            )
+
+    async def get_common_settings(
+        self,
+        io_driver: "IODriver",
+        already_visited: Union[Set["CommonConfiguration.Id"], None] = None,
+    ) -> Settings:
+        """
+        See details in :meth:`CommonConfiguration.get_common_settings`
+        """
+        common_configuration_ids = self["_common_configuration_ids"]
+        if len(common_configuration_ids) == 0:
+            return Settings()
+
+        tasks = [
+            io_driver.common_configurations.get(common_configuration_id)
+            for common_configuration_id in common_configuration_ids
+        ]
+        common_configurations = await asyncio.gather(*tasks)
+
+        if already_visited is None:
+            already_visited = set()
+        tasks = [
+            common_configuration.get_common_settings(
+                io_driver=io_driver, already_visited=already_visited
+            )
+            for common_configuration in common_configurations
+        ]
+        all_settings = await asyncio.gather(*tasks)
+
+        result = all_settings[0]
+        for settings in all_settings[1:]:
+            result.update(settings)
+
+        return result
+
+
+class _MeasurementSettings(_CommonConfigurationIdSettings):
     """
     Configuration settings for a single measurement.
 
@@ -679,7 +748,7 @@ class _MeasurementSettings(Settings):
         url: str = None,
         query_string: Union[Settings.InputType, None] = None,
         headers: Union[Settings.InputType, None] = None,
-        authentication_context_id: Union[
+        authentication_configuration_id: Union[
             AuthenticationContext.Id, None
         ] = None,
         result: Union[_MeasurementResultSettings, None] = None,
@@ -689,7 +758,7 @@ class _MeasurementSettings(Settings):
             assert url is None
             assert query_string is None
             assert headers is None
-            assert authentication_context_id is None
+            assert authentication_configuration_id is None
             assert result is None
             assert not kwargs
             super().__init__(other)
@@ -711,53 +780,15 @@ class _MeasurementSettings(Settings):
                 url=url,
                 query_string=query_string,
                 headers=headers,
-                authentication_context_id=(authentication_context_id),
+                _authentication_configuration_id=(
+                    authentication_configuration_id
+                ),
                 result=result,
                 **kwargs,
             )
 
 
-class _CommonConfigurationIdSettings(Settings):
-    """
-    Mixin to provide the optional setting
-    :attr:`.common_configuration_id` to reference to a
-    :class:`CommonConfiguration` instance.
-
-    These configuration settings are used by :class:`MeasurementConfiguration`s
-    and :class:`MachineConfiguration`s.
-    """
-
-    def __init__(
-        self,
-        other: Union["_CommonConfigurationIdSettings", None] = None,
-        *,
-        common_configuration_id: Union["CommonConfiguration.Id", None] = None,
-        **kwargs: Settings.InputType,
-    ):
-        if other is not None:
-            assert common_configuration_id is None
-            assert not kwargs
-            super().__init__(other)
-        else:
-            super().__init__(
-                other,
-                common_configuration_id=(common_configuration_id),
-                **kwargs,
-            )
-
-    async def get_common_configuration(self) -> Dict[str, str]:
-        if self.common_configuration_id is None:
-            return Settings()
-        common_configuration = await CommonConfiguration.load(
-            self.common_configuration_id
-        )
-        return common_configuration
-
-
-class MeasurementConfiguration(
-    _MeasurementSettings,
-    _CommonConfigurationIdSettings,
-):
+class MeasurementConfiguration(_MeasurementSettings):
     """
     Configuration for a single measurement (e.g. temperature, RPM, etc.).
     """
@@ -792,7 +823,7 @@ class MeasurementConfiguration(
         # its list of keys(), but filter out the few unwanted ones.
         __RESULT_KEYS = set(
             filter(
-                lambda key: not (key.endswith("_id") or key == "id"),
+                lambda key: not key[0] == "_",
                 _MeasurementSettings().keys(),
             )
         )
@@ -812,7 +843,28 @@ class MeasurementConfiguration(
             start_time: Union[datetime, None] = None,
             end_time: Union[datetime, None] = None,
         ) -> "MeasurementConfiguration.SettingsType":
-            settings = Settings(self.machine_configuration)
+            # Create a temp CommonConfiguration instance to resolve the common
+            # configuration settings from both self.machine_configuration
+            # and self.measurement_configuration
+            temp_common_configuration = CommonConfiguration(
+                # Use a non-string id, so that there is zero risk of conflict
+                # with user-defined (string-only) ids
+                id=(
+                    self.machine_configuration["id"],
+                    self.measurement_configuration["id"],
+                ),
+                common_configuration_ids=itertools.chain(
+                    self.machine_configuration["_common_configuration_ids"],
+                    self.measurement_configuration[
+                        "_common_configuration_ids"
+                    ],
+                ),
+            )
+            settings = await temp_common_configuration.get_common_settings(
+                io_driver=self.io_driver
+            )
+
+            settings.update(self.machine_configuration)
 
             if start_time is not None:
                 self.__assert_aware_time("start_time", start_time)
@@ -823,29 +875,13 @@ class MeasurementConfiguration(
 
             settings.update(self.measurement_configuration)
 
-            common_configuration_id = self.measurement_configuration[
-                "common_configuration_id"
+            authentication_configuration_id = settings[
+                "_authentication_configuration_id"
             ]
-            if common_configuration_id is None:
-                common_configuration_id = self.machine_configuration[
-                    "common_configuration_id"
-                ]
-
-            if common_configuration_id is not None:
-                common_configuration = (
-                    await self.io_driver.common_configurations.get(
-                        common_configuration_id
-                    )
-                )
-                new_settings = Settings(common_configuration)
-                new_settings.update(settings)
-                settings = new_settings
-
-            authentication_context_id = settings["authentication_context_id"]
-            if authentication_context_id is not None:
+            if authentication_configuration_id is not None:
                 authentication_context = (
                     await self.io_driver.authentication_contexts.get(
-                        authentication_context_id
+                        authentication_configuration_id
                     )
                 )
                 new_settings = Settings(authentication_context)
@@ -869,9 +905,7 @@ class MeasurementConfiguration(
                 {
                     key: value
                     for key, value in settings.items()
-                    if not (
-                        key[0] == "_" or key.endswith("_id") or key == "id"
-                    )
+                    if not key[0] == "_"
                 }
             )
 
@@ -891,7 +925,15 @@ class MeasurementConfiguration(
                 machine_configuration=self.machine_configuration,
                 measurement_configuration=self.measurement_configuration,
             )
-            result = settings.interpolate(context=interpolation_context)
+            try:
+                result = settings.interpolate(context=interpolation_context)
+            except Error as err:
+                err.index = [
+                    self.machine_configuration["id"],
+                    "measurements",
+                    self.measurement_configuration["id"],
+                ] + err.index
+                raise err from None
             return result
 
         @staticmethod
@@ -939,6 +981,12 @@ class CommonConfiguration(_MachineConfigurationSettings):
     :class:`MeasurementConfiguration` and :class:`MachineConfiguration`
     instances to load configuration data from a common shared configuration
     point.
+    A :class:`CommonConfiguration` instance may refer to other
+    :class:`CommonConfiguration` instances through the
+    ``common_configuration_ids`` constructor parameter.
+    See :meth:`.get_common_settings` method for details about how the settings
+    from the different :class:`CommonConfiguration` instances, including this
+    one, are merged together.
 
     The actual contents, including the list of keys, are strictly customer-
     and API-specific, and are not under the responsibility of this class.
@@ -962,10 +1010,51 @@ class CommonConfiguration(_MachineConfigurationSettings):
             assert not kwargs
             super().__init__(other)
 
+    async def get_common_settings(
+        self,
+        io_driver: "IODriver",
+        already_visited: Union[Set["CommonConfiguration.Id"], None] = None,
+    ) -> Settings:
+        """
+        Return a :class:`Settings` instance containing all the
+        (non-interpolated) settings specified by this
+        :class:`CommonConfiguration`.
 
-class MachineConfiguration(
-    _MachineConfigurationSettings, _CommonConfigurationIdSettings
-):
+        The resulting :class:`Settings` are computed by merging, by means of
+        :attr:`Settings.update` method, the contents of all the (optional)
+        :class:`CommonConfiguration`s referenced by
+        ``common_configuration_ids`` constructor parameter, in the same order
+        in which they are listed in that same ``common_configuration_ids``
+        parameter, and finally merging the contents of this
+        :class:`CommonConfiguration`.
+        Therefore, the settings from the aforementioned sequence of
+        :class:`CommonConfiguration` contributors are applied in the increasing
+        order of precedence. E.g. the settings from last contributor - i.e.
+        from this :class:`CommonConfiguration` - have higher precedence over
+        same-name settings from other :class:`CommonConfiguration`s
+        """
+
+        common_configuration_id = self["id"]
+        if already_visited is None:
+            already_visited = {common_configuration_id}
+        else:
+            if common_configuration_id in already_visited:
+                raise ConfigurationError(
+                    "Common configuration loop"
+                    f" for {common_configuration_id!r}."
+                    f"All visited common configuration: {already_visited}"
+                )
+            already_visited.add(common_configuration_id)
+
+        result = await super().get_common_settings(
+            io_driver=io_driver,
+            already_visited=already_visited,
+        )
+        result.update(self)
+        return result
+
+
+class MachineConfiguration(_MachineConfigurationSettings):
     """
     Configuration for one machine, containing a machine-specific number of
     :class:`MeasurementConfiguration`s.

@@ -36,7 +36,7 @@ def common_configuration_1():
     params = load_yaml(
         """
     id: cc1
-    authentication_context_id: ac1
+    authentication_configuration_id: ac1
     url:
         "https://gradesens.com/{zone}/{machine_id}/{device}/{measurement_id}"
     zone: area42
@@ -72,14 +72,16 @@ def machine_configuration_1():
     params = load_yaml(
         """
     id: mach1
-    common_configuration_id: cc1
+    common_configuration_ids: cc1
     finger_count: 5
+    region: basel
     url:
         "https://gradesens.com/{zone}/MACHINE/{machine_id}\\
         /{device}/{measurement_id}"
     measurements:
         -   id: temperature
-            common_configuration_id: cc2
+            region: zurich
+            common_configuration_ids: cc2
             query_string:
                 depth: "12"
                 width: P_{param}_xx
@@ -93,7 +95,7 @@ def machine_configuration_1():
                 dune: worms
 
         -   id: power
-            common_configuration_id: cc2
+            common_configuration_ids: cc2
             headers:
                 animal: cow
     """
@@ -165,7 +167,7 @@ def machine_configuration_with_result():
     params = load_yaml(
         r"""
     id: mach_w_result
-    common_configuration_id: cc_w_result
+    common_configuration_ids: cc_w_result
     result:
         timestamp:
             regular_expression:

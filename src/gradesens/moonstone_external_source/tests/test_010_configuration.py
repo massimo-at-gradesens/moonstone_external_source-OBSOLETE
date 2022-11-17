@@ -19,7 +19,8 @@ def test_common_configuration(common_configuration_1):
     assert isinstance(common_configuration_1, CommonConfiguration)
     expected = {
         "id": "cc1",
-        "authentication_context_id": "ac1",
+        "_authentication_configuration_id": "ac1",
+        "_common_configuration_ids": (),
         "url": (
             "https://gradesens.com/{zone}/{machine_id}"
             "/{device}/{measurement_id}"
@@ -51,8 +52,8 @@ def test_machine_configuration(machine_configuration_1):
 
     expected = {
         "id": "mach1",
-        "common_configuration_id": "cc1",
-        "authentication_context_id": None,
+        "_common_configuration_ids": ("cc1",),
+        "_authentication_configuration_id": None,
         "url": (
             "https://gradesens.com/{zone}/MACHINE/{machine_id}/{device}"
             "/{measurement_id}"
@@ -63,11 +64,13 @@ def test_machine_configuration(machine_configuration_1):
         "result": {
             "_interpolate": False,
         },
+        "region": "basel",
         "measurements": {
             "temperature": {
                 "id": "temperature",
-                "common_configuration_id": "cc2",
-                "authentication_context_id": None,
+                "_common_configuration_ids": ("cc2",),
+                "_authentication_configuration_id": None,
+                "region": "zurich",
                 "url": None,
                 "query_string": {
                     "depth": "12",
@@ -80,8 +83,8 @@ def test_machine_configuration(machine_configuration_1):
             },
             "rpm": {
                 "id": "rpm",
-                "common_configuration_id": None,
-                "authentication_context_id": None,
+                "_common_configuration_ids": (),
+                "_authentication_configuration_id": None,
                 "url": (
                     "https://gradesens.com/{zone}/{machine_id}"
                     "/{device}/RPM/{measurement_id}"
@@ -97,8 +100,8 @@ def test_machine_configuration(machine_configuration_1):
             },
             "power": {
                 "id": "power",
-                "common_configuration_id": "cc2",
-                "authentication_context_id": None,
+                "_common_configuration_ids": ("cc2",),
+                "_authentication_configuration_id": None,
                 "url": None,
                 "query_string": {},
                 "headers": {
@@ -135,9 +138,13 @@ async def test_interpolated_measurement_settings(
         "query_string": {
             "depth": "12",
             "width": "P_I am a parameter_xx",
+            "HELLO": "zurich@world",
         },
         "headers": {
             "hello": "world",
+            "head": "oval",
+            "fingers": "count_5",
+            "bearer": "I am a secret",
         },
         "result": {},
     }
@@ -166,9 +173,13 @@ async def test_interpolated_measurement_all_settings(
             "query_string": {
                 "depth": "12",
                 "width": "P_I am a parameter_xx",
+                "HELLO": "zurich@world",
             },
             "headers": {
                 "hello": "world",
+                "head": "oval",
+                "fingers": "count_5",
+                "bearer": "I am a secret",
             },
             "result": {},
         },
@@ -193,10 +204,15 @@ async def test_interpolated_measurement_all_settings(
                 "https://gradesens.com/Connecticut/MACHINE"
                 "/mach1/better than cc1 device/power"
             ),
-            "query_string": {},
+            "query_string": {
+                "HELLO": "basel@world",
+            },
             "headers": {
                 "hello": "world",
                 "animal": "cow",
+                "head": "oval",
+                "fingers": "count_5",
+                "bearer": "I am a secret",
             },
             "result": {},
         },

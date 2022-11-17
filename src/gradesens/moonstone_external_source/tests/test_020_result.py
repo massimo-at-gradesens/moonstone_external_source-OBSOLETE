@@ -16,8 +16,8 @@ async def test_machine_configuration_with_result(io_driver_1):
     mach_conf = await io_driver_1.machine_configurations.get("mach_w_result")
     expected = {
         "id": "mach_w_result",
-        "common_configuration_id": "cc_w_result",
-        "authentication_context_id": None,
+        "_common_configuration_ids": ("cc_w_result",),
+        "_authentication_configuration_id": None,
         "url": None,
         "query_string": {},
         "headers": {},
@@ -25,14 +25,14 @@ async def test_machine_configuration_with_result(io_driver_1):
             "_interpolate": False,
             "timestamp": {
                 "type": converters["datetime"],
-                "regular_expressions": [
+                "regular_expressions": (
                     {
                         "regular_expression": re.compile(
                             "^(|.*[^0-9])(?P<year>[0-9]+).*", re.IGNORECASE
                         ),
                         "replacement": r"20\g<year>-11-15",
                     },
-                ],
+                ),
             },
             "value": {
                 "raw_value": "{get}{the}{raw}",
@@ -41,8 +41,8 @@ async def test_machine_configuration_with_result(io_driver_1):
         "measurements": {
             "temperature": {
                 "id": "temperature",
-                "common_configuration_id": None,
-                "authentication_context_id": None,
+                "_common_configuration_ids": (),
+                "_authentication_configuration_id": None,
                 "url": None,
                 "query_string": {},
                 "headers": {},
@@ -59,8 +59,8 @@ async def test_machine_configuration_with_result(io_driver_1):
             },
             "rpm": {
                 "id": "rpm",
-                "common_configuration_id": None,
-                "authentication_context_id": None,
+                "_common_configuration_ids": (),
+                "_authentication_configuration_id": None,
                 "url": None,
                 "query_string": {},
                 "headers": {},
@@ -69,7 +69,7 @@ async def test_machine_configuration_with_result(io_driver_1):
                     "timestamp": {
                         "type": converters["datetime"],
                         "raw_value": 23,
-                        "regular_expressions": [
+                        "regular_expressions": (
                             {
                                 "regular_expression": re.compile("^(.*)$"),
                                 "replacement": r"17-\1\1-08",
@@ -80,11 +80,11 @@ async def test_machine_configuration_with_result(io_driver_1):
                                 ),
                                 "replacement": r"\g<y>-\g<m>-\g<d>",
                             },
-                        ],
+                        ),
                     },
                     "value": {
                         "type": converters["int"],
-                        "regular_expressions": [
+                        "regular_expressions": (
                             {
                                 "regular_expression": re.compile("^(.*)$"),
                                 "replacement": r"0x\1",
@@ -93,14 +93,14 @@ async def test_machine_configuration_with_result(io_driver_1):
                                 "regular_expression": re.compile("[83]"),
                                 "replacement": r"7",
                             },
-                        ],
+                        ),
                     },
                 },
             },
             "humidity": {
                 "id": "humidity",
-                "common_configuration_id": None,
-                "authentication_context_id": None,
+                "_common_configuration_ids": (),
+                "_authentication_configuration_id": None,
                 "url": None,
                 "query_string": {},
                 "headers": {},
@@ -133,14 +133,14 @@ async def test_machine_settings_with_result(io_driver_1):
                 "timestamp": {
                     "type": converters["datetime"],
                     "raw_value": "{temp_ts_raw}",
-                    "regular_expressions": [
+                    "regular_expressions": (
                         {
                             "regular_expression": re.compile(
                                 "^(|.*[^0-9])(?P<year>[0-9]+).*", re.IGNORECASE
                             ),
                             "replacement": r"20\g<year>-11-15",
                         },
-                    ],
+                    ),
                 },
                 "value": {
                     "type": converters["float"],
@@ -156,7 +156,7 @@ async def test_machine_settings_with_result(io_driver_1):
                 "timestamp": {
                     "type": converters["datetime"],
                     "raw_value": 23,
-                    "regular_expressions": [
+                    "regular_expressions": (
                         {
                             "regular_expression": re.compile("^(.*)$"),
                             "replacement": r"17-\1\1-08",
@@ -167,12 +167,12 @@ async def test_machine_settings_with_result(io_driver_1):
                             ),
                             "replacement": r"\g<y>-\g<m>-\g<d>",
                         },
-                    ],
+                    ),
                 },
                 "value": {
                     "raw_value": "{get}{the}{raw}",
                     "type": converters["int"],
-                    "regular_expressions": [
+                    "regular_expressions": (
                         {
                             "regular_expression": re.compile("^(.*)$"),
                             "replacement": r"0x\1",
@@ -181,7 +181,7 @@ async def test_machine_settings_with_result(io_driver_1):
                             "regular_expression": re.compile("[83]"),
                             "replacement": r"7",
                         },
-                    ],
+                    ),
                 },
             },
         },
@@ -193,14 +193,14 @@ async def test_machine_settings_with_result(io_driver_1):
                 "timestamp": {
                     "type": converters["datetime"],
                     "raw_value": "{out_field2}",
-                    "regular_expressions": [
+                    "regular_expressions": (
                         {
                             "regular_expression": re.compile(
                                 "^(|.*[^0-9])(?P<year>[0-9]+).*", re.IGNORECASE
                             ),
                             "replacement": r"20\g<year>-11-15",
                         },
-                    ],
+                    ),
                 },
                 "value": {
                     "raw_value": "{get}{the}{raw}",
