@@ -1042,7 +1042,8 @@ class CommonConfiguration(_MachineConfigurationSettings):
                 raise ConfigurationError(
                     "Common configuration loop"
                     f" for {common_configuration_id!r}."
-                    f"All visited common configuration: {already_visited}"
+                    " All visited common configurations"
+                    f" in this loop: {already_visited}"
                 )
             already_visited.add(common_configuration_id)
 

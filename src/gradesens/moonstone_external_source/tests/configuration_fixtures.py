@@ -209,11 +209,102 @@ def machine_configuration_with_result():
 
 
 @pytest.fixture
+def common_configuration_nested_1():
+    params = load_yaml(
+        """
+    id: cc1-n
+    url:
+        "123"
+    zone: area42
+    query_string:
+        hello: world
+        east: west
+    headers:
+        head: oval
+    """
+    )
+    return CommonConfiguration(**params)
+
+
+@pytest.fixture
+def common_configuration_nested_2():
+    params = load_yaml(
+        """
+    id: cc2-n
+    query_string:
+        hello: moon
+        south: north
+    headers:
+        square: four sides
+        circle: round
+    measurements:
+        -   id: temperature
+            headers:
+                bicycle: two wheels
+                token: super secret
+    """
+    )
+    return CommonConfiguration(**params)
+
+
+@pytest.fixture
+def common_configuration_nested_3():
+    params = load_yaml(
+        """
+    id: cc3-n
+    common_configuration_ids:
+        - cc1-n
+        - cc2-n
+
+    headers:
+        circle: really ROUND
+    measurements:
+        -   id: temperature
+            headers:
+                token: password
+        -   id: rpm
+    """
+    )
+    return CommonConfiguration(**params)
+
+
+@pytest.fixture
+def common_configuration_nested_4_loop():
+    params = load_yaml(
+        """
+    id: cc4-n
+    common_configuration_ids:
+        - cc1-n
+        - cc5-n
+        - cc2-n
+    """
+    )
+    return CommonConfiguration(**params)
+
+
+@pytest.fixture
+def common_configuration_nested_5_loop():
+    params = load_yaml(
+        """
+    id: cc5-n
+    common_configuration_ids:
+        - cc4-n
+    """
+    )
+    return CommonConfiguration(**params)
+
+
+@pytest.fixture
 def io_driver_1(
     authentication_context_1,
     common_configuration_1,
     common_configuration_2,
     common_configuration_with_result,
+    common_configuration_nested_1,
+    common_configuration_nested_2,
+    common_configuration_nested_3,
+    common_configuration_nested_4_loop,
+    common_configuration_nested_5_loop,
     machine_configuration_1,
     machine_configuration_2,
     machine_configuration_with_time,
@@ -271,6 +362,11 @@ def io_driver_1(
             common_configuration_1,
             common_configuration_2,
             common_configuration_with_result,
+            common_configuration_nested_1,
+            common_configuration_nested_2,
+            common_configuration_nested_3,
+            common_configuration_nested_4_loop,
+            common_configuration_nested_5_loop,
         ],
         machine_configurations=[
             machine_configuration_1,

@@ -253,21 +253,21 @@ async def test_start_end_times(
 ):
     mach_conf_1 = await io_driver_1.machine_configurations.get("mach_w_time")
     resolver = mach_conf_1.get_setting_resolver(io_driver_1)
-    with pytest.raises(TimeError) as exc_info:
+    with pytest.raises(TimeError) as exc:
         await resolver.get_settings(start_time=datetime.now())
-    assert "start_time" in str(exc_info.value)
+    assert "start_time" in str(exc.value)
 
-    with pytest.raises(TimeError) as exc_info:
+    with pytest.raises(TimeError) as exc:
         await resolver.get_settings(end_time=datetime.now())
-    assert "end_time" in str(exc_info.value)
+    assert "end_time" in str(exc.value)
 
-    with pytest.raises(PatternError) as exc_info:
+    with pytest.raises(PatternError) as exc:
         await resolver.get_settings()
-    with pytest.raises(PatternError) as exc_info:
+    with pytest.raises(PatternError) as exc:
         await resolver["measurements"]["temperature"].get_settings()
-    with pytest.raises(PatternError) as exc_info:
+    with pytest.raises(PatternError) as exc:
         await resolver.get_settings(start_time=datetime.now(timezone.utc))
-    with pytest.raises(PatternError) as exc_info:
+    with pytest.raises(PatternError) as exc:
         await resolver.get_settings(end_time=datetime.now(timezone.utc))
 
     settings = await resolver["measurements"]["temperature"].get_settings(
