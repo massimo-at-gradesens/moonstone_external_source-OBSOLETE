@@ -577,84 +577,6 @@ class _MeasurementResultTimestampFieldSettings(
             super().__init__(type="datetime", **kwargs)
 
 
-class _MeasurementResultSettings(Settings):
-    """
-    Configuration settings for a single measurement's results.
-
-    These configuration settings are used by :class:`_MeasurementSettings`
-    instances.
-    """
-
-    RawResultValueType = Any
-    RawResultType = Dict[str, Union[RawResultValueType, "RawResultType"]]
-    ResultValueType = Any
-    ResultType = Dict[str, ResultValueType]
-
-    def __init__(
-        self,
-        other: Union["_MeasurementResultSettings", None] = None,
-        *,
-        value: Union[_MeasurementResultFieldSettings.InputType, None] = None,
-        timestamp: Union[
-            _MeasurementResultTimestampFieldSettings.InputType, None
-        ] = None,
-    ):
-        if other is not None:
-            assert value is None
-            assert timestamp is None
-            super().__init__(other)
-        else:
-            kwargs = dict(
-                _interpolate=False,
-            )
-            if value is not None:
-                kwargs.update(value=_MeasurementResultFieldSettings(**value))
-            if timestamp is not None:
-                kwargs.update(
-                    timestamp=_MeasurementResultTimestampFieldSettings(
-                        **timestamp
-                    )
-                )
-            super().__init__(**kwargs)
-
-    class InterpolatedSettings(dict):
-        def __init__(
-            self, *, context: Settings.InterpolationContext, **kwargs
-        ):
-            self.__context = context
-            super().__init__(kwargs)
-
-        def process_result(
-            self, raw_result: "_MeasurementResultSettings.RawResultType"
-        ) -> "_MeasurementResultSettings.ResultType":
-            result = {}
-            for key, value in self.items():
-                if value is None:
-                    raise ConfigurationError(f"Field {key!r} is not specified")
-                try:
-                    result[key] = value.process_result(raw_result)
-                except Error as err:
-                    machine_id = self.__context["machine_configuration"]["id"]
-                    measurement_id = self.__context[
-                        "measurement_configuration"
-                    ]["id"]
-                    raise type(err)(
-                        f"Machine {machine_id!r}: "
-                        f"Measurement {measurement_id!r}: "
-                        f"Field {key!r}: "
-                        f"{err}"
-                    ) from None
-            return result
-
-    def interpolate(
-        self, *args, context: Settings.InterpolationContext, **kwargs
-    ) -> InterpolatedSettings:
-        return self.InterpolatedSettings(
-            context=context,
-            **dict(self.interpolated_items(*args, context=context, **kwargs)),
-        )
-
-
 class _CommonConfigurationIdSettings(Settings):
     """
     Mixin to provide the optional setting
@@ -731,6 +653,119 @@ class _CommonConfigurationIdSettings(Settings):
         return result
 
 
+class _HTTPRequestSettings(Settings):
+    """
+    Configuration settings for a generic HTTP request.
+
+    These configuration settings are used by
+    :class:`_MeasurementSettings` and :class:`_AuthenticationSettings`
+    """
+
+    def __init__(
+        self,
+        other: Union["_HTTPRequestSettings", None] = None,
+        *,
+        url: str = None,
+        query_string: Union[Settings.InputType, None] = None,
+        headers: Union[Settings.InputType, None] = None,
+        **kwargs: Settings.InputType,
+    ):
+        if other is not None:
+            assert url is None
+            assert query_string is None
+            assert headers is None
+            assert not kwargs
+            super().__init__(other)
+        else:
+            query_string = Settings(query_string)
+            headers = Settings(headers)
+
+            super().__init__(
+                other,
+                url=url,
+                query_string=query_string,
+                headers=headers,
+                **kwargs,
+            )
+
+
+class _MeasurementResultSettings(Settings):
+    """
+    Configuration settings for measurement results.
+
+    These configuration settings are used by :class:`_MeasurementSettings`.
+    """
+
+    RawResultValueType = Any
+    RawResultType = Dict[str, Union[RawResultValueType, "RawResultType"]]
+    ResultValueType = Any
+    ResultType = Dict[str, ResultValueType]
+
+    def __init__(
+        self,
+        other: Union["_MeasurementResultSettings", None] = None,
+        *,
+        value: Union[_MeasurementResultFieldSettings.InputType, None] = None,
+        timestamp: Union[
+            _MeasurementResultTimestampFieldSettings.InputType, None
+        ] = None,
+    ):
+        if other is not None:
+            assert value is None
+            assert timestamp is None
+            super().__init__(other)
+        else:
+            kwargs = dict(
+                _interpolate=False,
+            )
+            if value is not None:
+                kwargs.update(value=_MeasurementResultFieldSettings(**value))
+            if timestamp is not None:
+                kwargs.update(
+                    timestamp=_MeasurementResultTimestampFieldSettings(
+                        **timestamp
+                    )
+                )
+            super().__init__(**kwargs)
+
+    class InterpolatedSettings(dict):
+        def __init__(
+            self, *, context: Settings.InterpolationContext, **kwargs
+        ):
+            self.__context = context
+            super().__init__(kwargs)
+
+        def process_result(
+            self, raw_result: "_MeasurementResultSettings.RawResultType"
+        ) -> "_MeasurementResultSettings.ResultType":
+            result = {}
+            for key, value in self.items():
+                if value is None:
+                    raise ConfigurationError(f"Field {key!r} is not specified")
+                try:
+                    result[key] = value.process_result(raw_result)
+                except Error as err:
+                    machine_id = self.__context["machine_configuration"]["id"]
+                    measurement_id = self.__context[
+                        "measurement_configuration"
+                    ]["id"]
+                    raise type(err)(
+                        f"Machine {machine_id!r}: "
+                        f"Measurement {measurement_id!r}: "
+                        f"Field {key!r}: "
+                        f"{err}"
+                    ) from None
+            return result
+
+    def interpolate(
+        self, *args, context: Settings.InterpolationContext, **kwargs
+    ) -> InterpolatedSettings:
+        return self.InterpolatedSettings(
+            context=context,
+            **dict(self.interpolated_items(*args, context=context, **kwargs)),
+        )
+
+
 class _MeasurementSettings(_CommonConfigurationIdSettings):
     """
     Configuration settings for a single measurement.
@@ -739,50 +774,44 @@ class _MeasurementSettings(_CommonConfigurationIdSettings):
     :class:`MeasurementConfiguration`s and :class:`MachineConfiguration`s.
     """
 
-    MeasurementResults = 0
-
     def __init__(
         self,
         other: Union["_MeasurementSettings", None] = None,
         *,
-        url: str = None,
-        query_string: Union[Settings.InputType, None] = None,
-        headers: Union[Settings.InputType, None] = None,
         authentication_configuration_id: Union[
             AuthenticationContext.Id, None
         ] = None,
+        request: Union[_HTTPRequestSettings, None] = None,
         result: Union[_MeasurementResultSettings, None] = None,
         **kwargs: Settings.InputType,
     ):
         if other is not None:
-            assert url is None
-            assert query_string is None
-            assert headers is None
             assert authentication_configuration_id is None
+            assert request is None
             assert result is None
             assert not kwargs
             super().__init__(other)
         else:
-            query_string = Settings(query_string)
-            headers = Settings(headers)
-
             # Force a non-copy creation, so as to instantiate the
             # field-specific settings classes, required for proper result
             # parsing.
-            # Furthermore, always force the creation a result settings object,
-            # even if empty, to make sure the _interpolate field is set.
+            # Furthermore, always force the creation of request and result
+            # settings object, even if empty, to make sure any settings-
+            # specific features are properly set, such as the _interpolate
+            # field of _MeasurementResultSettings
+            if request is None:
+                request = {}
+            request = _HTTPRequestSettings(**request)
             if result is None:
                 result = {}
             result = _MeasurementResultSettings(**result)
 
             super().__init__(
                 other,
-                url=url,
-                query_string=query_string,
-                headers=headers,
                 _authentication_configuration_id=(
                     authentication_configuration_id
                 ),
+                request=request,
                 result=result,
                 **kwargs,
             )

@@ -21,19 +21,21 @@ def test_common_configuration(common_configuration_1):
         "id": "cc1",
         "_authentication_configuration_id": "ac1",
         "_common_configuration_ids": (),
-        "url": (
-            "https://gradesens.com/{zone}/{machine_id}"
-            "/{device}/{measurement_id}"
-        ),
+        "request": {
+            "url": (
+                "https://gradesens.com/{zone}/{machine_id}"
+                "/{device}/{measurement_id}"
+            ),
+            "query_string": {
+                "HELLO": "{region}@world",
+            },
+            "headers": {
+                "head": "oval",
+                "fingers": "count_{finger_count}",
+                "bearer": "{token}",
+            },
+        },
         "zone": "area42",
-        "query_string": {
-            "HELLO": "{region}@world",
-        },
-        "headers": {
-            "head": "oval",
-            "fingers": "count_{finger_count}",
-            "bearer": "{token}",
-        },
         "device": "best device ever",
         "measurements": {},
         "result": {
@@ -54,12 +56,14 @@ def test_machine_configuration(machine_configuration_1):
         "id": "mach1",
         "_common_configuration_ids": ("cc1",),
         "_authentication_configuration_id": None,
-        "url": (
-            "https://gradesens.com/{zone}/MACHINE/{machine_id}/{device}"
-            "/{measurement_id}"
-        ),
-        "query_string": {},
-        "headers": {},
+        "request": {
+            "url": (
+                "https://gradesens.com/{zone}/MACHINE/{machine_id}/{device}"
+                "/{measurement_id}"
+            ),
+            "query_string": {},
+            "headers": {},
+        },
         "finger_count": 5,
         "result": {
             "_interpolate": False,
@@ -71,12 +75,14 @@ def test_machine_configuration(machine_configuration_1):
                 "_common_configuration_ids": ("cc2",),
                 "_authentication_configuration_id": None,
                 "region": "zurich",
-                "url": None,
-                "query_string": {
-                    "depth": "12",
-                    "width": "P_{param}_xx",
+                "request": {
+                    "url": None,
+                    "query_string": {
+                        "depth": "12",
+                        "width": "P_{param}_xx",
+                    },
+                    "headers": {},
                 },
-                "headers": {},
                 "result": {
                     "_interpolate": False,
                 },
@@ -85,14 +91,16 @@ def test_machine_configuration(machine_configuration_1):
                 "id": "rpm",
                 "_common_configuration_ids": (),
                 "_authentication_configuration_id": None,
-                "url": (
-                    "https://gradesens.com/{zone}/{machine_id}"
-                    "/{device}/RPM/{measurement_id}"
-                ),
-                "query_string": {
-                    "dune": "worms",
+                "request": {
+                    "url": (
+                        "https://gradesens.com/{zone}/{machine_id}"
+                        "/{device}/RPM/{measurement_id}"
+                    ),
+                    "query_string": {
+                        "dune": "worms",
+                    },
+                    "headers": {},
                 },
-                "headers": {},
                 "region": "Wallis",
                 "result": {
                     "_interpolate": False,
@@ -102,10 +110,12 @@ def test_machine_configuration(machine_configuration_1):
                 "id": "power",
                 "_common_configuration_ids": ("cc2",),
                 "_authentication_configuration_id": None,
-                "url": None,
-                "query_string": {},
-                "headers": {
-                    "animal": "cow",
+                "request": {
+                    "url": None,
+                    "query_string": {},
+                    "headers": {
+                        "animal": "cow",
+                    },
                 },
                 "result": {
                     "_interpolate": False,
@@ -131,20 +141,22 @@ async def test_interpolated_measurement_settings(
     assert not isinstance(settings, Settings)
 
     expected = {
-        "url": (
-            "https://gradesens.com/Connecticut/MACHINE"
-            "/mach1/better than cc1 device/temperature"
-        ),
-        "query_string": {
-            "depth": "12",
-            "width": "P_I am a parameter_xx",
-            "HELLO": "zurich@world",
-        },
-        "headers": {
-            "hello": "world",
-            "head": "oval",
-            "fingers": "count_5",
-            "bearer": "I am a secret",
+        "request": {
+            "url": (
+                "https://gradesens.com/Connecticut/MACHINE"
+                "/mach1/better than cc1 device/temperature"
+            ),
+            "query_string": {
+                "depth": "12",
+                "width": "P_I am a parameter_xx",
+                "HELLO": "zurich@world",
+            },
+            "headers": {
+                "hello": "world",
+                "head": "oval",
+                "fingers": "count_5",
+                "bearer": "I am a secret",
+            },
         },
         "result": {},
     }
@@ -166,53 +178,59 @@ async def test_interpolated_measurement_all_settings(
 
     expected = {
         "temperature": {
-            "url": (
-                "https://gradesens.com/Connecticut/MACHINE"
-                "/mach1/better than cc1 device/temperature"
-            ),
-            "query_string": {
-                "depth": "12",
-                "width": "P_I am a parameter_xx",
-                "HELLO": "zurich@world",
-            },
-            "headers": {
-                "hello": "world",
-                "head": "oval",
-                "fingers": "count_5",
-                "bearer": "I am a secret",
+            "request": {
+                "url": (
+                    "https://gradesens.com/Connecticut/MACHINE"
+                    "/mach1/better than cc1 device/temperature"
+                ),
+                "query_string": {
+                    "depth": "12",
+                    "width": "P_I am a parameter_xx",
+                    "HELLO": "zurich@world",
+                },
+                "headers": {
+                    "hello": "world",
+                    "head": "oval",
+                    "fingers": "count_5",
+                    "bearer": "I am a secret",
+                },
             },
             "result": {},
         },
         "rpm": {
-            "url": (
-                "https://gradesens.com/area42/mach1"
-                "/best device ever/RPM/rpm"
-            ),
-            "query_string": {
-                "HELLO": "Wallis@world",
-                "dune": "worms",
-            },
-            "headers": {
-                "head": "oval",
-                "fingers": "count_5",
-                "bearer": "I am a secret",
+            "request": {
+                "url": (
+                    "https://gradesens.com/area42/mach1"
+                    "/best device ever/RPM/rpm"
+                ),
+                "query_string": {
+                    "HELLO": "Wallis@world",
+                    "dune": "worms",
+                },
+                "headers": {
+                    "head": "oval",
+                    "fingers": "count_5",
+                    "bearer": "I am a secret",
+                },
             },
             "result": {},
         },
         "power": {
-            "url": (
-                "https://gradesens.com/Connecticut/MACHINE"
-                "/mach1/better than cc1 device/power"
-            ),
-            "query_string": {
-                "HELLO": "basel@world",
-            },
-            "headers": {
-                "hello": "world",
-                "animal": "cow",
-                "head": "oval",
-                "fingers": "count_5",
-                "bearer": "I am a secret",
+            "request": {
+                "url": (
+                    "https://gradesens.com/Connecticut/MACHINE"
+                    "/mach1/better than cc1 device/power"
+                ),
+                "query_string": {
+                    "HELLO": "basel@world",
+                },
+                "headers": {
+                    "hello": "world",
+                    "animal": "cow",
+                    "head": "oval",
+                    "fingers": "count_5",
+                    "bearer": "I am a secret",
+                },
             },
             "result": {},
         },
@@ -234,12 +252,14 @@ async def test_complex_interpolated_measurement_all_settings(
 
     expected = {
         "temperature": {
-            "url": "this is a 4: FouR",
-            "query_string": {
-                "depth": ":: world :: tw0 ::",
-                "plain": "I am a plain string",
+            "request": {
+                "url": "this is a 4: FouR",
+                "query_string": {
+                    "depth": ":: world :: tw0 ::",
+                    "plain": "I am a plain string",
+                },
+                "headers": {},
             },
-            "headers": {},
             "result": {},
         }
     }
@@ -290,7 +310,7 @@ async def test_start_end_times(
             tzinfo=timezone.utc,
         ),
     )
-    query_string = settings["query_string"]
+    query_string = settings["request"]["query_string"]
 
     assert isinstance(query_string["start"], str)
     assert query_string["start"] == "2022-11-14T17:34:17+00:00"

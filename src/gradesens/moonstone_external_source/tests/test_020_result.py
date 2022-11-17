@@ -18,9 +18,11 @@ async def test_machine_configuration_with_result(io_driver_1):
         "id": "mach_w_result",
         "_common_configuration_ids": ("cc_w_result",),
         "_authentication_configuration_id": None,
-        "url": None,
-        "query_string": {},
-        "headers": {},
+        "request": {
+            "url": None,
+            "query_string": {},
+            "headers": {},
+        },
         "result": {
             "_interpolate": False,
             "timestamp": {
@@ -43,9 +45,11 @@ async def test_machine_configuration_with_result(io_driver_1):
                 "id": "temperature",
                 "_common_configuration_ids": (),
                 "_authentication_configuration_id": None,
-                "url": None,
-                "query_string": {},
-                "headers": {},
+                "request": {
+                    "url": None,
+                    "query_string": {},
+                    "headers": {},
+                },
                 "result": {
                     "_interpolate": False,
                     "value": {
@@ -61,9 +65,11 @@ async def test_machine_configuration_with_result(io_driver_1):
                 "id": "rpm",
                 "_common_configuration_ids": (),
                 "_authentication_configuration_id": None,
-                "url": None,
-                "query_string": {},
-                "headers": {},
+                "request": {
+                    "url": None,
+                    "query_string": {},
+                    "headers": {},
+                },
                 "result": {
                     "_interpolate": False,
                     "timestamp": {
@@ -101,9 +107,11 @@ async def test_machine_configuration_with_result(io_driver_1):
                 "id": "humidity",
                 "_common_configuration_ids": (),
                 "_authentication_configuration_id": None,
-                "url": None,
-                "query_string": {},
-                "headers": {},
+                "request": {
+                    "url": None,
+                    "query_string": {},
+                    "headers": {},
+                },
                 "result": {
                     "_interpolate": False,
                     "timestamp": {
@@ -126,9 +134,11 @@ async def test_machine_settings_with_result(io_driver_1):
     settings = await resolver.get_settings()
     expected = {
         "temperature": {
-            "url": None,
-            "query_string": {},
-            "headers": {},
+            "request": {
+                "url": None,
+                "query_string": {},
+                "headers": {},
+            },
             "result": {
                 "timestamp": {
                     "type": converters["datetime"],
@@ -149,9 +159,11 @@ async def test_machine_settings_with_result(io_driver_1):
             },
         },
         "rpm": {
-            "url": None,
-            "query_string": {},
-            "headers": {},
+            "request": {
+                "url": None,
+                "query_string": {},
+                "headers": {},
+            },
             "result": {
                 "timestamp": {
                     "type": converters["datetime"],
@@ -186,9 +198,11 @@ async def test_machine_settings_with_result(io_driver_1):
             },
         },
         "humidity": {
-            "url": None,
-            "query_string": {},
-            "headers": {},
+            "request": {
+                "url": None,
+                "query_string": {},
+                "headers": {},
+            },
             "result": {
                 "timestamp": {
                     "type": converters["datetime"],

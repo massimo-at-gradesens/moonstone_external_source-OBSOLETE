@@ -37,15 +37,17 @@ def common_configuration_1():
         """
     id: cc1
     authentication_configuration_id: ac1
-    url:
-        "https://gradesens.com/{zone}/{machine_id}/{device}/{measurement_id}"
     zone: area42
-    query_string:
-        HELLO: "{region}@world"
-    headers:
-        head: oval
-        fingers: "count_{finger_count}"
-        bearer: "{token}"
+    request:
+        url:
+            "https://gradesens.com/{zone}/{machine_id}/\\
+            {device}/{measurement_id}"
+        query_string:
+            HELLO: "{region}@world"
+        headers:
+            head: oval
+            fingers: "count_{finger_count}"
+            bearer: "{token}"
     device: "best device ever"
     """
     )
@@ -60,8 +62,9 @@ def common_configuration_2():
     zone: Connecticut
     param: I am a parameter
     device: "better than cc1 device"
-    headers:
-        hello: world
+    request:
+        headers:
+            hello: world
     """
     )
     return CommonConfiguration(**params)
@@ -75,29 +78,33 @@ def machine_configuration_1():
     common_configuration_ids: cc1
     finger_count: 5
     region: basel
-    url:
-        "https://gradesens.com/{zone}/MACHINE/{machine_id}\\
-        /{device}/{measurement_id}"
+    request:
+        url:
+            "https://gradesens.com/{zone}/MACHINE/{machine_id}\\
+            /{device}/{measurement_id}"
     measurements:
         -   id: temperature
             region: zurich
             common_configuration_ids: cc2
-            query_string:
-                depth: "12"
-                width: P_{param}_xx
+            request:
+                query_string:
+                    depth: "12"
+                    width: P_{param}_xx
 
         -   id: rpm
             region: Wallis
-            url:
-                "https://gradesens.com/{zone}/{machine_id}\\
-                /{device}/RPM/{measurement_id}"
-            query_string:
-                dune: worms
+            request:
+                url:
+                    "https://gradesens.com/{zone}/{machine_id}\\
+                    /{device}/RPM/{measurement_id}"
+                query_string:
+                    dune: worms
 
         -   id: power
             common_configuration_ids: cc2
-            headers:
-                animal: cow
+            request:
+                headers:
+                    animal: cow
     """
     )
     return MachineConfiguration(**params)
@@ -116,10 +123,11 @@ def machine_configuration_2():
         three: FouR
     measurements:
         -   id: temperature
-            url: "this is a 4: {mapping[another_key.lower()]}"
-            query_string:
-                depth: ":: {mapping[key]} :: {mapping['one']} ::"
-                plain: I am a plain string
+            request:
+                url: "this is a 4: {mapping[another_key.lower()]}"
+                query_string:
+                    depth: ":: {mapping[key]} :: {mapping['one']} ::"
+                    plain: I am a plain string
     """
     )
     return MachineConfiguration(**params)
@@ -132,9 +140,10 @@ def machine_configuration_with_time():
     id: mach_w_time
     measurements:
         -   id: temperature
-            query_string:
-                start: "{start_time.isoformat()}"
-                end: "{end_time.isoformat()}"
+            request:
+                query_string:
+                    start: "{start_time.isoformat()}"
+                    end: "{end_time.isoformat()}"
     """
     )
     return MachineConfiguration(**params)
@@ -213,14 +222,15 @@ def common_configuration_nested_1():
     params = load_yaml(
         """
     id: cc1-n
-    url:
-        "123"
     zone: area42
-    query_string:
-        hello: world
-        east: west
-    headers:
-        head: oval
+    request:
+        url:
+            "123"
+        query_string:
+            hello: world
+            east: west
+        headers:
+            head: oval
     """
     )
     return CommonConfiguration(**params)
@@ -231,17 +241,19 @@ def common_configuration_nested_2():
     params = load_yaml(
         """
     id: cc2-n
-    query_string:
-        hello: moon
-        south: north
-    headers:
-        square: four sides
-        circle: round
+    request:
+        query_string:
+            hello: moon
+            south: north
+        headers:
+            square: four sides
+            circle: round
     measurements:
         -   id: temperature
-            headers:
-                bicycle: two wheels
-                token: super secret
+            request:
+                headers:
+                    bicycle: two wheels
+                    token: super secret
     """
     )
     return CommonConfiguration(**params)
@@ -256,12 +268,14 @@ def common_configuration_nested_3():
         - cc1-n
         - cc2-n
 
-    headers:
-        circle: really ROUND
+    request:
+        headers:
+            circle: really ROUND
     measurements:
         -   id: temperature
-            headers:
-                token: password
+            request:
+                headers:
+                    token: password
         -   id: rpm
     """
     )

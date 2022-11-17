@@ -17,13 +17,15 @@ async def test_common_configuration_nesting(
         "_authentication_configuration_id": None,
         "_common_configuration_ids": (),
         "zone": "area42",
-        "url": "123",
-        "query_string": {
-            "hello": "world",
-            "east": "west",
-        },
-        "headers": {
-            "head": "oval",
+        "request": {
+            "url": "123",
+            "query_string": {
+                "hello": "world",
+                "east": "west",
+            },
+            "headers": {
+                "head": "oval",
+            },
         },
         "measurements": {},
         "result": {
@@ -38,25 +40,29 @@ async def test_common_configuration_nesting(
         "id": "cc2-n",
         "_authentication_configuration_id": None,
         "_common_configuration_ids": (),
-        "url": None,
-        "query_string": {
-            "hello": "moon",
-            "south": "north",
-        },
-        "headers": {
-            "square": "four sides",
-            "circle": "round",
+        "request": {
+            "url": None,
+            "query_string": {
+                "hello": "moon",
+                "south": "north",
+            },
+            "headers": {
+                "square": "four sides",
+                "circle": "round",
+            },
         },
         "measurements": {
             "temperature": {
                 "id": "temperature",
                 "_authentication_configuration_id": None,
                 "_common_configuration_ids": (),
-                "url": None,
-                "query_string": {},
-                "headers": {
-                    "bicycle": "two wheels",
-                    "token": "super secret",
+                "request": {
+                    "url": None,
+                    "query_string": {},
+                    "headers": {
+                        "bicycle": "two wheels",
+                        "token": "super secret",
+                    },
                 },
                 "result": {
                     "_interpolate": False,
@@ -79,27 +85,31 @@ async def test_common_configuration_nesting(
             "cc2-n",
         ),
         "zone": "area42",
-        "url": "123",
-        "query_string": {
-            "hello": "moon",
-            "south": "north",
-            "east": "west",
-        },
-        "headers": {
-            "head": "oval",
-            "square": "four sides",
-            "circle": "really ROUND",
+        "request": {
+            "url": "123",
+            "query_string": {
+                "hello": "moon",
+                "south": "north",
+                "east": "west",
+            },
+            "headers": {
+                "head": "oval",
+                "square": "four sides",
+                "circle": "really ROUND",
+            },
         },
         "measurements": {
             "temperature": {
                 "id": "temperature",
                 "_authentication_configuration_id": None,
                 "_common_configuration_ids": (),
-                "url": None,
-                "query_string": {},
-                "headers": {
-                    "bicycle": "two wheels",
-                    "token": "password",
+                "request": {
+                    "url": None,
+                    "query_string": {},
+                    "headers": {
+                        "bicycle": "two wheels",
+                        "token": "password",
+                    },
                 },
                 "result": {
                     "_interpolate": False,
@@ -109,9 +119,11 @@ async def test_common_configuration_nesting(
                 "id": "rpm",
                 "_authentication_configuration_id": None,
                 "_common_configuration_ids": (),
-                "url": None,
-                "query_string": {},
-                "headers": {},
+                "request": {
+                    "url": None,
+                    "query_string": {},
+                    "headers": {},
+                },
                 "result": {
                     "_interpolate": False,
                 },
