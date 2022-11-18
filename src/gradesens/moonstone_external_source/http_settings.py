@@ -31,14 +31,16 @@ class HTTPRequestSettings(Settings):
         other: Union["HTTPRequestSettings", None] = None,
         *,
         url: str = None,
-        query_string: Union[Settings.InputType, None] = None,
         headers: Union[Settings.InputType, None] = None,
+        query_string: Union[Settings.InputType, None] = None,
+        data: Union[str, bytes, None] = None,
         **kwargs: Settings.InputType,
     ):
         if other is not None:
             assert url is None
-            assert query_string is None
             assert headers is None
+            assert query_string is None
+            assert data is None
             assert not kwargs
             super().__init__(other)
         else:
@@ -48,8 +50,9 @@ class HTTPRequestSettings(Settings):
             super().__init__(
                 other,
                 url=url,
-                query_string=query_string,
                 headers=headers,
+                query_string=query_string,
+                data=data,
                 **kwargs,
             )
 

@@ -26,14 +26,15 @@ def test_common_configuration(common_configuration_1):
                 "https://gradesens.com/{zone}/{machine_id}"
                 "/{device}/{measurement_id}"
             ),
-            "query_string": {
-                "HELLO": "{region}@world",
-            },
             "headers": {
                 "head": "oval",
                 "fingers": "count_{finger_count}",
                 "bearer": "{token}",
             },
+            "query_string": {
+                "HELLO": "{region}@world",
+            },
+            "data": None,
         },
         "zone": "area42",
         "device": "best device ever",
@@ -61,8 +62,9 @@ def test_machine_configuration(machine_configuration_1):
                 "https://gradesens.com/{zone}/MACHINE/{machine_id}/{device}"
                 "/{measurement_id}"
             ),
-            "query_string": {},
             "headers": {},
+            "query_string": {},
+            "data": None,
         },
         "finger_count": 5,
         "result": {
@@ -77,11 +79,12 @@ def test_machine_configuration(machine_configuration_1):
                 "region": "zurich",
                 "request": {
                     "url": None,
+                    "headers": {},
                     "query_string": {
                         "depth": "12",
                         "width": "P_{param}_xx",
                     },
-                    "headers": {},
+                    "data": None,
                 },
                 "result": {
                     "_interpolate": False,
@@ -96,10 +99,11 @@ def test_machine_configuration(machine_configuration_1):
                         "https://gradesens.com/{zone}/{machine_id}"
                         "/{device}/RPM/{measurement_id}"
                     ),
+                    "headers": {},
                     "query_string": {
                         "dune": "worms",
                     },
-                    "headers": {},
+                    "data": None,
                 },
                 "region": "Wallis",
                 "result": {
@@ -112,10 +116,11 @@ def test_machine_configuration(machine_configuration_1):
                 "_authentication_configuration_id": None,
                 "request": {
                     "url": None,
-                    "query_string": {},
                     "headers": {
                         "animal": "cow",
                     },
+                    "query_string": {},
+                    "data": None,
                 },
                 "result": {
                     "_interpolate": False,
@@ -146,17 +151,18 @@ async def test_interpolated_measurement_settings(
                 "https://gradesens.com/Connecticut/MACHINE"
                 "/mach1/better than cc1 device/temperature"
             ),
-            "query_string": {
-                "depth": "12",
-                "width": "P_I am a parameter_xx",
-                "HELLO": "zurich@world",
-            },
             "headers": {
                 "hello": "world",
                 "head": "oval",
                 "fingers": "count_5",
                 "bearer": "I am a secret",
             },
+            "query_string": {
+                "depth": "12",
+                "width": "P_I am a parameter_xx",
+                "HELLO": "zurich@world",
+            },
+            "data": None,
         },
         "result": {},
     }
@@ -183,17 +189,18 @@ async def test_interpolated_measurement_all_settings(
                     "https://gradesens.com/Connecticut/MACHINE"
                     "/mach1/better than cc1 device/temperature"
                 ),
-                "query_string": {
-                    "depth": "12",
-                    "width": "P_I am a parameter_xx",
-                    "HELLO": "zurich@world",
-                },
                 "headers": {
                     "hello": "world",
                     "head": "oval",
                     "fingers": "count_5",
                     "bearer": "I am a secret",
                 },
+                "query_string": {
+                    "depth": "12",
+                    "width": "P_I am a parameter_xx",
+                    "HELLO": "zurich@world",
+                },
+                "data": None,
             },
             "result": {},
         },
@@ -203,15 +210,16 @@ async def test_interpolated_measurement_all_settings(
                     "https://gradesens.com/area42/mach1"
                     "/best device ever/RPM/rpm"
                 ),
-                "query_string": {
-                    "HELLO": "Wallis@world",
-                    "dune": "worms",
-                },
                 "headers": {
                     "head": "oval",
                     "fingers": "count_5",
                     "bearer": "I am a secret",
                 },
+                "query_string": {
+                    "HELLO": "Wallis@world",
+                    "dune": "worms",
+                },
+                "data": None,
             },
             "result": {},
         },
@@ -221,9 +229,6 @@ async def test_interpolated_measurement_all_settings(
                     "https://gradesens.com/Connecticut/MACHINE"
                     "/mach1/better than cc1 device/power"
                 ),
-                "query_string": {
-                    "HELLO": "basel@world",
-                },
                 "headers": {
                     "hello": "world",
                     "animal": "cow",
@@ -231,6 +236,10 @@ async def test_interpolated_measurement_all_settings(
                     "fingers": "count_5",
                     "bearer": "I am a secret",
                 },
+                "query_string": {
+                    "HELLO": "basel@world",
+                },
+                "data": None,
             },
             "result": {},
         },
@@ -254,11 +263,12 @@ async def test_complex_interpolated_measurement_all_settings(
         "temperature": {
             "request": {
                 "url": "this is a 4: FouR",
+                "headers": {},
                 "query_string": {
                     "depth": ":: world :: tw0 ::",
                     "plain": "I am a plain string",
                 },
-                "headers": {},
+                "data": None,
             },
             "result": {},
         }

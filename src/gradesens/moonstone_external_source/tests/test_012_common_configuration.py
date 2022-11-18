@@ -19,13 +19,14 @@ async def test_common_configuration_nesting(
         "zone": "area42",
         "request": {
             "url": "123",
+            "headers": {
+                "head": "oval",
+            },
             "query_string": {
                 "hello": "world",
                 "east": "west",
             },
-            "headers": {
-                "head": "oval",
-            },
+            "data": None,
         },
         "measurements": {},
         "result": {
@@ -42,14 +43,15 @@ async def test_common_configuration_nesting(
         "_common_configuration_ids": (),
         "request": {
             "url": None,
-            "query_string": {
-                "hello": "moon",
-                "south": "north",
-            },
             "headers": {
                 "square": "four sides",
                 "circle": "round",
             },
+            "query_string": {
+                "hello": "moon",
+                "south": "north",
+            },
+            "data": None,
         },
         "measurements": {
             "temperature": {
@@ -58,11 +60,12 @@ async def test_common_configuration_nesting(
                 "_common_configuration_ids": (),
                 "request": {
                     "url": None,
-                    "query_string": {},
                     "headers": {
                         "bicycle": "two wheels",
                         "token": "super secret",
                     },
+                    "query_string": {},
+                    "data": None,
                 },
                 "result": {
                     "_interpolate": False,
@@ -87,16 +90,17 @@ async def test_common_configuration_nesting(
         "zone": "area42",
         "request": {
             "url": "123",
-            "query_string": {
-                "hello": "moon",
-                "south": "north",
-                "east": "west",
-            },
             "headers": {
                 "head": "oval",
                 "square": "four sides",
                 "circle": "really ROUND",
             },
+            "query_string": {
+                "hello": "moon",
+                "south": "north",
+                "east": "west",
+            },
+            "data": None,
         },
         "measurements": {
             "temperature": {
@@ -105,11 +109,12 @@ async def test_common_configuration_nesting(
                 "_common_configuration_ids": (),
                 "request": {
                     "url": None,
-                    "query_string": {},
                     "headers": {
                         "bicycle": "two wheels",
                         "token": "password",
                     },
+                    "query_string": {},
+                    "data": None,
                 },
                 "result": {
                     "_interpolate": False,
@@ -121,8 +126,9 @@ async def test_common_configuration_nesting(
                 "_common_configuration_ids": (),
                 "request": {
                     "url": None,
-                    "query_string": {},
                     "headers": {},
+                    "query_string": {},
+                    "data": None,
                 },
                 "result": {
                     "_interpolate": False,

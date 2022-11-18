@@ -108,14 +108,14 @@ class AuthenticationConfiguration(_AuthenticationSettings):
         id: Union[Id, None] = None,
         **kwargs: Settings.InputType,
     ):
-        if other is None:
-            if id is None:
-                raise ConfigurationError("Missing common configuration's 'id'")
-            super().__init__(id=id, **kwargs)
-        else:
+        if other is not None:
             assert id is None
             assert not kwargs
             super().__init__(other)
+        else:
+            if id is None:
+                raise ConfigurationError("Missing common configuration's 'id'")
+            super().__init__(id=id, **kwargs)
 
     async def get_settings(
         self, io_manager: "IOManager"
@@ -141,9 +141,30 @@ class AuthenticationConfiguration(_AuthenticationSettings):
     async def authenticate(
         self, io_manager: "IOManager"
     ) -> AuthenticationContext:
-        """
-        TODO TODO TODO TODO
-        """
         settings = await self.get_settings()
-        return settings
+        request = settings["request"]
+        request_kwargs = {}
+
+        for key in (
+            "url",
+            "data",
+            "query_string",
+            "headers",
+        ):
+            value = request.get(key, None)
+            if value is None:
+                continue
+            request_kwargs.update(
+                key=value,
+            )
+        if "url" not in request_kwargs:
+            raise ConfigurationError(
+                f"AuthenticationConfiguration {self['id']!r}" " has no URL"
+            )
+        print("AAAAA", request_kwargs)
+        raw_result = await io_manager.backend_driver.get_raw_result(
+            **request_kwargs
+        )
+        print("BBBBB", raw_result)
+        return raw_result
         pass

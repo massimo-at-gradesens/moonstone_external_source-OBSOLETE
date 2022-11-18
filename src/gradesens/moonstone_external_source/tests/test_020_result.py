@@ -20,8 +20,9 @@ async def test_machine_configuration_with_result(io_manager_1):
         "_authentication_configuration_id": None,
         "request": {
             "url": None,
-            "query_string": {},
             "headers": {},
+            "query_string": {},
+            "data": None,
         },
         "result": {
             "_interpolate": False,
@@ -47,8 +48,9 @@ async def test_machine_configuration_with_result(io_manager_1):
                 "_authentication_configuration_id": None,
                 "request": {
                     "url": None,
-                    "query_string": {},
                     "headers": {},
+                    "query_string": {},
+                    "data": None,
                 },
                 "result": {
                     "_interpolate": False,
@@ -67,8 +69,9 @@ async def test_machine_configuration_with_result(io_manager_1):
                 "_authentication_configuration_id": None,
                 "request": {
                     "url": None,
-                    "query_string": {},
                     "headers": {},
+                    "query_string": {},
+                    "data": None,
                 },
                 "result": {
                     "_interpolate": False,
@@ -109,8 +112,9 @@ async def test_machine_configuration_with_result(io_manager_1):
                 "_authentication_configuration_id": None,
                 "request": {
                     "url": None,
-                    "query_string": {},
                     "headers": {},
+                    "query_string": {},
+                    "data": None,
                 },
                 "result": {
                     "_interpolate": False,
@@ -136,8 +140,9 @@ async def test_machine_settings_with_result(io_manager_1):
         "temperature": {
             "request": {
                 "url": None,
-                "query_string": {},
                 "headers": {},
+                "query_string": {},
+                "data": None,
             },
             "result": {
                 "timestamp": {
@@ -161,8 +166,9 @@ async def test_machine_settings_with_result(io_manager_1):
         "rpm": {
             "request": {
                 "url": None,
-                "query_string": {},
                 "headers": {},
+                "query_string": {},
+                "data": None,
             },
             "result": {
                 "timestamp": {
@@ -200,8 +206,9 @@ async def test_machine_settings_with_result(io_manager_1):
         "humidity": {
             "request": {
                 "url": None,
-                "query_string": {},
                 "headers": {},
+                "query_string": {},
+                "data": None,
             },
             "result": {
                 "timestamp": {
