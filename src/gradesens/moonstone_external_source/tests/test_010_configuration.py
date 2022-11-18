@@ -39,9 +39,7 @@ def test_common_configuration(common_configuration_1):
         "zone": "area42",
         "device": "best device ever",
         "measurements": {},
-        "result": {
-            "_interpolate": False,
-        },
+        "result": {},
     }
     assert_eq_dicts(common_configuration_1, expected)
 
@@ -67,9 +65,7 @@ def test_machine_configuration(machine_configuration_1):
             "data": None,
         },
         "finger_count": 5,
-        "result": {
-            "_interpolate": False,
-        },
+        "result": {},
         "region": "basel",
         "measurements": {
             "temperature": {
@@ -86,9 +82,7 @@ def test_machine_configuration(machine_configuration_1):
                     },
                     "data": None,
                 },
-                "result": {
-                    "_interpolate": False,
-                },
+                "result": {},
             },
             "rpm": {
                 "id": "rpm",
@@ -106,9 +100,7 @@ def test_machine_configuration(machine_configuration_1):
                     "data": None,
                 },
                 "region": "Wallis",
-                "result": {
-                    "_interpolate": False,
-                },
+                "result": {},
             },
             "power": {
                 "id": "power",
@@ -122,9 +114,7 @@ def test_machine_configuration(machine_configuration_1):
                     "query_string": {},
                     "data": None,
                 },
-                "result": {
-                    "_interpolate": False,
-                },
+                "result": {},
             },
         },
     }

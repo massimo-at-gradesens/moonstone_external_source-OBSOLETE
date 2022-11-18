@@ -127,9 +127,7 @@ class _MeasurementResultSettings(HTTPResultSettings):
             assert timestamp is None
             super().__init__(other)
         else:
-            kwargs = dict(
-                _interpolate=False,
-            )
+            kwargs = {}
             if value is not None:
                 kwargs.update(value=HTTPResultFieldSettings(**value))
             if timestamp is not None:

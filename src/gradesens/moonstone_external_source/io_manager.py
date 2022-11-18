@@ -79,10 +79,12 @@ class Cache:
         entry_description: str,
         expiration_delay: timedelta,
         async_load_function: Callable,
+        io_manager: "IOManager",
     ):
         self.entry_description = entry_description
         self.expiration_delay = expiration_delay
         self.async_load_function = async_load_function
+        self.io_manager = io_manager
         self.entries = {}
 
     async def get(self, id):
@@ -98,7 +100,7 @@ class Cache:
             value = await self.async_load_function(id)
             if value is None:
                 raise Error("")
-        except Exception as err:
+        except Error as err:
             err = str(err)
             if err != "":
                 err = f": {err}"
@@ -170,25 +172,26 @@ class AuthenticationContextCache(Cache):
         entry_description: str,
         expiration_delay: timedelta,
         async_configuration_load_function: Callable,
-        io_driver: IODriver,
+        io_manager: "IOManager",
     ):
         super().__init__(
             entry_description=entry_description,
             expiration_delay=expiration_delay,
             async_load_function=self.load_context,
+            io_manager=io_manager,
         )
         self.authentication_configurations = Cache(
             entry_description="authentication configuration",
             expiration_delay=expiration_delay,
             async_load_function=async_configuration_load_function,
+            io_manager=io_manager,
         )
-        self.io_driver = io_driver
 
     async def load_context(
         self, id: AuthenticationConfiguration.Id
     ) -> AuthenticationContext:
         auth_conf = await self.authentication_configurations.get(id)
-        return await auth_conf.authenticate(io_manager=self)
+        return await auth_conf.authenticate(io_manager=self.io_manager)
 
     def clear(self):
         super().clear()
@@ -223,17 +226,19 @@ class IOManager:
             async_configuration_load_function=(
                 io_driver.load_authentication_configuration
             ),
-            io_driver=io_driver,
+            io_manager=self,
         )
         self.common_configurations = common_configuration_cache_factory(
             entry_description="common configuration",
             expiration_delay=cache_expiration_delay,
             async_load_function=io_driver.load_common_configuration,
+            io_manager=self,
         )
         self.machine_configurations = machine_configuration_cache_factory(
             entry_description="machine configuration",
             expiration_delay=cache_expiration_delay,
             async_load_function=io_driver.load_machine_configuration,
+            io_manager=self,
         )
 
     def clear_cache(self):

@@ -51,11 +51,14 @@ class BackendDriver(abc.ABC):
 
     async def get_raw_result(self, *args, **kwargs) -> Response:
         response = await self.request(*args, **kwargs)
-        content_type = response.headers["content-type"].lower()
 
-        try:
-            content_type_handler = self.CONTENT_TYPE_HANDLERS[content_type]
-        except KeyError:
+        content_type = response.headers["content-type"].lower()
+        content_type = set(comp.strip() for comp in content_type.split(";"))
+        content_type_handlers = []
+        for key, value in self.CONTENT_TYPE_HANDLERS.items():
+            if key in content_type:
+                content_type_handlers.append(value)
+        if len(content_type_handlers) != 1:
             valid_content_type_handlers = ", ".join(
                 self.CONTENT_TYPE_HANDLERS.keys()
             )
@@ -63,6 +66,8 @@ class BackendDriver(abc.ABC):
                 f"Unable to process content-type {content_type}.\n"
                 f"Supported content-types: {valid_content_type_handlers}"
             ) from None
+        content_type_handler = content_type_handlers[0]
+
         response.data = content_type_handler(response.data)
         return response
 
@@ -75,21 +80,22 @@ class HTTPBackendDriver(BackendDriver):
     def __init__(
         self,
         *,
-        max_attempts: int = 1,
+        max_attempts: int = 3,
         attempt_delay: float = 0.5,
     ):
         self.max_attempts = max_attempts
         self.attempt_delay = attempt_delay
         # aiohttp.ClientSession() must be created in an async function:
         # delay its creation to the first call of request
-        self.client_sessions = None
+        self.client_session = None
 
     async def request(
         self,
         url: str,
         headers: Dict[str, str] = {},
-        query_string_params: Dict[str, str] = {},
+        query_string: Dict[str, str] = {},
         data: Union[Any, None] = None,
+        request_type: str = "GET",
     ) -> BackendDriver.Response:
         """
         Default implementation of HTTP request driver.
@@ -105,22 +111,33 @@ class HTTPBackendDriver(BackendDriver):
         # https://github.com/\
         #   aio-libs/aiohttp/issues/789#issuecomment-186333636
         if self.client_session is None:
-            self.client_sessions = aiohttp.ClientSession()
+            self.client_session = aiohttp.ClientSession()
         if self.client_session.closed:
             raise HTTPError("HTTP client session unexpectedly closed")
 
         status = None
         remaining_attempts = self.max_attempts
+        request_kwargs = dict(
+            url=url,
+        )
+        if headers:
+            request_kwargs.update(headers=headers)
+        if query_string:
+            request_kwargs.update(params=query_string)
+        if data is not None:
+            request_kwargs.update(data=data)
+        try:
+            request_func = {
+                "GET": self.client_session.get,
+                "PUT": self.client_session.put,
+                "POST": self.client_session.post,
+            }[request_type.upper()]
+        except KeyError:
+            raise HTTPError(
+                f"Unsupported or invalid request type {request_type}"
+            )
         while True:
-            if data is None:
-                request = self.client_session.get(
-                    url, params=query_string_params
-                )
-            else:
-                request = self.client_session.post(
-                    url, params=query_string_params, data=data
-                )
-            async with request as response:
+            async with request_func(**request_kwargs) as response:
                 status = response.status
 
                 if status == HTTPStatus.OK:

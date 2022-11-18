@@ -25,8 +25,8 @@ async def test_machine_configuration_with_result(io_manager_1):
             "data": None,
         },
         "result": {
-            "_interpolate": False,
             "timestamp": {
+                "_interpolate": False,
                 "type": converters["datetime"],
                 "regular_expressions": (
                     {
@@ -38,6 +38,7 @@ async def test_machine_configuration_with_result(io_manager_1):
                 ),
             },
             "value": {
+                "_interpolate": False,
                 "raw_value": "{get}{the}{raw}",
             },
         },
@@ -53,11 +54,12 @@ async def test_machine_configuration_with_result(io_manager_1):
                     "data": None,
                 },
                 "result": {
-                    "_interpolate": False,
                     "value": {
+                        "_interpolate": False,
                         "type": converters["float"],
                     },
                     "timestamp": {
+                        "_interpolate": False,
                         "type": converters["datetime"],
                         "raw_value": "{temp_ts_raw}",
                     },
@@ -74,8 +76,8 @@ async def test_machine_configuration_with_result(io_manager_1):
                     "data": None,
                 },
                 "result": {
-                    "_interpolate": False,
                     "timestamp": {
+                        "_interpolate": False,
                         "type": converters["datetime"],
                         "raw_value": 23,
                         "regular_expressions": (
@@ -92,6 +94,7 @@ async def test_machine_configuration_with_result(io_manager_1):
                         ),
                     },
                     "value": {
+                        "_interpolate": False,
                         "type": converters["int"],
                         "regular_expressions": (
                             {
@@ -117,8 +120,8 @@ async def test_machine_configuration_with_result(io_manager_1):
                     "data": None,
                 },
                 "result": {
-                    "_interpolate": False,
                     "timestamp": {
+                        "_interpolate": False,
                         "type": converters["datetime"],
                         "raw_value": "{out_field2}",
                     },

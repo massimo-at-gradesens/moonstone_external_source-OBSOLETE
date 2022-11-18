@@ -141,7 +141,7 @@ class AuthenticationConfiguration(_AuthenticationSettings):
     async def authenticate(
         self, io_manager: "IOManager"
     ) -> AuthenticationContext:
-        settings = await self.get_settings()
+        settings = await self.get_settings(io_manager=io_manager)
         request = settings["request"]
         request_kwargs = {}
 
@@ -154,17 +154,13 @@ class AuthenticationConfiguration(_AuthenticationSettings):
             value = request.get(key, None)
             if value is None:
                 continue
-            request_kwargs.update(
-                key=value,
-            )
+            request_kwargs[key] = value
         if "url" not in request_kwargs:
             raise ConfigurationError(
                 f"AuthenticationConfiguration {self['id']!r}" " has no URL"
             )
-        print("AAAAA", request_kwargs)
         raw_result = await io_manager.backend_driver.get_raw_result(
             **request_kwargs
         )
-        print("BBBBB", raw_result)
-        return raw_result
+        return raw_result.data
         pass

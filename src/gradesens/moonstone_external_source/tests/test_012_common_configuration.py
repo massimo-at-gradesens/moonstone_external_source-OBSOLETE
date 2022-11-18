@@ -29,9 +29,7 @@ async def test_common_configuration_nesting(
             "data": None,
         },
         "measurements": {},
-        "result": {
-            "_interpolate": False,
-        },
+        "result": {},
     }
     assert_eq_dicts(settings, expected)
 
@@ -67,14 +65,10 @@ async def test_common_configuration_nesting(
                     "query_string": {},
                     "data": None,
                 },
-                "result": {
-                    "_interpolate": False,
-                },
+                "result": {},
             },
         },
-        "result": {
-            "_interpolate": False,
-        },
+        "result": {},
     }
     assert_eq_dicts(settings, expected)
 
@@ -116,9 +110,7 @@ async def test_common_configuration_nesting(
                     "query_string": {},
                     "data": None,
                 },
-                "result": {
-                    "_interpolate": False,
-                },
+                "result": {},
             },
             "rpm": {
                 "id": "rpm",
@@ -130,14 +122,10 @@ async def test_common_configuration_nesting(
                     "query_string": {},
                     "data": None,
                 },
-                "result": {
-                    "_interpolate": False,
-                },
+                "result": {},
             },
         },
-        "result": {
-            "_interpolate": False,
-        },
+        "result": {},
     }
     assert_eq_dicts(settings, expected)
 

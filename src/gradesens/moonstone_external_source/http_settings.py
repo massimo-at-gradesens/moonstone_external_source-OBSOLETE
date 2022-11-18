@@ -126,7 +126,9 @@ class HTTPResultFieldSettings(Settings):
                         f" Valid types: {valid_types}"
                     ) from None
 
-            kwargs = dict()
+            kwargs = dict(
+                _interpolate=False,
+            )
 
             if regular_expression is not None:
                 if isinstance(regular_expression, dict):
@@ -261,19 +263,12 @@ class HTTPResultSettings(Settings):
             assert not kwargs
             super().__init__(other)
         else:
-            kwargs2 = dict(
-                _interpolate=False,
-            )
+            kwargs2 = {}
             for key, value in kwargs.items():
                 if isinstance(value, HTTPResultFieldSettings):
                     pass
                 elif isinstance(value, dict):
                     value = HTTPResultFieldSettings(value)
-                elif key[0] != "_":
-                    raise ConfigurationError(
-                        f"Field {key}: invalid type {type(value).__name__!r}."
-                        " Expected HTTPResultFieldSettings or dict"
-                    )
                 kwargs2[key] = value
             super().__init__(**kwargs2)
 

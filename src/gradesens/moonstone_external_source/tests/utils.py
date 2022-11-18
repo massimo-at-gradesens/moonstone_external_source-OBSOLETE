@@ -1,3 +1,8 @@
+import textwrap
+
+import yaml
+
+
 def key_path_prefix(key_path, suffix=" "):
     if not key_path:
         return ""
@@ -35,3 +40,12 @@ def assert_eq_dicts(dict1, dict2, key_path=()):
                 f"dict1 value: {type(value1).__name__}, {value1}\n"
                 f"dict2 value: {type(value2).__name__}, {value2}"
             ) from None
+
+
+def load_yaml(text):
+    if isinstance(text, str):
+        text = textwrap.dedent(text)
+    else:
+        with open(text, "rt") as f:
+            text = f.read()
+    return yaml.load(text, yaml.Loader)

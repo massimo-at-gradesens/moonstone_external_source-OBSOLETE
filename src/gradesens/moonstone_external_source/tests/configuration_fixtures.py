@@ -1,7 +1,4 @@
-import textwrap
-
 import pytest
-import yaml
 
 from gradesens.moonstone_external_source import (
     AuthenticationConfiguration,
@@ -15,14 +12,7 @@ from gradesens.moonstone_external_source.io_manager import (
     AuthenticationContextCache,
 )
 
-
-def load_yaml(text):
-    if isinstance(text, str):
-        text = textwrap.dedent(text)
-    else:
-        with open(text, "rt") as f:
-            text = f.read()
-    return yaml.load(text, yaml.Loader)
+from .utils import load_yaml
 
 
 @pytest.fixture
