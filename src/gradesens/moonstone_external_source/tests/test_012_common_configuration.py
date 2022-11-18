@@ -5,13 +5,13 @@ from gradesens.moonstone_external_source import ConfigurationError
 from .utils import assert_eq_dicts
 
 
-@pytest.mark.usefixtures("io_driver_1")
+@pytest.mark.usefixtures("io_manager_1")
 @pytest.mark.asyncio
 async def test_common_configuration_nesting(
-    io_driver_1,
+    io_manager_1,
 ):
-    comm_conf = await io_driver_1.common_configurations.get("cc1-n")
-    settings = await comm_conf.get_common_settings(io_driver_1)
+    comm_conf = await io_manager_1.common_configurations.get("cc1-n")
+    settings = await comm_conf.get_common_settings(io_manager_1)
     expected = {
         "id": "cc1-n",
         "_authentication_configuration_id": None,
@@ -34,8 +34,8 @@ async def test_common_configuration_nesting(
     }
     assert_eq_dicts(settings, expected)
 
-    comm_conf = await io_driver_1.common_configurations.get("cc2-n")
-    settings = await comm_conf.get_common_settings(io_driver_1)
+    comm_conf = await io_manager_1.common_configurations.get("cc2-n")
+    settings = await comm_conf.get_common_settings(io_manager_1)
     expected = {
         "id": "cc2-n",
         "_authentication_configuration_id": None,
@@ -75,8 +75,8 @@ async def test_common_configuration_nesting(
     }
     assert_eq_dicts(settings, expected)
 
-    comm_conf = await io_driver_1.common_configurations.get("cc3-n")
-    settings = await comm_conf.get_common_settings(io_driver_1)
+    comm_conf = await io_manager_1.common_configurations.get("cc3-n")
+    settings = await comm_conf.get_common_settings(io_manager_1)
     expected = {
         "id": "cc3-n",
         "_authentication_configuration_id": None,
@@ -136,17 +136,17 @@ async def test_common_configuration_nesting(
     assert_eq_dicts(settings, expected)
 
 
-@pytest.mark.usefixtures("io_driver_1")
+@pytest.mark.usefixtures("io_manager_1")
 @pytest.mark.asyncio
 async def test_common_configuration_nesting_loop_failure(
-    io_driver_1,
+    io_manager_1,
 ):
-    comm_conf = await io_driver_1.common_configurations.get("cc4-n")
+    comm_conf = await io_manager_1.common_configurations.get("cc4-n")
     with pytest.raises(ConfigurationError) as exc:
-        await comm_conf.get_common_settings(io_driver_1)
+        await comm_conf.get_common_settings(io_manager_1)
     assert "loop" in str(exc).lower()
 
-    comm_conf = await io_driver_1.common_configurations.get("cc5-n")
+    comm_conf = await io_manager_1.common_configurations.get("cc5-n")
     with pytest.raises(ConfigurationError) as exc:
-        await comm_conf.get_common_settings(io_driver_1)
+        await comm_conf.get_common_settings(io_manager_1)
     assert "loop" in str(exc).lower()

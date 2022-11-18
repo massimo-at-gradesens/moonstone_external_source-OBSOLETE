@@ -25,7 +25,7 @@ from .error import (
     TimeError,
 )
 from .external_source import ExternalSource
-from .io_driver import IODriver
+from .io_manager import IODriver, IOManager
 
 __all__ = [
     "AsyncConcurrentPool",
@@ -46,4 +46,5 @@ __all__ = [
     "PatternError",
     "ExternalSource",
     "IODriver",
+    "IOManager",
 ]

@@ -19,7 +19,7 @@ from .async_concurrent_pool import AsyncConcurrentPool
 from .backend_driver import BackendDriver, HTTPBackendDriver
 from .configuration import MachineConfiguration, MeasurementConfiguration
 from .error import Error, HTTPResponseError
-from .io_driver import IODriver
+from .io_manager import IOManager
 
 
 class ExternalSource:
@@ -46,7 +46,7 @@ class ExternalSource:
 
     def __init__(
         self,
-        io_driver: IODriver,
+        io_manager: IOManager,
         request_task_pool: Union[AsyncConcurrentPool, int, None] = 10,
         time_margin: timedelta = DEFAULT_TIME_MARGIN,
         start_time_margin: Union[timedelta, None] = None,
@@ -56,7 +56,7 @@ class ExternalSource:
         ] = HTTPBackendDriver,
         **kwargs,
     ):
-        self.io_driver = io_driver
+        self.io_manager = io_manager
 
         if request_task_pool is None:
             request_task_pool = 1
@@ -103,9 +103,9 @@ class ExternalSource:
         )
 
         machine_configuration = (
-            await self.io_driver.machine_configurations.get(machine_id)
+            await self.io_manager.machine_configurations.get(machine_id)
         )
-        resolver = machine_configuration.get_setting_resolver(self.io_driver)
+        resolver = machine_configuration.get_setting_resolver(self.io_manager)
         settings = await resolver.get_settings(
             start_time=start_time - start_time_margin,
             end_time=end_time + end_time_margin,

@@ -29,7 +29,7 @@ from typing import (
 )
 
 if TYPE_CHECKING:
-    from .io_driver import IODriver
+    from .io_manager import IODriver, IOManager
 
 from .error import (
     ConfigurationError,
@@ -694,7 +694,7 @@ class AuthenticationContext(Settings):
     and API-specific, and are not under the responsibility of this class.
     Rather, they are defined by configuration data structures used to
     initialize the objects of :class:`AuthenticationConfiguration`.
-    See also :meth`IODriver.authentication_configurations.get` and
+    See also :meth`IOManager.authentication_configurations.get` and
     :meth:`AuthenticationConfiguration.authenticate`
     """
 
@@ -737,7 +737,9 @@ class AuthenticationConfiguration(_AuthenticationSettings):
             assert not kwargs
             super().__init__(other)
 
-    async def authenticate(self) -> AuthenticationContext:
+    async def authenticate(
+        self, io_driver: "IODriver"
+    ) -> AuthenticationContext:
         """
         TODO TODO TODO TODO
         """
@@ -787,7 +789,7 @@ class _CommonConfigurationIdSettings(Settings):
 
     async def get_common_settings(
         self,
-        io_driver: "IODriver",
+        io_manager: "IOManager",
         already_visited: Union[Set["CommonConfiguration.Id"], None] = None,
     ) -> Settings:
         """
@@ -798,7 +800,7 @@ class _CommonConfigurationIdSettings(Settings):
             return Settings()
 
         tasks = [
-            io_driver.common_configurations.get(common_configuration_id)
+            io_manager.common_configurations.get(common_configuration_id)
             for common_configuration_id in common_configuration_ids
         ]
         common_configurations = await asyncio.gather(*tasks)
@@ -807,7 +809,7 @@ class _CommonConfigurationIdSettings(Settings):
             already_visited = set()
         tasks = [
             common_configuration.get_common_settings(
-                io_driver=io_driver, already_visited=already_visited
+                io_manager=io_manager, already_visited=already_visited
             )
             for common_configuration in common_configurations
         ]
@@ -984,11 +986,11 @@ class MeasurementConfiguration(_MeasurementSettings):
             self,
             measurement_configuration: "MeasurementConfiguration",
             machine_configuration: "MachineConfiguration",
-            io_driver: "IODriver",
+            io_manager: "IOManager",
         ):
             self.measurement_configuration = measurement_configuration
             self.machine_configuration = machine_configuration
-            self.io_driver = io_driver
+            self.io_manager = io_manager
 
         async def get_settings(
             self,
@@ -1013,7 +1015,7 @@ class MeasurementConfiguration(_MeasurementSettings):
                 ),
             )
             settings = await temp_common_configuration.get_common_settings(
-                io_driver=self.io_driver
+                io_manager=self.io_manager
             )
 
             settings.update(self.machine_configuration)
@@ -1032,7 +1034,7 @@ class MeasurementConfiguration(_MeasurementSettings):
             ]
             if authentication_configuration_id is not None:
                 authentication_context = (
-                    await self.io_driver.authentication_contexts.get(
+                    await self.io_manager.authentication_contexts.get(
                         authentication_configuration_id
                     )
                 )
@@ -1164,7 +1166,7 @@ class CommonConfiguration(_MachineConfigurationSettings):
 
     async def get_common_settings(
         self,
-        io_driver: "IODriver",
+        io_manager: "IOManager",
         already_visited: Union[Set["CommonConfiguration.Id"], None] = None,
     ) -> Settings:
         """
@@ -1200,7 +1202,7 @@ class CommonConfiguration(_MachineConfigurationSettings):
             already_visited.add(common_configuration_id)
 
         result = await super().get_common_settings(
-            io_driver=io_driver,
+            io_manager=io_manager,
             already_visited=already_visited,
         )
         result.update(self)
@@ -1243,10 +1245,10 @@ class MachineConfiguration(_MachineConfigurationSettings):
         def __init__(
             self,
             machine_configuration: "MachineConfiguration",
-            io_driver: "IODriver",
+            io_manager: "IOManager",
         ):
             self.machine_configuration = machine_configuration
-            self.io_driver = io_driver
+            self.io_manager = io_manager
 
         class __MeasurementProxy:
             def __init__(self, parent):
@@ -1269,7 +1271,7 @@ class MachineConfiguration(_MachineConfigurationSettings):
                 return MeasurementConfiguration._SettingsResolver(
                     measurement_configuration=measurement_configuration,
                     machine_configuration=self.parent.machine_configuration,
-                    io_driver=self.parent.io_driver,
+                    io_manager=self.parent.io_manager,
                 )
 
         def __getitem__(self, key):
@@ -1317,7 +1319,9 @@ class MachineConfiguration(_MachineConfigurationSettings):
                 for measurement_id, result in zip(tasks.keys(), results)
             }
 
-    def get_setting_resolver(self, io_driver: "IODriver") -> _SettingsResolver:
+    def get_setting_resolver(
+        self, io_manager: "IOManager"
+    ) -> _SettingsResolver:
         return self._SettingsResolver(
-            machine_configuration=self, io_driver=io_driver
+            machine_configuration=self, io_manager=io_manager
         )

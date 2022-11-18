@@ -8,6 +8,7 @@ from gradesens.moonstone_external_source import (
     AuthenticationContext,
     CommonConfiguration,
     IODriver,
+    IOManager,
     MachineConfiguration,
 )
 
@@ -40,7 +41,10 @@ def authentication_configuration_1(authentication_context_1):
     )
 
     class CustomAuthenticationConfiguration(AuthenticationConfiguration):
-        async def authenticate(io_driver: "IODriver") -> AuthenticationContext:
+        async def authenticate(
+            self,
+            io_driver: IODriver,
+        ) -> AuthenticationContext:
             return authentication_context_1
 
     return CustomAuthenticationConfiguration(**params)
@@ -404,3 +408,8 @@ def io_driver_1(
             machine_configuration_with_result,
         ],
     )
+
+
+@pytest.fixture
+def io_manager_1(io_driver_1):
+    return IOManager(io_driver_1)

@@ -10,10 +10,10 @@ from .utils import assert_eq_dicts
 converters = configuration._HTTPResultFieldSettings.VALID_TYPES
 
 
-@pytest.mark.usefixtures("io_driver_1")
+@pytest.mark.usefixtures("io_manager_1")
 @pytest.mark.asyncio
-async def test_machine_configuration_with_result(io_driver_1):
-    mach_conf = await io_driver_1.machine_configurations.get("mach_w_result")
+async def test_machine_configuration_with_result(io_manager_1):
+    mach_conf = await io_manager_1.machine_configurations.get("mach_w_result")
     expected = {
         "id": "mach_w_result",
         "_common_configuration_ids": ("cc_w_result",),
@@ -126,11 +126,11 @@ async def test_machine_configuration_with_result(io_driver_1):
     assert_eq_dicts(mach_conf, expected)
 
 
-@pytest.mark.usefixtures("io_driver_1")
+@pytest.mark.usefixtures("io_manager_1")
 @pytest.mark.asyncio
-async def test_machine_settings_with_result(io_driver_1):
-    mach_conf = await io_driver_1.machine_configurations.get("mach_w_result")
-    resolver = mach_conf.get_setting_resolver(io_driver_1)
+async def test_machine_settings_with_result(io_manager_1):
+    mach_conf = await io_manager_1.machine_configurations.get("mach_w_result")
+    resolver = mach_conf.get_setting_resolver(io_manager_1)
     settings = await resolver.get_settings()
     expected = {
         "temperature": {
@@ -226,11 +226,11 @@ async def test_machine_settings_with_result(io_driver_1):
     assert_eq_dicts(settings, expected)
 
 
-@pytest.mark.usefixtures("io_driver_1")
+@pytest.mark.usefixtures("io_manager_1")
 @pytest.mark.asyncio
-async def test_machine_result(io_driver_1):
-    mach_conf = await io_driver_1.machine_configurations.get("mach_w_result")
-    resolver = mach_conf.get_setting_resolver(io_driver_1)
+async def test_machine_result(io_manager_1):
+    mach_conf = await io_manager_1.machine_configurations.get("mach_w_result")
+    resolver = mach_conf.get_setting_resolver(io_manager_1)
     settings = await resolver.get_settings()
 
     result = settings["temperature"]["result"].process_result(

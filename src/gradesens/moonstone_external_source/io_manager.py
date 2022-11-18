@@ -29,10 +29,38 @@ class IODriver(abc.ABC):
     configuration data structures from a DB.
     The actual implementation is to be provided by application-specific
     integrations.
+    """
 
-    On top of the load methods to be specialized in derived classes,
-    :class:`IODriver` provides a simple time-based-expiration caching
-    layer so as to minimize IO operations.
+    @abc.abstractmethod
+    async def load_authentication_configuration(
+        self, id: AuthenticationConfiguration.Id
+    ) -> AuthenticationConfiguration:
+        """
+        The actual load method, to be implemented by derived classes.
+        """
+
+    @abc.abstractmethod
+    async def load_common_configuration(
+        self, id: CommonConfiguration.Id
+    ) -> CommonConfiguration:
+        """
+        The actual load method, to be implemented by derived classes.
+        """
+
+    @abc.abstractmethod
+    async def load_machine_configuration(
+        self, id: MachineConfiguration.Id
+    ) -> MachineConfiguration:
+        """
+        The actual load method, to be implemented by derived classes.
+        """
+
+
+class IOManager:
+    """
+    An :class:`IOManager` adds a caching layer on top of the functionalities
+    provided by :class:`IODriver`, eventually providing the main and unique
+    interface for all the IO operations in this package.
     """
 
     DEFAULT_CACHE_EXPIRATION_DELAY = timedelta(minutes=30)
@@ -91,23 +119,25 @@ class IODriver(abc.ABC):
             entry_description: str,
             expiration_delay: timedelta,
             async_configuration_load_function: Callable,
+            io_driver: IODriver,
         ):
             super().__init__(
                 entry_description=entry_description,
                 expiration_delay=expiration_delay,
                 async_load_function=self.load_context,
             )
-            self.authentication_configurations = IODriver.Cache(
+            self.authentication_configurations = IOManager.Cache(
                 entry_description="authentication configuration",
                 expiration_delay=expiration_delay,
                 async_load_function=async_configuration_load_function,
             )
+            self.io_driver = io_driver
 
         async def load_context(
             self, id: AuthenticationConfiguration.Id
         ) -> AuthenticationContext:
             auth_conf = await self.authentication_configurations.get(id)
-            return await auth_conf.authenticate()
+            return await auth_conf.authenticate(io_driver=self.io_driver)
 
         def clear(self):
             super().clear()
@@ -115,25 +145,29 @@ class IODriver(abc.ABC):
 
     def __init__(
         self,
+        io_driver: IODriver,
         *,
         cache_expiration_delay: timedelta = DEFAULT_CACHE_EXPIRATION_DELAY,
     ):
+        self.io_driver = io_driver
+
         self.authentication_contexts = self.AuthenticationContextCache(
             entry_description="authentication context",
             expiration_delay=cache_expiration_delay,
             async_configuration_load_function=(
-                self.load_authentication_configuration
+                io_driver.load_authentication_configuration
             ),
+            io_driver=io_driver,
         )
         self.common_configurations = self.Cache(
             entry_description="common configuration",
             expiration_delay=cache_expiration_delay,
-            async_load_function=self.load_common_configuration,
+            async_load_function=io_driver.load_common_configuration,
         )
         self.machine_configurations = self.Cache(
             entry_description="machine configuration",
             expiration_delay=cache_expiration_delay,
-            async_load_function=self.load_machine_configuration,
+            async_load_function=io_driver.load_machine_configuration,
         )
 
     def clear_cache(self):
@@ -143,27 +177,3 @@ class IODriver(abc.ABC):
         self.common_configurations.clear()
         self.machine_configurations.clear()
         self.authentication_contexts.clear()
-
-    @abc.abstractmethod
-    async def load_authentication_configuration(
-        self, id: AuthenticationConfiguration.Id
-    ) -> AuthenticationConfiguration:
-        """
-        The actual load method, to be implemented by derived classes.
-        """
-
-    @abc.abstractmethod
-    async def load_common_configuration(
-        self, id: CommonConfiguration.Id
-    ) -> CommonConfiguration:
-        """
-        The actual load method, to be implemented by derived classes.
-        """
-
-    @abc.abstractmethod
-    async def load_machine_configuration(
-        self, id: MachineConfiguration.Id
-    ) -> MachineConfiguration:
-        """
-        The actual load method, to be implemented by derived classes.
-        """

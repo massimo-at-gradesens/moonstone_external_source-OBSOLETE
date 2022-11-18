@@ -128,14 +128,14 @@ def test_machine_configuration(machine_configuration_1):
 
 
 @pytest.mark.usefixtures("machine_configuration_1")
-@pytest.mark.usefixtures("io_driver_1")
+@pytest.mark.usefixtures("io_manager_1")
 @pytest.mark.asyncio
 async def test_interpolated_measurement_settings(
     machine_configuration_1,
-    io_driver_1,
+    io_manager_1,
 ):
     assert isinstance(machine_configuration_1, MachineConfiguration)
-    resolver = machine_configuration_1.get_setting_resolver(io_driver_1)
+    resolver = machine_configuration_1.get_setting_resolver(io_manager_1)
     settings = await resolver["measurements"]["temperature"].get_settings()
     assert isinstance(settings, dict)
     assert not isinstance(settings, Settings)
@@ -164,14 +164,14 @@ async def test_interpolated_measurement_settings(
 
 
 @pytest.mark.usefixtures("machine_configuration_1")
-@pytest.mark.usefixtures("io_driver_1")
+@pytest.mark.usefixtures("io_manager_1")
 @pytest.mark.asyncio
 async def test_interpolated_measurement_all_settings(
     machine_configuration_1,
-    io_driver_1,
+    io_manager_1,
 ):
     assert isinstance(machine_configuration_1, MachineConfiguration)
-    resolver = machine_configuration_1.get_setting_resolver(io_driver_1)
+    resolver = machine_configuration_1.get_setting_resolver(io_manager_1)
     settings = await resolver.get_settings()
     assert isinstance(settings, dict)
     assert not isinstance(settings, Settings)
@@ -238,14 +238,14 @@ async def test_interpolated_measurement_all_settings(
     assert_eq_dicts(settings, expected)
 
 
-@pytest.mark.usefixtures("io_driver_1")
+@pytest.mark.usefixtures("io_manager_1")
 @pytest.mark.asyncio
 async def test_complex_interpolated_measurement_all_settings(
-    io_driver_1,
+    io_manager_1,
 ):
-    mach_conf_2 = await io_driver_1.machine_configurations.get("mach2")
+    mach_conf_2 = await io_manager_1.machine_configurations.get("mach2")
     assert isinstance(mach_conf_2, MachineConfiguration)
-    resolver = mach_conf_2.get_setting_resolver(io_driver_1)
+    resolver = mach_conf_2.get_setting_resolver(io_manager_1)
     settings = await resolver.get_settings()
     assert isinstance(settings, dict)
     assert not isinstance(settings, Settings)
@@ -266,13 +266,13 @@ async def test_complex_interpolated_measurement_all_settings(
     assert_eq_dicts(settings, expected)
 
 
-@pytest.mark.usefixtures("io_driver_1")
+@pytest.mark.usefixtures("io_manager_1")
 @pytest.mark.asyncio
 async def test_start_end_times(
-    io_driver_1,
+    io_manager_1,
 ):
-    mach_conf_1 = await io_driver_1.machine_configurations.get("mach_w_time")
-    resolver = mach_conf_1.get_setting_resolver(io_driver_1)
+    mach_conf_1 = await io_manager_1.machine_configurations.get("mach_w_time")
+    resolver = mach_conf_1.get_setting_resolver(io_manager_1)
     with pytest.raises(TimeError) as exc:
         await resolver.get_settings(start_time=datetime.now())
     assert "start_time" in str(exc.value)
