@@ -603,7 +603,7 @@ class MachineConfiguration(_MachineConfigurationSettings):
                 for measurement_id, result in zip(tasks.keys(), results)
             }
 
-    def get_setting_resolver(
+    def get_settings_resolver(
         self, io_manager: "IOManager"
     ) -> _SettingsResolver:
         return self._SettingsResolver(

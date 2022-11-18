@@ -29,3 +29,28 @@ async def test_io_manager_cache(
     mach_conf_2b = await io_manager_1.machine_configurations.get("mach2")
     assert io_manager_1.io_driver.machine_configuration_load_count == 2
     assert mach_conf_2b is mach_conf_2
+
+
+@pytest.mark.usefixtures("io_manager_1")
+@pytest.mark.asyncio
+async def test_io_manager_token_expiration(
+    io_manager_1,
+):
+    assert io_manager_1.io_driver.authentication_configuration_load_count == 0
+    assert io_manager_1.authentication_contexts.load_count == 0
+
+    await io_manager_1.authentication_contexts.get("ac1")
+    assert io_manager_1.io_driver.authentication_configuration_load_count == 1
+    assert io_manager_1.authentication_contexts.load_count == 1
+
+    await io_manager_1.authentication_contexts.get("ac1")
+    assert io_manager_1.io_driver.authentication_configuration_load_count == 1
+    assert io_manager_1.authentication_contexts.load_count == 1
+
+    await io_manager_1.authentication_contexts.get("ac-expired")
+    assert io_manager_1.io_driver.authentication_configuration_load_count == 2
+    assert io_manager_1.authentication_contexts.load_count == 2
+
+    await io_manager_1.authentication_contexts.get("ac-expired")
+    assert io_manager_1.io_driver.authentication_configuration_load_count == 2
+    assert io_manager_1.authentication_contexts.load_count == 3

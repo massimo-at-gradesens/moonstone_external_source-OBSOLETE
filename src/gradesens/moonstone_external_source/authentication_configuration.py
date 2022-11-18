@@ -13,7 +13,7 @@ __copyright__ = "Copyright 2022, Gradesens AG"
 from typing import TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
-    from .io_manager import IODriver
+    from .io_manager import IOManager
 
 from .error import ConfigurationError
 from .http_settings import HTTPRequestSettings, HTTPResultSettings
@@ -117,10 +117,33 @@ class AuthenticationConfiguration(_AuthenticationSettings):
             assert not kwargs
             super().__init__(other)
 
+    async def get_settings(
+        self, io_manager: "IOManager"
+    ) -> Settings.InterpolatedType:
+        """
+        Return the resolved (aka interpolated) settings for this
+        :class:`AuthenticationConfiguration`
+        """
+        parameters = {
+            key: value for key, value in self.items() if not key[0] == "_"
+        }
+
+        settings = Settings(
+            _raw_init=True,
+            **{key: value for key, value in self.items() if not key[0] == "_"},
+        )
+
+        interpolation_context = Settings.InterpolationContext(
+            parameters=parameters,
+        )
+        return settings.interpolate(context=interpolation_context)
+
     async def authenticate(
-        self, io_driver: "IODriver"
+        self, io_manager: "IOManager"
     ) -> AuthenticationContext:
         """
         TODO TODO TODO TODO
         """
+        settings = await self.get_settings()
+        return settings
         pass

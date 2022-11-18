@@ -105,7 +105,7 @@ class ExternalSource:
         machine_configuration = (
             await self.io_manager.machine_configurations.get(machine_id)
         )
-        resolver = machine_configuration.get_setting_resolver(self.io_manager)
+        resolver = machine_configuration.get_settings_resolver(self.io_manager)
         settings = await resolver.get_settings(
             start_time=start_time - start_time_margin,
             end_time=end_time + end_time_margin,

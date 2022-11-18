@@ -11,6 +11,9 @@ from gradesens.moonstone_external_source import (
     IOManager,
     MachineConfiguration,
 )
+from gradesens.moonstone_external_source.io_manager import (
+    AuthenticationContextCache,
+)
 
 
 def load_yaml(text):
@@ -27,6 +30,7 @@ def authentication_context_1():
     params = load_yaml(
         """
     token: I am a secret
+    expires_in: 100
     """
     )
     return AuthenticationContext(**params)
@@ -43,9 +47,38 @@ def authentication_configuration_1(authentication_context_1):
     class CustomAuthenticationConfiguration(AuthenticationConfiguration):
         async def authenticate(
             self,
-            io_driver: IODriver,
+            io_manager: IOManager,
         ) -> AuthenticationContext:
             return authentication_context_1
+
+    return CustomAuthenticationConfiguration(**params)
+
+
+@pytest.fixture
+def authentication_context_expired():
+    params = load_yaml(
+        """
+    token: I am a secret
+    expires_in: -1
+    """
+    )
+    return AuthenticationContext(**params)
+
+
+@pytest.fixture
+def authentication_configuration_expired(authentication_context_expired):
+    params = load_yaml(
+        """
+    id: ac-expired
+    """
+    )
+
+    class CustomAuthenticationConfiguration(AuthenticationConfiguration):
+        async def authenticate(
+            self,
+            io_manager: IOManager,
+        ) -> AuthenticationContext:
+            return authentication_context_expired
 
     return CustomAuthenticationConfiguration(**params)
 
@@ -330,6 +363,7 @@ def common_configuration_nested_5_loop():
 @pytest.fixture
 def io_driver_1(
     authentication_configuration_1,
+    authentication_configuration_expired,
     common_configuration_1,
     common_configuration_2,
     common_configuration_with_result,
@@ -390,6 +424,7 @@ def io_driver_1(
     return TestIODriver(
         authentication_configurations=[
             authentication_configuration_1,
+            authentication_configuration_expired,
         ],
         common_configurations=[
             common_configuration_1,
@@ -412,4 +447,18 @@ def io_driver_1(
 
 @pytest.fixture
 def io_manager_1(io_driver_1):
-    return IOManager(io_driver_1)
+    class TestAuthenticationContextCache(AuthenticationContextCache):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.load_count = 0
+
+        async def load_context(
+            self, id: AuthenticationConfiguration.Id
+        ) -> AuthenticationContext:
+            self.load_count += 1
+            return await super().load_context(id)
+
+    return IOManager(
+        io_driver_1,
+        authentication_context_cache_factory=TestAuthenticationContextCache,
+    )
