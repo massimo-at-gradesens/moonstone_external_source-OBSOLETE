@@ -8,6 +8,7 @@ __copyright__ = "Copyright 2022, Gradesens AG"
 from .async_concurrent_pool import AsyncConcurrentPool
 from .backend_driver import BackendDriver, HTTPBackendDriver
 from .configuration import (
+    AuthenticationConfiguration,
     AuthenticationContext,
     CommonConfiguration,
     MachineConfiguration,
@@ -31,6 +32,7 @@ __all__ = [
     "BackendDriver",
     "HTTPBackendDriver",
     "AuthenticationContext",
+    "AuthenticationConfiguration",
     "CommonConfiguration",
     "MachineConfiguration",
     "MeasurementConfiguration",

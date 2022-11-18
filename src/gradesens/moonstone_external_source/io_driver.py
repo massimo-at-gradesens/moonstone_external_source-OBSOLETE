@@ -15,6 +15,7 @@ from datetime import datetime, timedelta
 from typing import Callable
 
 from .configuration import (
+    AuthenticationConfiguration,
     AuthenticationContext,
     CommonConfiguration,
     MachineConfiguration,
@@ -53,9 +54,9 @@ class IODriver(abc.ABC):
             self.async_load_function = async_load_function
             self.entries = {}
 
-        async def get(self, key):
+        async def get(self, id):
             try:
-                entry = self.entries[key]
+                entry = self.entries[id]
             except KeyError:
                 pass
             else:
@@ -63,7 +64,7 @@ class IODriver(abc.ABC):
                     return entry.value
 
             try:
-                value = await self.async_load_function(key)
+                value = await self.async_load_function(id)
                 if value is None:
                     raise Error("")
             except Exception as err:
@@ -71,37 +72,66 @@ class IODriver(abc.ABC):
                 if err != "":
                     err = f": {err}"
                 raise Error(
-                    f"Unable to load a {self.entry_description!r} for {key!r}"
+                    f"Unable to load a {self.entry_description!r} for {id!r}"
                     f"{err}"
                 ) from None
             entry = self.Entry(
                 expiration_time=datetime.now() + self.expiration_delay,
                 value=value,
             )
-            self.entries[key] = entry
+            self.entries[id] = entry
             return entry.value
 
         def clear(self):
             self.entries.clear()
+
+    class AuthenticationContextCache(Cache):
+        def __init__(
+            self,
+            entry_description: str,
+            expiration_delay: timedelta,
+            async_configuration_load_function: Callable,
+        ):
+            super().__init__(
+                entry_description=entry_description,
+                expiration_delay=expiration_delay,
+                async_load_function=self.load_context,
+            )
+            self.authentication_configurations = IODriver.Cache(
+                entry_description="authentication configuration",
+                expiration_delay=expiration_delay,
+                async_load_function=async_configuration_load_function,
+            )
+
+        async def load_context(
+            self, id: AuthenticationConfiguration.Id
+        ) -> AuthenticationContext:
+            auth_conf = await self.authentication_configurations.get(id)
+            return await auth_conf.authenticate()
+
+        def clear(self):
+            super().clear()
+            self.authentication_configurations.clear()
 
     def __init__(
         self,
         *,
         cache_expiration_delay: timedelta = DEFAULT_CACHE_EXPIRATION_DELAY,
     ):
-
-        self.authentication_contexts = self.Cache(
+        self.authentication_contexts = self.AuthenticationContextCache(
             entry_description="authentication context",
             expiration_delay=cache_expiration_delay,
-            async_load_function=self.load_authentication_context,
+            async_configuration_load_function=(
+                self.load_authentication_configuration
+            ),
         )
         self.common_configurations = self.Cache(
-            entry_description="common_configuration",
+            entry_description="common configuration",
             expiration_delay=cache_expiration_delay,
             async_load_function=self.load_common_configuration,
         )
         self.machine_configurations = self.Cache(
-            entry_description="machine_configuration",
+            entry_description="machine configuration",
             expiration_delay=cache_expiration_delay,
             async_load_function=self.load_machine_configuration,
         )
@@ -115,9 +145,9 @@ class IODriver(abc.ABC):
         self.authentication_contexts.clear()
 
     @abc.abstractmethod
-    async def load_authentication_context(
-        self, id: AuthenticationContext.Id
-    ) -> AuthenticationContext:
+    async def load_authentication_configuration(
+        self, id: AuthenticationConfiguration.Id
+    ) -> AuthenticationConfiguration:
         """
         The actual load method, to be implemented by derived classes.
         """

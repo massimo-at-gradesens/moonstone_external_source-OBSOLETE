@@ -4,6 +4,7 @@ import pytest
 import yaml
 
 from gradesens.moonstone_external_source import (
+    AuthenticationConfiguration,
     AuthenticationContext,
     CommonConfiguration,
     IODriver,
@@ -24,11 +25,25 @@ def load_yaml(text):
 def authentication_context_1():
     params = load_yaml(
         """
-    id: ac1
     token: I am a secret
     """
     )
     return AuthenticationContext(**params)
+
+
+@pytest.fixture
+def authentication_configuration_1(authentication_context_1):
+    params = load_yaml(
+        """
+    id: ac1
+    """
+    )
+
+    class CustomAuthenticationConfiguration(AuthenticationConfiguration):
+        async def authenticate(io_driver: "IODriver") -> AuthenticationContext:
+            return authentication_context_1
+
+    return CustomAuthenticationConfiguration(**params)
 
 
 @pytest.fixture
@@ -310,7 +325,7 @@ def common_configuration_nested_5_loop():
 
 @pytest.fixture
 def io_driver_1(
-    authentication_context_1,
+    authentication_configuration_1,
     common_configuration_1,
     common_configuration_2,
     common_configuration_with_result,
@@ -328,14 +343,14 @@ def io_driver_1(
         def __init__(
             self,
             *args,
-            authentication_contexts,
+            authentication_configurations,
             common_configurations,
             machine_configurations,
             **kwargs
         ):
             super().__init__(*args, **kwargs)
-            self.__authentication_contexts = {
-                item["id"]: item for item in authentication_contexts
+            self.__authentication_configurations = {
+                item["id"]: item for item in authentication_configurations
             }
 
             self.__common_configurations = {
@@ -346,15 +361,15 @@ def io_driver_1(
                 item["id"]: item for item in machine_configurations
             }
 
-            self.authentication_context_load_count = 0
+            self.authentication_configuration_load_count = 0
             self.common_configuration_load_count = 0
             self.machine_configuration_load_count = 0
 
-        async def load_authentication_context(
-            self, id: AuthenticationContext.Id
-        ) -> AuthenticationContext:
-            self.authentication_context_load_count += 1
-            return self.__authentication_contexts[id]
+        async def load_authentication_configuration(
+            self, id: AuthenticationConfiguration.Id
+        ) -> AuthenticationConfiguration:
+            self.authentication_configuration_load_count += 1
+            return self.__authentication_configurations[id]
 
         async def load_common_configuration(
             self, id: CommonConfiguration.Id
@@ -369,8 +384,8 @@ def io_driver_1(
             return self.__machine_configurations[id]
 
     return TestIODriver(
-        authentication_contexts=[
-            authentication_context_1,
+        authentication_configurations=[
+            authentication_configuration_1,
         ],
         common_configurations=[
             common_configuration_1,

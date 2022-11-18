@@ -558,13 +558,38 @@ class _HTTPResultFieldSettings(Settings):
         )
 
 
+class _HTTPResultTimestampFieldSettings(_HTTPResultFieldSettings):
+    """
+    Configuration settings used to parse measurement result raw output data
+    into the eventual output timestamp field.
+    These configuration settings are used by
+    :class:`_MeasurementResultSettings`s
+    """
+
+    def __init__(
+        self,
+        other: Union["_HTTPResultTimestampFieldSettings", None] = None,
+        **kwargs: Settings.InputType,
+    ):
+        if other is not None:
+            assert not kwargs
+            super().__init__(other)
+        else:
+            if "type" in kwargs:
+                raise ConfigurationError(
+                    "Parameter 'type'"
+                    " cannot be specified with timestamp fields"
+                )
+            super().__init__(type="datetime", **kwargs)
+
+
 class _HTTPResultSettings(Settings):
     """
     Configuration settings for generic HTTP response processing to produce
     target results.
 
     These configuration settings are used by
-    :class:`__HTTPTransactionSettings`.
+    :class:`_HTTPTransactionSettings`.
     """
 
     RawResultValueType = Any
@@ -667,48 +692,56 @@ class AuthenticationContext(Settings):
 
     The actual contents, including the list of keys, are strictly customer-
     and API-specific, and are not under the responsibility of this class.
+    Rather, they are defined by configuration data structures used to
+    initialize the objects of :class:`AuthenticationConfiguration`.
+    See also :meth`IODriver.authentication_configurations.get` and
+    :meth:`AuthenticationConfiguration.authenticate`
     """
-
-    print("REMOVE ME REMOVE ME REMOVE ME")
-    Id = str
 
     def __init__(
         self,
         other: Union["AuthenticationContext", None] = None,
-        *,
-        id: Union[Id, None] = None,
-        **kwargs: Settings.InputType,
-    ):
-        if other is None:
-            if id is None:
-                raise ConfigurationError(
-                    "Missing authentication context's 'id'"
-                )
-            super().__init__(id=id, **kwargs)
-        else:
-            assert id is None
-            assert not kwargs
-            super().__init__(other)
-
-
-class _MeasurementResultTimestampFieldSettings(_HTTPResultFieldSettings):
-    """
-    Configuration settings used to parse measurement result raw output data
-    into the eventual output timestamp field.
-    These configuration settings are used by
-    :class:`_MeasurementResultSettings`s
-    """
-
-    def __init__(
-        self,
-        other: Union["_MeasurementResultTimestampFieldSettings", None] = None,
         **kwargs: Settings.InputType,
     ):
         if other is not None:
             assert not kwargs
             super().__init__(other)
         else:
-            super().__init__(type="datetime", **kwargs)
+            super().__init__(**kwargs)
+
+
+class AuthenticationConfiguration(_AuthenticationSettings):
+    """
+    An :class:`AuthenticationConfiguration` provides the required configuration
+    to issue HTTP authentication requests and produced parsed output data from
+    successful authentication responses. Successfully parsed authentication
+    output data are instances of :class:`AuthenticationContext`s, which are
+    used to grant access to specific resources to other API requests.
+    """
+
+    Id = str
+
+    def __init__(
+        self,
+        other: Union["AuthenticationConfiguration", None] = None,
+        *,
+        id: Union[Id, None] = None,
+        **kwargs: Settings.InputType,
+    ):
+        if other is None:
+            if id is None:
+                raise ConfigurationError("Missing common configuration's 'id'")
+            super().__init__(id=id, **kwargs)
+        else:
+            assert id is None
+            assert not kwargs
+            super().__init__(other)
+
+    async def authenticate(self) -> AuthenticationContext:
+        """
+        TODO TODO TODO TODO
+        """
+        pass
 
 
 class _CommonConfigurationIdSettings(Settings):
@@ -800,7 +833,7 @@ class _MeasurementResultSettings(_HTTPResultSettings):
         *,
         value: Union[_HTTPResultFieldSettings.InputType, None] = None,
         timestamp: Union[
-            _MeasurementResultTimestampFieldSettings.InputType, None
+            _HTTPResultTimestampFieldSettings.InputType, None
         ] = None,
     ):
         if other is not None:
@@ -815,9 +848,7 @@ class _MeasurementResultSettings(_HTTPResultSettings):
                 kwargs.update(value=_HTTPResultFieldSettings(**value))
             if timestamp is not None:
                 kwargs.update(
-                    timestamp=_MeasurementResultTimestampFieldSettings(
-                        **timestamp
-                    )
+                    timestamp=_HTTPResultTimestampFieldSettings(**timestamp)
                 )
             super().__init__(**kwargs)
 
@@ -871,7 +902,7 @@ class _MeasurementSettings(_CommonConfigurationIdSettings):
         other: Union["_MeasurementSettings", None] = None,
         *,
         authentication_configuration_id: Union[
-            AuthenticationContext.Id, None
+            AuthenticationConfiguration.Id, None
         ] = None,
         request: Union[_HTTPRequestSettings, None] = None,
         result: Union[_MeasurementResultSettings, None] = None,
