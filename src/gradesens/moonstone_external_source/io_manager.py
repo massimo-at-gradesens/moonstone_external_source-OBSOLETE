@@ -14,12 +14,11 @@ import abc
 from datetime import datetime, timedelta
 from typing import Callable
 
-from .configuration import (
+from .authentication_configuration import (
     AuthenticationConfiguration,
     AuthenticationContext,
-    CommonConfiguration,
-    MachineConfiguration,
 )
+from .configuration import CommonConfiguration, MachineConfiguration
 from .error import Error
 
 
