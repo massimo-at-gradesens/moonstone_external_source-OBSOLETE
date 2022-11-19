@@ -239,7 +239,7 @@ class Settings(dict):
         return super().__str__()
 
 
-class RegexSettings(Settings):
+class RegexProcessor(Settings):
     """
     Configuration settings for regular expression-based text substitutions
     for measurement output data,
@@ -253,7 +253,7 @@ class RegexSettings(Settings):
 
     def __init__(
         self,
-        other: Union["RegexSettings", None] = None,
+        other: Union["RegexProcessor", None] = None,
         *,
         pattern: Union[str, None] = None,
         replacement: Union[str, None] = None,
@@ -306,30 +306,33 @@ class RegexSettings(Settings):
                     )
                 flags_value |= int(real_flag)
 
+            super().__init__(
+                other,
+                pattern=pattern,
+                replacement=replacement,
+                flags=flags_value,
+            )
+
+    class InterpolatedSettings(dict):
+        def process_result(self, value: str) -> str:
+            pattern = self["pattern"]
+            replacement = self["replacement"]
+            flags = self["flags"]
+
             try:
-                regular_expression = re.compile(pattern, flags=flags_value)
+                regex = re.compile(pattern, flags=flags)
             except re.error as err:
                 raise ConfigurationError(
                     f"Invalid regular expression's pattern {pattern!r}:"
                     f" {err}"
                 ) from None
 
-            super().__init__(
-                other,
-                regular_expression=regular_expression,
-                replacement=replacement,
-            )
-
-    class InterpolatedSettings(dict):
-        def process_result(self, value: str) -> str:
-            regular_expression = self["regular_expression"]
-            replacement = self["replacement"]
             try:
-                return regular_expression.sub(replacement, str(value))
+                return regex.sub(replacement, str(value))
             except Exception as err:
                 raise PatternError(
                     f"Failed processing '{value!r}'"
-                    f" with regular expression {regular_expression.pattern!r}"
+                    f" with regular expression {regex.pattern!r}"
                     f" and replacement string {replacement!r}:"
                     f" {err}"
                 ) from None

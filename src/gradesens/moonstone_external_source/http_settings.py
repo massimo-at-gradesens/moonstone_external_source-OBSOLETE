@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Any, Callable, Dict, Iterable, Union
 
 from .error import ConfigurationError, DataTypeError, Error
-from .settings import RegexSettings, Settings
+from .settings import RegexProcessor, Settings
 
 
 class HTTPRequestSettings(Settings):
@@ -153,7 +153,7 @@ class HTTPResultFieldSettings(Settings):
                         )
                 regular_expressions = tuple(
                     map(
-                        lambda regular_expression: RegexSettings(
+                        lambda regular_expression: RegexProcessor(
                             **regular_expression
                         ),
                         regular_expressions,

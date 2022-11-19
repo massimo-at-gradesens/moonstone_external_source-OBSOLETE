@@ -222,7 +222,7 @@ def machine_configuration_with_result():
     result:
         timestamp:
             regular_expression:
-                pattern: "^(|.*[^0-9])(?P<year>[0-9]+).*"
+                pattern: "^(|.*[^0-9])(?P<year>[0-9]{{2,4}}).*"
                 flags: i
                 replacement: "20\\g<year>-11-15"
         value:
@@ -256,6 +256,12 @@ def machine_configuration_with_result():
                 timestamp:
                     regular_expression:
                     input: "{out_field2}"
+                #timestamp:
+                #    process:
+                #        - eval: "out_field2"
+                #        - interpolate: "aa{_}aa"
+                #        - type: datetime
+                #        - eval: "datetime(seconds=_)"
     """
     )
     return MachineConfiguration(**params)

@@ -30,10 +30,9 @@ async def test_machine_configuration_with_result(io_manager_1):
                 "type": converters["datetime"],
                 "regular_expressions": (
                     {
-                        "regular_expression": re.compile(
-                            "^(|.*[^0-9])(?P<year>[0-9]+).*", re.IGNORECASE
-                        ),
+                        "pattern": "^(|.*[^0-9])(?P<year>[0-9]{{2,4}}).*",
                         "replacement": r"20\g<year>-11-15",
+                        "flags": re.IGNORECASE,
                     },
                 ),
             },
@@ -78,14 +77,14 @@ async def test_machine_configuration_with_result(io_manager_1):
                         "input": 23,
                         "regular_expressions": (
                             {
-                                "regular_expression": re.compile("^(.*)$"),
+                                "pattern": "^(.*)$",
                                 "replacement": r"17-\1\1-08",
+                                "flags": 0,
                             },
                             {
-                                "regular_expression": re.compile(
-                                    "^(?P<d>.*)-(?P<y>.*)-(?P<m>.*)$"
-                                ),
+                                "pattern": "^(?P<d>.*)-(?P<y>.*)-(?P<m>.*)$",
                                 "replacement": r"\g<y>-\g<m>-\g<d>",
+                                "flags": 0,
                             },
                         ),
                     },
@@ -93,12 +92,14 @@ async def test_machine_configuration_with_result(io_manager_1):
                         "type": converters["int"],
                         "regular_expressions": (
                             {
-                                "regular_expression": re.compile("^(.*)$"),
+                                "pattern": "^(.*)$",
                                 "replacement": r"0x\1",
+                                "flags": 0,
                             },
                             {
-                                "regular_expression": re.compile("[83]"),
+                                "pattern": "[83]",
                                 "replacement": r"7",
+                                "flags": 0,
                             },
                         ),
                     },
@@ -148,10 +149,9 @@ async def test_machine_settings_with_result(io_manager_1):
                     "input": "{temp_ts_raw}",
                     "regular_expressions": (
                         {
-                            "regular_expression": re.compile(
-                                "^(|.*[^0-9])(?P<year>[0-9]+).*", re.IGNORECASE
-                            ),
+                            "pattern": "^(|.*[^0-9])(?P<year>[0-9]{2,4}).*",
                             "replacement": r"20\g<year>-11-15",
+                            "flags": re.IGNORECASE,
                         },
                     ),
                 },
@@ -174,14 +174,14 @@ async def test_machine_settings_with_result(io_manager_1):
                     "input": 23,
                     "regular_expressions": (
                         {
-                            "regular_expression": re.compile("^(.*)$"),
+                            "pattern": "^(.*)$",
                             "replacement": r"17-\1\1-08",
+                            "flags": 0,
                         },
                         {
-                            "regular_expression": re.compile(
-                                "^(?P<d>.*)-(?P<y>.*)-(?P<m>.*)$"
-                            ),
+                            "pattern": "^(?P<d>.*)-(?P<y>.*)-(?P<m>.*)$",
                             "replacement": r"\g<y>-\g<m>-\g<d>",
+                            "flags": 0,
                         },
                     ),
                 },
@@ -190,12 +190,14 @@ async def test_machine_settings_with_result(io_manager_1):
                     "type": converters["int"],
                     "regular_expressions": (
                         {
-                            "regular_expression": re.compile("^(.*)$"),
+                            "pattern": "^(.*)$",
                             "replacement": r"0x\1",
+                            "flags": 0,
                         },
                         {
-                            "regular_expression": re.compile("[83]"),
+                            "pattern": "[83]",
                             "replacement": r"7",
+                            "flags": 0,
                         },
                     ),
                 },

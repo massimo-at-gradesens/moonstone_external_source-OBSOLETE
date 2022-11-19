@@ -33,11 +33,11 @@ from .http_settings import (
     HTTPResultTimestampFieldSettings,
 )
 from .io_manager import IODriver, IOManager
-from .settings import RegexSettings, Settings
+from .settings import RegexProcessor, Settings
 
 __all__ = [
     "Settings",
-    "RegexSettings",
+    "RegexProcessor",
     "HTTPRequestSettings",
     "HTTPResultFieldSettings",
     "HTTPResultTimestampFieldSettings",
