@@ -95,20 +95,22 @@ class HTTPResultFieldSettings(Settings):
         )
     )
 
+    __NA = object()
+
     def __init__(
         self,
         other: Union["HTTPResultFieldSettings", None] = None,
         *,
         type: Union[str, None] = None,
-        raw_value: Union[str, None] = None,
+        input: Union[str, None] = None,
         regular_expression: Union[
             Iterable[Settings.InputType], Settings.InputType, None
-        ] = None,
+        ] = __NA,
     ):
         if other is not None:
             assert type is None
-            assert raw_value is None
-            assert regular_expression is None
+            assert input is None
+            assert regular_expression is self.__NA
             super().__init__(other)
         else:
             # "restore" the normal 'type()' operation, after having overridden
@@ -126,12 +128,12 @@ class HTTPResultFieldSettings(Settings):
                         f" Valid types: {valid_types}"
                     ) from None
 
-            kwargs = dict(
-                _interpolate=False,
-            )
+            kwargs = dict()
 
-            if regular_expression is not None:
-                if isinstance(regular_expression, dict):
+            if regular_expression is not self.__NA:
+                if regular_expression is None:
+                    regular_expressions = ()
+                elif isinstance(regular_expression, dict):
                     regular_expressions = (regular_expression,)
                 elif isinstance(regular_expression, collections.abc.Iterable):
                     regular_expressions = tuple(regular_expression)
@@ -168,9 +170,9 @@ class HTTPResultFieldSettings(Settings):
                 kwargs.update(
                     type=field_type,
                 )
-            if raw_value is not None:
+            if input is not None:
                 kwargs.update(
-                    raw_value=raw_value,
+                    input=input,
                 )
 
             super().__init__(**kwargs)
@@ -180,20 +182,18 @@ class HTTPResultFieldSettings(Settings):
             self, raw_result: "HTTPResultSettings.RawResultType"
         ) -> "HTTPResultSettings.ResultValueType":
             try:
-                raw_value = self["raw_value"]
+                input = self["input"]
             except KeyError:
                 raise ConfigurationError(
-                    "Missing result field's 'raw_value' field"
+                    "Missing result field's 'input' field"
                 ) from None
             try:
                 field_type = self["type"]
             except KeyError:
-                raise ConfigurationError(
-                    "Missing result field's 'type' field"
-                ) from None
+                field_type = str
 
             value = Settings.interpolate_value(
-                value=raw_value,
+                value=input,
                 parameters=raw_result,
             )
 

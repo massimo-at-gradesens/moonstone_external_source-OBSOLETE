@@ -48,7 +48,7 @@ def authentication_configuration_1(authentication_context_1):
 def authentication_context_expired():
     params = load_yaml(
         """
-    token: I am a secret
+    token: I am another secret
     expires_in: -1
     """
     )
@@ -207,7 +207,7 @@ def common_configuration_with_result():
         -   id: rpm
             result:
                 timestamp:
-                    raw_value: "{out_field1}"
+                    input: "{out_field1}"
     """
     )
     return CommonConfiguration(**params)
@@ -226,14 +226,15 @@ def machine_configuration_with_result():
                 flags: i
                 replacement: "20\\g<year>-11-15"
         value:
-            raw_value: "{get}{the}{raw}"
+            input: "{{get}}{{the}}{{raw}}"
+    out_field2: 2022-11-19
     measurements:
         -   id: temperature
             result:
                 value:
                     type: float
                 timestamp:
-                    raw_value: "{temp_ts_raw}"
+                    input: "{{temp_ts_raw}}"
         -   id: rpm
             result:
                 value:
@@ -244,7 +245,7 @@ def machine_configuration_with_result():
                         -   pattern: "[83]"
                             replacement: "7"
                 timestamp:
-                    raw_value: 23
+                    input: 23
                     regular_expression:
                         -   pattern: "^(.*)$"
                             replacement: "17-\\1\\1-08"
@@ -253,7 +254,8 @@ def machine_configuration_with_result():
         -   id: humidity
             result:
                 timestamp:
-                    raw_value: "{out_field2}"
+                    regular_expression:
+                    input: "{out_field2}"
     """
     )
     return MachineConfiguration(**params)

@@ -1,5 +1,5 @@
 import re
-from datetime import datetime
+from datetime import date, datetime
 
 import pytest
 
@@ -24,9 +24,9 @@ async def test_machine_configuration_with_result(io_manager_1):
             "query_string": {},
             "data": None,
         },
+        "out_field2": date.fromisoformat("2022-11-19"),
         "result": {
             "timestamp": {
-                "_interpolate": False,
                 "type": converters["datetime"],
                 "regular_expressions": (
                     {
@@ -38,8 +38,7 @@ async def test_machine_configuration_with_result(io_manager_1):
                 ),
             },
             "value": {
-                "_interpolate": False,
-                "raw_value": "{get}{the}{raw}",
+                "input": "{{get}}{{the}}{{raw}}",
             },
         },
         "measurements": {
@@ -55,13 +54,11 @@ async def test_machine_configuration_with_result(io_manager_1):
                 },
                 "result": {
                     "value": {
-                        "_interpolate": False,
                         "type": converters["float"],
                     },
                     "timestamp": {
-                        "_interpolate": False,
                         "type": converters["datetime"],
-                        "raw_value": "{temp_ts_raw}",
+                        "input": "{{temp_ts_raw}}",
                     },
                 },
             },
@@ -77,9 +74,8 @@ async def test_machine_configuration_with_result(io_manager_1):
                 },
                 "result": {
                     "timestamp": {
-                        "_interpolate": False,
                         "type": converters["datetime"],
-                        "raw_value": 23,
+                        "input": 23,
                         "regular_expressions": (
                             {
                                 "regular_expression": re.compile("^(.*)$"),
@@ -94,7 +90,6 @@ async def test_machine_configuration_with_result(io_manager_1):
                         ),
                     },
                     "value": {
-                        "_interpolate": False,
                         "type": converters["int"],
                         "regular_expressions": (
                             {
@@ -121,9 +116,9 @@ async def test_machine_configuration_with_result(io_manager_1):
                 },
                 "result": {
                     "timestamp": {
-                        "_interpolate": False,
                         "type": converters["datetime"],
-                        "raw_value": "{out_field2}",
+                        "input": "{out_field2}",
+                        "regular_expressions": (),
                     },
                 },
             },
@@ -150,7 +145,7 @@ async def test_machine_settings_with_result(io_manager_1):
             "result": {
                 "timestamp": {
                     "type": converters["datetime"],
-                    "raw_value": "{temp_ts_raw}",
+                    "input": "{temp_ts_raw}",
                     "regular_expressions": (
                         {
                             "regular_expression": re.compile(
@@ -162,7 +157,7 @@ async def test_machine_settings_with_result(io_manager_1):
                 },
                 "value": {
                     "type": converters["float"],
-                    "raw_value": "{get}{the}{raw}",
+                    "input": "{get}{the}{raw}",
                 },
             },
         },
@@ -176,7 +171,7 @@ async def test_machine_settings_with_result(io_manager_1):
             "result": {
                 "timestamp": {
                     "type": converters["datetime"],
-                    "raw_value": 23,
+                    "input": 23,
                     "regular_expressions": (
                         {
                             "regular_expression": re.compile("^(.*)$"),
@@ -191,7 +186,7 @@ async def test_machine_settings_with_result(io_manager_1):
                     ),
                 },
                 "value": {
-                    "raw_value": "{get}{the}{raw}",
+                    "input": "{get}{the}{raw}",
                     "type": converters["int"],
                     "regular_expressions": (
                         {
@@ -216,18 +211,11 @@ async def test_machine_settings_with_result(io_manager_1):
             "result": {
                 "timestamp": {
                     "type": converters["datetime"],
-                    "raw_value": "{out_field2}",
-                    "regular_expressions": (
-                        {
-                            "regular_expression": re.compile(
-                                "^(|.*[^0-9])(?P<year>[0-9]+).*", re.IGNORECASE
-                            ),
-                            "replacement": r"20\g<year>-11-15",
-                        },
-                    ),
+                    "input": "2022-11-19",
+                    "regular_expressions": (),
                 },
                 "value": {
-                    "raw_value": "{get}{the}{raw}",
+                    "input": "{get}{the}{raw}",
                 },
             },
         },
@@ -268,5 +256,17 @@ async def test_machine_result(io_manager_1):
     expected = {
         "value": 0x177725,
         "timestamp": datetime(2323, 8, 17),
+    }
+
+    result = settings["humidity"]["result"].process_result(
+        dict(
+            get="GET",
+            the="<THE>",
+            raw="`RAW'",
+        )
+    )
+    expected = {
+        "value": "GET<THE>`RAW'",
+        "timestamp": datetime(2022, 11, 19),
     }
     assert_eq_dicts(result, expected)
