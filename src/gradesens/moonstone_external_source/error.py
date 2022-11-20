@@ -47,8 +47,34 @@ class HTTPResponseError(HTTPError):
     pass
 
 
+class EvalError(Error):
+    def __init__(self, message=None, expression=None):
+        super().__init__(message)
+        self.expression = expression
+        self.message = message
+
+    def __str__(self):
+        message = "" if self.message is None else str(self.message)
+        if self.expression is None:
+            return message
+        if message:
+            message = ": " + message
+        return f"Expression {self.expression!r}{message}"
+
+
 class PatternError(Error):
-    pass
+    def __init__(self, message=None, pattern=None):
+        super().__init__(message)
+        self.pattern = pattern
+        self.message = message
+
+    def __str__(self):
+        message = "" if self.message is None else str(self.message)
+        if self.pattern is None:
+            return message
+        if message:
+            message = ": " + message
+        return f"Pattern {self.pattern!r}{message}"
 
 
 class TimeError(Error):
@@ -56,4 +82,8 @@ class TimeError(Error):
 
 
 class DataTypeError(Error):
+    pass
+
+
+class DataValueError(Error):
     pass

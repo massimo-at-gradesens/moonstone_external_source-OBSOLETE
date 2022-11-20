@@ -1,13 +1,11 @@
 import re
-from datetime import date, datetime
+from datetime import date
 
 import pytest
 
-from gradesens.moonstone_external_source import configuration
+from gradesens.moonstone_external_source import Settings
 
-from .utils import assert_eq_dicts
-
-converters = configuration.HTTPResultFieldSettings.VALID_TYPES
+from .utils import assert_eq, expand_processors
 
 
 @pytest.mark.usefixtures("io_manager_1")
@@ -26,19 +24,21 @@ async def test_machine_configuration_with_result(io_manager_1):
         },
         "out_field2": date.fromisoformat("2022-11-19"),
         "result": {
+            "_interpolation_settings": Settings.InterpolationSettings(
+                interpolate=False,
+            ),
             "timestamp": {
-                "type": converters["datetime"],
-                "regular_expressions": (
+                "<process": [
                     {
+                        "__processor": "regex",
+                        "input_key": "raw_timestamp",
                         "pattern": "^(|.*[^0-9])(?P<year>[0-9]{{2,4}}).*",
                         "replacement": r"20\g<year>-11-15",
                         "flags": re.IGNORECASE,
                     },
-                ),
+                ]
             },
-            "value": {
-                "input": "{{get}}{{the}}{{raw}}",
-            },
+            "value": "{get}{the}{raw}",
         },
         "measurements": {
             "temperature": {
@@ -52,12 +52,25 @@ async def test_machine_configuration_with_result(io_manager_1):
                     "data": None,
                 },
                 "result": {
+                    "_interpolation_settings": Settings.InterpolationSettings(
+                        interpolate=False,
+                    ),
                     "value": {
-                        "type": converters["float"],
+                        "<process": [
+                            {
+                                "__processor": "type",
+                                "input_key": "temp_value",
+                                "converter": "float",
+                            }
+                        ]
                     },
                     "timestamp": {
-                        "type": converters["datetime"],
-                        "input": "{{temp_ts_raw}}",
+                        "<process": [
+                            {
+                                "__processor": "interpolate",
+                                "string": "{temp_ts_raw}",
+                            }
+                        ]
                     },
                 },
             },
@@ -72,36 +85,53 @@ async def test_machine_configuration_with_result(io_manager_1):
                     "data": None,
                 },
                 "result": {
-                    "timestamp": {
-                        "type": converters["datetime"],
-                        "input": 23,
-                        "regular_expressions": (
-                            {
-                                "pattern": "^(.*)$",
-                                "replacement": r"17-\1\1-08",
-                                "flags": 0,
-                            },
-                            {
-                                "pattern": "^(?P<d>.*)-(?P<y>.*)-(?P<m>.*)$",
-                                "replacement": r"\g<y>-\g<m>-\g<d>",
-                                "flags": 0,
-                            },
-                        ),
-                    },
+                    "_interpolation_settings": Settings.InterpolationSettings(
+                        interpolate=False,
+                    ),
                     "value": {
-                        "type": converters["int"],
-                        "regular_expressions": (
+                        "<process": [
                             {
+                                "__processor": "regex",
+                                "input_key": "rpm_value",
                                 "pattern": "^(.*)$",
                                 "replacement": r"0x\1",
                                 "flags": 0,
                             },
                             {
+                                "__processor": "regex",
                                 "pattern": "[83]",
                                 "replacement": r"7",
                                 "flags": 0,
                             },
-                        ),
+                            {
+                                "__processor": "type",
+                                "converter": "int{radix=0}",
+                            },
+                        ],
+                    },
+                    "timestamp": {
+                        "<process": [
+                            {
+                                "__processor": "eval",
+                                "expression": "23",
+                            },
+                            {
+                                "__processor": "regex",
+                                "pattern": "^(.*)$",
+                                "replacement": r"17-\1\1-08",
+                                "flags": 0,
+                            },
+                            {
+                                "__processor": "regex",
+                                "pattern": "^(?P<d>.*)-(?P<y>.*)-(?P<m>.*)$",
+                                "replacement": r"\g<y>-\g<m>-\g<d>",
+                                "flags": 0,
+                            },
+                            {
+                                "__processor": "type",
+                                "converter": "date",
+                            },
+                        ],
                     },
                 },
             },
@@ -116,17 +146,27 @@ async def test_machine_configuration_with_result(io_manager_1):
                     "data": None,
                 },
                 "result": {
+                    "_interpolation_settings": Settings.InterpolationSettings(
+                        interpolate=False,
+                    ),
                     "timestamp": {
-                        "type": converters["datetime"],
-                        "input": "{out_field2}",
-                        "regular_expressions": (),
+                        "<process": [
+                            {
+                                "__processor": "regex",
+                                "input_key": "out_field2",
+                                "pattern": "^(.*)$",
+                                "replacement": r"<\1>",
+                                "flags": 0,
+                            },
+                        ],
                     },
                 },
             },
         },
     }
 
-    assert_eq_dicts(mach_conf, expected)
+    mach_conf = expand_processors(mach_conf)
+    assert_eq(mach_conf, expected)
 
 
 @pytest.mark.usefixtures("io_manager_1")
@@ -144,20 +184,22 @@ async def test_machine_settings_with_result(io_manager_1):
                 "data": None,
             },
             "result": {
-                "timestamp": {
-                    "type": converters["datetime"],
-                    "input": "{temp_ts_raw}",
-                    "regular_expressions": (
-                        {
-                            "pattern": "^(|.*[^0-9])(?P<year>[0-9]{2,4}).*",
-                            "replacement": r"20\g<year>-11-15",
-                            "flags": re.IGNORECASE,
-                        },
-                    ),
-                },
                 "value": {
-                    "type": converters["float"],
-                    "input": "{get}{the}{raw}",
+                    "<process": [
+                        {
+                            "__processor": "type",
+                            "input_key": "temp_value",
+                            "converter": "float",
+                        }
+                    ]
+                },
+                "timestamp": {
+                    "<process": [
+                        {
+                            "__processor": "interpolate",
+                            "string": "{temp_ts_raw}",
+                        }
+                    ]
                 },
             },
         },
@@ -169,37 +211,50 @@ async def test_machine_settings_with_result(io_manager_1):
                 "data": None,
             },
             "result": {
-                "timestamp": {
-                    "type": converters["datetime"],
-                    "input": 23,
-                    "regular_expressions": (
-                        {
-                            "pattern": "^(.*)$",
-                            "replacement": r"17-\1\1-08",
-                            "flags": 0,
-                        },
-                        {
-                            "pattern": "^(?P<d>.*)-(?P<y>.*)-(?P<m>.*)$",
-                            "replacement": r"\g<y>-\g<m>-\g<d>",
-                            "flags": 0,
-                        },
-                    ),
-                },
                 "value": {
-                    "input": "{get}{the}{raw}",
-                    "type": converters["int"],
-                    "regular_expressions": (
+                    "<process": [
                         {
+                            "__processor": "regex",
+                            "input_key": "rpm_value",
                             "pattern": "^(.*)$",
                             "replacement": r"0x\1",
                             "flags": 0,
                         },
                         {
+                            "__processor": "regex",
                             "pattern": "[83]",
                             "replacement": r"7",
                             "flags": 0,
                         },
-                    ),
+                        {
+                            "__processor": "type",
+                            "converter": "int{radix=0}",
+                        },
+                    ],
+                },
+                "timestamp": {
+                    "<process": [
+                        {
+                            "__processor": "eval",
+                            "expression": "23",
+                        },
+                        {
+                            "__processor": "regex",
+                            "pattern": "^(.*)$",
+                            "replacement": r"17-\1\1-08",
+                            "flags": 0,
+                        },
+                        {
+                            "__processor": "regex",
+                            "pattern": "^(?P<d>.*)-(?P<y>.*)-(?P<m>.*)$",
+                            "replacement": r"\g<y>-\g<m>-\g<d>",
+                            "flags": 0,
+                        },
+                        {
+                            "__processor": "type",
+                            "converter": "date",
+                        },
+                    ],
                 },
             },
         },
@@ -212,18 +267,23 @@ async def test_machine_settings_with_result(io_manager_1):
             },
             "result": {
                 "timestamp": {
-                    "type": converters["datetime"],
-                    "input": "2022-11-19",
-                    "regular_expressions": (),
+                    "<process": [
+                        {
+                            "__processor": "regex",
+                            "input_key": "out_field2",
+                            "pattern": "^(.*)$",
+                            "replacement": r"<\1>",
+                            "flags": 0,
+                        },
+                    ],
                 },
-                "value": {
-                    "input": "{get}{the}{raw}",
-                },
+                "value": "{get}{the}{raw}",
             },
         },
     }
 
-    assert_eq_dicts(settings, expected)
+    settings = expand_processors(settings)
+    assert_eq(settings, expected)
 
 
 @pytest.mark.usefixtures("io_manager_1")
@@ -233,35 +293,28 @@ async def test_machine_result(io_manager_1):
     resolver = mach_conf.get_settings_resolver(io_manager_1)
     settings = await resolver.get_settings()
 
-    result = settings["temperature"]["result"].process_result(
+    result = settings["temperature"].process_result(
         dict(
-            get="3",
-            the=".",
-            raw="14",
+            temp_value="3.14",
             temp_ts_raw="hello 31 jk",
         )
     )
     expected = {
         "value": 3.14,
-        "timestamp": datetime(2031, 11, 15),
+        "timestamp": "hello 31 jk",
     }
-    assert_eq_dicts(result, expected)
+    assert_eq(result, expected)
 
-    result = settings["rpm"]["result"].process_result(
-        dict(
-            get="18",
-            the="33",
-            raw="25",
-            temp_ts_raw="hello 31 jk",
-        )
-    )
+    result = settings["rpm"].process_result(dict(rpm_value="1283849"))
     expected = {
-        "value": 0x177725,
-        "timestamp": datetime(2323, 8, 17),
+        "value": 0x1277749,
+        "timestamp": date(2323, 8, 17),
     }
+    assert_eq(result, expected)
 
-    result = settings["humidity"]["result"].process_result(
+    result = settings["humidity"].process_result(
         dict(
+            out_field2="jump",
             get="GET",
             the="<THE>",
             raw="`RAW'",
@@ -269,6 +322,6 @@ async def test_machine_result(io_manager_1):
     )
     expected = {
         "value": "GET<THE>`RAW'",
-        "timestamp": datetime(2022, 11, 19),
+        "timestamp": "<jump>",
     }
-    assert_eq_dicts(result, expected)
+    assert_eq(result, expected)

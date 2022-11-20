@@ -10,17 +10,24 @@ __author__ = "Massimo Ravasi"
 __copyright__ = "Copyright 2022, Gradesens AG"
 
 
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Iterable, Union
 
 if TYPE_CHECKING:
     from .io_manager import IOManager
 
+from .configuration_ids_configuration import (
+    ConfigurationIdsConfiguration,
+    ConfigurationIdsSettings,
+)
 from .error import ConfigurationError
-from .http_settings import HTTPRequestSettings, HTTPResultSettings
+from .http_settings import HTTPTransactionSettings
 from .settings import Settings
 
 
-class _AuthenticationSettings(Settings):
+class _AuthenticationSettings(
+    HTTPTransactionSettings,
+    ConfigurationIdsSettings,
+):
     """
     Configuration settings for a authentication requests and result
     processing.
@@ -32,37 +39,33 @@ class _AuthenticationSettings(Settings):
     def __init__(
         self,
         other: Union["_AuthenticationSettings", None] = None,
+        /,
         *,
-        request: Union[HTTPRequestSettings, None] = None,
-        result: Union[HTTPResultSettings, None] = None,
+        common_configuration_ids: Union[
+            Iterable["AuthenticationConfiguration.Id"],
+            "AuthenticationConfiguration.Id",
+            None,
+        ] = None,
         **kwargs: Settings.InputType,
     ):
         if other is not None:
-            assert request is None
-            assert result is None
+            assert common_configuration_ids is None
             assert not kwargs
             super().__init__(other)
-        else:
-            # Force a non-copy creation, so as to instantiate the
-            # field-specific settings classes, required for proper result
-            # parsing.
-            # Furthermore, always force the creation of request and result
-            # settings object, even if empty, to make sure any settings-
-            # specific features are properly set, such as the _interpolate
-            # field of HTTPResultSettings
-            if request is None:
-                request = {}
-            request = HTTPRequestSettings(**request)
-            if result is None:
-                result = {}
-            result = HTTPResultSettings(**result)
+            return
 
-            super().__init__(
-                other,
-                request=request,
-                result=result,
-                **kwargs,
-            )
+        super().__init__(
+            common_configuration_ids=common_configuration_ids,
+            _configuration_ids_field="common_configuration_ids",
+            _configuration_ids_get=(
+                lambda io_manager, configuration_id: (
+                    (
+                        io_manager.authentication_contexts
+                    ).authentication_configurations.get(configuration_id)
+                )
+            ),
+            **kwargs,
+        )
 
 
 class AuthenticationContext(Settings):
@@ -81,22 +84,31 @@ class AuthenticationContext(Settings):
     def __init__(
         self,
         other: Union["AuthenticationContext", None] = None,
+        /,
         **kwargs: Settings.InputType,
     ):
         if other is not None:
             assert not kwargs
             super().__init__(other)
-        else:
-            super().__init__(**kwargs)
+            return
+
+        super().__init__(**kwargs)
 
 
-class AuthenticationConfiguration(_AuthenticationSettings):
+class AuthenticationConfiguration(
+    _AuthenticationSettings,
+    ConfigurationIdsConfiguration,
+):
     """
     An :class:`AuthenticationConfiguration` provides the required configuration
     to issue HTTP authentication requests and produced parsed output data from
     successful authentication responses. Successfully parsed authentication
     output data are instances of :class:`AuthenticationContext`s, which are
     used to grant access to specific resources to other API requests.
+
+    See :class:`CommonConfiguration` about hierarchical resolution of
+    :class:`Settings` from trees of :class`AuthenticationConfiguration`
+    referencing each other via parameter ``common_configuration_ids``.
     """
 
     Id = str
@@ -104,6 +116,7 @@ class AuthenticationConfiguration(_AuthenticationSettings):
     def __init__(
         self,
         other: Union["AuthenticationConfiguration", None] = None,
+        /,
         *,
         id: Union[Id, None] = None,
         **kwargs: Settings.InputType,
@@ -112,10 +125,11 @@ class AuthenticationConfiguration(_AuthenticationSettings):
             assert id is None
             assert not kwargs
             super().__init__(other)
-        else:
-            if id is None:
-                raise ConfigurationError("Missing common configuration's 'id'")
-            super().__init__(id=id, **kwargs)
+            return
+
+        if id is None:
+            raise ConfigurationError("Missing common configuration's 'id'")
+        super().__init__(id=id, **kwargs)
 
     async def get_settings(
         self, io_manager: "IOManager"
@@ -124,19 +138,33 @@ class AuthenticationConfiguration(_AuthenticationSettings):
         Return the resolved (aka interpolated) settings for this
         :class:`AuthenticationConfiguration`
         """
-        parameters = {
-            key: value for key, value in self.items() if not key[0] == "_"
+        settings = await self.get_merged_settings(io_manager)
+        settings = {
+            key: value for key, value in settings.items() if not key[0] == "_"
         }
-
-        settings = Settings(
-            _raw_init=True,
-            **{key: value for key, value in self.items() if not key[0] == "_"},
-        )
+        parameters = settings
 
         interpolation_context = Settings.InterpolationContext(
             parameters=parameters,
         )
-        return settings.interpolate(context=interpolation_context)
+
+        return self.InterpolatedSettings(
+            self.interpolated_items_from_dict(
+                settings,
+                context=interpolation_context,
+            )
+        )
+
+    def interpolate(
+        self, *args, **kwargs
+    ) -> (HTTPTransactionSettings.InterpolatedSettings):
+        return self.InterpolatedSettings(
+            self.interpolated_items_from_dict(
+                {key: value for key, value in self.items() if key[0] != "_"},
+                *args,
+                **kwargs,
+            )
+        )
 
     async def authenticate(
         self, io_manager: "IOManager"
@@ -162,5 +190,5 @@ class AuthenticationConfiguration(_AuthenticationSettings):
         raw_result = await io_manager.backend_driver.get_raw_result(
             **request_kwargs
         )
-        return raw_result.data
-        pass
+
+        return settings.process_result(raw_result.data)

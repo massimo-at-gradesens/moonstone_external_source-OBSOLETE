@@ -131,11 +131,11 @@ class AuthenticationContextCache(Cache):
 
             # check for authentication expiration
             now = datetime.now()
-            for key, is_delta, unit in (
-                ("expires_in", True, "seconds"),
-                ("expiration_in", True, "seconds"),
-                ("expires_at", False, None),
-                ("expiration_at", False, None),
+            for key, is_delta in (
+                ("expires_in", True),
+                ("expiration_in", True),
+                ("expires_at", False),
+                ("expiration_at", False),
             ):
                 try:
                     value = self.value[key]
@@ -143,25 +143,9 @@ class AuthenticationContextCache(Cache):
                     continue
 
                 if is_delta:
-                    if isinstance(value, str):
-                        try:
-                            value = int(value)
-                        except ValueError:
-                            continue
-                    if isinstance(value, int):
-                        value = timedelta(**{unit: value})
-                    elif not isinstance(value, timedelta):
-                        continue
                     if self.creation_time + value < now:
                         return True
                 else:
-                    if isinstance(value, str):
-                        try:
-                            value = datetime.fromisoformat(value)
-                        except ValueError:
-                            continue
-                    if not isinstance(value, datetime):
-                        continue
                     if value < now:
                         return True
 

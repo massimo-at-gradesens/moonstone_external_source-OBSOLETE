@@ -1,5 +1,7 @@
 from gradesens.moonstone_external_source import Settings
 
+from .utils import assert_eq
+
 
 def test_settings_init():
     settings = Settings(
@@ -26,15 +28,18 @@ def test_settings_init():
             ),
         ),
     )
-    assert settings == {
-        "hello": "world",
-        "sub": {
-            "lausanne": "VD",
-            "inner": {
-                "bern": "BE",
+    assert_eq(
+        settings,
+        {
+            "hello": "world",
+            "sub": {
+                "lausanne": "VD",
+                "inner": {
+                    "bern": "BE",
+                },
             },
         },
-    }
+    )
 
     settings = Settings(
         (
@@ -42,10 +47,13 @@ def test_settings_init():
             ("green", "blue"),
         ),
     )
-    assert settings == {
-        "yellow": "red",
-        "green": "blue",
-    }
+    assert_eq(
+        settings,
+        {
+            "yellow": "red",
+            "green": "blue",
+        },
+    )
 
 
 def test_settings_copy():

@@ -9,13 +9,10 @@ __author__ = "Massimo Ravasi"
 __copyright__ = "Copyright 2022, Gradesens AG"
 
 
-import builtins
-import collections
-from datetime import datetime
-from typing import Any, Callable, Dict, Iterable, Union
+from typing import Any, Dict, Union
 
-from .error import ConfigurationError, DataTypeError, Error
-from .settings import RegexProcessor, Settings
+from .error import Error
+from .settings import Settings
 
 
 class HTTPRequestSettings(Settings):
@@ -29,6 +26,7 @@ class HTTPRequestSettings(Settings):
     def __init__(
         self,
         other: Union["HTTPRequestSettings", None] = None,
+        /,
         *,
         url: str = None,
         headers: Union[Settings.InputType, None] = None,
@@ -43,203 +41,18 @@ class HTTPRequestSettings(Settings):
             assert data is None
             assert not kwargs
             super().__init__(other)
-        else:
-            query_string = Settings(query_string)
-            headers = Settings(headers)
+            return
 
-            super().__init__(
-                other,
-                url=url,
-                headers=headers,
-                query_string=query_string,
-                data=data,
-                **kwargs,
-            )
+        query_string = {} if query_string is None else query_string
+        headers = {} if headers is None else headers
 
-
-class HTTPResultFieldSettings(Settings):
-    """
-    Common configuration settings used to parse raw HTTP response output
-    data into target data. All result field settings classes derive from this
-    class.
-    """
-
-    class Converter:
-        def __init__(
-            self,
-            convert_func: Callable,
-            name: Union[str, None] = None,
-        ):
-            self.convert_func = convert_func
-            self.name = name if name is not None else convert_func.__name__
-
-        def __call__(self, value: str) -> Any:
-            return self.convert_func(value)
-
-        def __str__(self):
-            return self.name
-
-        def __repr__(self):
-            return f"{type(self).__name__}[{self.name}]"
-
-    VALID_TYPES = collections.OrderedDict(
-        tuple(
-            (converter.name, converter)
-            for converter in (
-                Converter(str),
-                Converter(lambda value: int(value, 0), "int"),
-                Converter(float),
-                Converter(bool),
-                Converter(datetime.fromisoformat, "datetime"),
-            )
+        super().__init__(
+            url=url,
+            headers=headers,
+            query_string=query_string,
+            data=data,
+            **kwargs,
         )
-    )
-
-    __NA = object()
-
-    def __init__(
-        self,
-        other: Union["HTTPResultFieldSettings", None] = None,
-        *,
-        type: Union[str, None] = None,
-        input: Union[str, None] = None,
-        regular_expression: Union[
-            Iterable[Settings.InputType], Settings.InputType, None
-        ] = __NA,
-    ):
-        if other is not None:
-            assert type is None
-            assert input is None
-            assert regular_expression is self.__NA
-            super().__init__(other)
-        else:
-            # "restore" the normal 'type()' operation, after having overridden
-            # it with the 'type' parameter
-            field_type = type
-            type = builtins.type
-
-            if field_type is not None:
-                try:
-                    field_type = self.VALID_TYPES[field_type]
-                except KeyError:
-                    valid_types = ", ".join(map(repr, self.VALID_TYPES))
-                    raise ConfigurationError(
-                        f"Invalid type {field_type!r} for result value field."
-                        f" Valid types: {valid_types}"
-                    ) from None
-
-            kwargs = dict()
-
-            if regular_expression is not self.__NA:
-                if regular_expression is None:
-                    regular_expressions = ()
-                elif isinstance(regular_expression, dict):
-                    regular_expressions = (regular_expression,)
-                elif isinstance(regular_expression, collections.abc.Iterable):
-                    regular_expressions = tuple(regular_expression)
-                else:
-                    raise ConfigurationError(
-                        "Dictionary or list expected"
-                        " for regular expression field"
-                        f" instead of {type(regular_expression).__name__}:"
-                        f" {regular_expression!r}"
-                    )
-                for regular_expression in regular_expressions:
-                    if not isinstance(regular_expression, dict):
-                        raise ConfigurationError(
-                            "Dictionary expected for each regular expression"
-                            f" instead of {type(regular_expression).__name__}:"
-                            f" {regular_expression!r}"
-                        )
-                regular_expressions = tuple(
-                    map(
-                        lambda regular_expression: RegexProcessor(
-                            **regular_expression
-                        ),
-                        regular_expressions,
-                    )
-                )
-
-                kwargs.update(
-                    dict(
-                        regular_expressions=regular_expressions,
-                    )
-                )
-
-            if field_type is not None:
-                kwargs.update(
-                    type=field_type,
-                )
-            if input is not None:
-                kwargs.update(
-                    input=input,
-                )
-
-            super().__init__(**kwargs)
-
-    class InterpolatedSettings(dict):
-        def process_result(
-            self, raw_result: "HTTPResultSettings.RawResultType"
-        ) -> "HTTPResultSettings.ResultValueType":
-            try:
-                input = self["input"]
-            except KeyError:
-                raise ConfigurationError(
-                    "Missing result field's 'input' field"
-                ) from None
-            try:
-                field_type = self["type"]
-            except KeyError:
-                field_type = str
-
-            value = Settings.interpolate_value(
-                value=input,
-                parameters=raw_result,
-            )
-
-            for regular_expression in self.get("regular_expressions", []):
-                value = regular_expression.process_result(value)
-
-            try:
-                return field_type(value)
-            except Exception as err:
-                raise DataTypeError(
-                    f"Failed converting {value!r}"
-                    f" to an object of type {str(field_type)!r}:"
-                    f" {err}"
-                ) from None
-
-            return value
-
-    def interpolate(self, *args, **kwargs) -> InterpolatedSettings:
-        return self.InterpolatedSettings(
-            self.interpolated_items(*args, **kwargs)
-        )
-
-
-class HTTPResultTimestampFieldSettings(HTTPResultFieldSettings):
-    """
-    Configuration settings used to parse measurement result raw output data
-    into the eventual output timestamp field.
-    These configuration settings are used by
-    :class:`_MeasurementResultSettings`s
-    """
-
-    def __init__(
-        self,
-        other: Union["HTTPResultTimestampFieldSettings", None] = None,
-        **kwargs: Settings.InputType,
-    ):
-        if other is not None:
-            assert not kwargs
-            super().__init__(other)
-        else:
-            if "type" in kwargs:
-                raise ConfigurationError(
-                    "Parameter 'type'"
-                    " cannot be specified with timestamp fields"
-                )
-            super().__init__(type="datetime", **kwargs)
 
 
 class HTTPResultSettings(Settings):
@@ -247,8 +60,24 @@ class HTTPResultSettings(Settings):
     Configuration settings for generic HTTP response processing to produce
     target results.
 
-    These configuration settings are used by
-    :class:`HTTPTransactionSettings`.
+    Basically this a specialization of :class:`Settings` where the
+    :class:`Processor`-based value processing is not performed immediately
+    within :meth:`Settings.interpolate` calls, but rather it is deferred to a
+    second phase, where the results within an HTTP response are passed as
+    interpolation parameters. This way, the eventual output data can be
+    computed from the HTTP response.
+
+    .. note:
+        The preliminary string interpolation (performed upon calls
+        :meth:`Settings.interpolate` as described in :class:`Processor`) is
+        always even over the fields of this class :class:`HTTPResultSettings`.
+
+        Only the :class:`Processor`-based value processing is deferred.
+        Therefore it is possible to interpolate configuration values into the
+        fields of :class:`HTTPResultSettings`, in the first
+
+    .. seealso::
+        Preliminary string interpolation of :class:`Processor` fields.
     """
 
     RawResultValueType = Any
@@ -257,36 +86,111 @@ class HTTPResultSettings(Settings):
     ResultType = Dict[str, ResultValueType]
 
     def __init__(
-        self, other: Union["HTTPResultSettings", None] = None, **kwargs
+        self, other: Union["HTTPResultSettings", None] = None, /, **kwargs
     ):
         if other is not None:
             assert not kwargs
             super().__init__(other)
-        else:
-            kwargs2 = {}
-            for key, value in kwargs.items():
-                if isinstance(value, HTTPResultFieldSettings):
-                    pass
-                elif isinstance(value, dict):
-                    value = HTTPResultFieldSettings(value)
-                kwargs2[key] = value
-            super().__init__(**kwargs2)
+            return
+
+        super().__init__(
+            # Set _interpolation_settings.interpolate to False to make sure
+            # interpolation is only applied in a second phase, using HTTP
+            # response data as interpolation parameters
+            _interpolation_settings=Settings.InterpolationSettings(
+                interpolate=False,
+            ),
+            **kwargs,
+        )
+
+
+class HTTPTransactionMeta(type):
+    def __new__(
+        cls,
+        name,
+        bases,
+        kwargs,
+        request_type: type(HTTPRequestSettings) = HTTPRequestSettings,
+        result_type: type(HTTPResultSettings) = HTTPResultSettings,
+    ):
+        assert issubclass(request_type, HTTPRequestSettings)
+        assert issubclass(result_type, HTTPResultSettings)
+        kwargs.update(
+            HTTPRequestSettings=request_type,
+            HTTPResultSettings=result_type,
+        )
+        return super().__new__(cls, name, bases, kwargs)
+
+
+class HTTPTransactionSettings(
+    Settings,
+    metaclass=HTTPTransactionMeta,
+):
+    # Initialized by metaclass
+    HTTPRequestSettings = None
+    HTTPResultSettings = None
+
+    def __init__(
+        self,
+        other: Union["HTTPTransactionSettings", None] = None,
+        /,
+        *,
+        request: Union[HTTPRequestSettings, None] = None,
+        result: Union[HTTPResultSettings, None] = None,
+        **kwargs: Settings.InputType,
+    ):
+        if other is not None:
+            assert request is None
+            assert result is None
+            assert not kwargs
+            super().__init__(other)
+            return
+
+        # Force a non-copy creation, so as to instantiate the field-specific
+        # settings classes, required for proper result parsing.
+        # Furthermore, always force the creation of request and result settings
+        # object, even if empty, to make sure any settings-specific features
+        # are properly set, such as the _interpolation_settings field of
+        # _MeasurementResultSettings
+        if request is None:
+            request = {}
+        try:
+            request = self.HTTPRequestSettings(**request)
+        except Error as err:
+            err.index.insert(0, "request")
+            raise
+
+        if result is None:
+            result = {}
+        try:
+            result = self.HTTPResultSettings(**result)
+        except Error as err:
+            err.index.insert(0, "result")
+            raise
+
+        super().__init__(
+            request=request,
+            result=result,
+            **kwargs,
+        )
 
     class InterpolatedSettings(dict):
         def process_result(
             self, raw_result: "HTTPResultSettings.RawResultType"
         ) -> "HTTPResultSettings.ResultType":
-            result = {}
-            for key, value in self.items():
-                if value is None:
-                    raise ConfigurationError(f"Field {key!r} is not specified")
-                try:
-                    result[key] = value.process_result(raw_result)
-                except Error as err:
-                    raise type(err)(f"Field {key!r}: {err}") from None
-            return result
+            parameters = dict(self)
+            parameters.update(raw_result)
+            interpolation_context = Settings.InterpolationContext(
+                parameters=parameters
+            )
+            return Settings.interpolate_dict(
+                self["result"],
+                context=interpolation_context,
+            )
 
-    def interpolate(self, *args, **kwargs) -> InterpolatedSettings:
+    def interpolate(
+        self, *args, **kwargs
+    ) -> ("HTTPTransactionSettings.InterpolatedSettings"):
         return self.InterpolatedSettings(
             self.interpolated_items(*args, **kwargs)
         )

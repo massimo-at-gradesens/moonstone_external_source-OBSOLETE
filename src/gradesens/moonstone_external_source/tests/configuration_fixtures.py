@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 import pytest
 
 from gradesens.moonstone_external_source import (
@@ -17,13 +19,10 @@ from .utils import load_yaml
 
 @pytest.fixture
 def authentication_context_1():
-    params = load_yaml(
-        """
-    token: I am a secret
-    expires_in: 100
-    """
+    return AuthenticationContext(
+        token="I am a secret",
+        expires_in=timedelta(seconds=100),
     )
-    return AuthenticationContext(**params)
 
 
 @pytest.fixture
@@ -46,13 +45,10 @@ def authentication_configuration_1(authentication_context_1):
 
 @pytest.fixture
 def authentication_context_expired():
-    params = load_yaml(
-        """
-    token: I am another secret
-    expires_in: -1
-    """
+    return AuthenticationContext(
+        token="I am another secret",
+        expires_in=timedelta(seconds=-1),
     )
-    return AuthenticationContext(**params)
 
 
 @pytest.fixture
@@ -76,13 +72,15 @@ def authentication_configuration_expired(authentication_context_expired):
 @pytest.fixture
 def common_configuration_1():
     params = load_yaml(
-        """
+        r"""
     id: cc1
     authentication_configuration_id: ac1
     zone: area42
+    a_timestamp: "2022-11-12"
+    hex_42: "2a"
     request:
         url:
-            "https://gradesens.com/{zone}/{machine_id}/\\
+            "https://gradesens.com/{zone}/{machine_id}/\
             {device}/{measurement_id}"
         query_string:
             HELLO: "{region}@world"
@@ -90,6 +88,27 @@ def common_configuration_1():
             head: oval
             fingers: "count_{finger_count}"
             bearer: "{token}"
+            test_processors_sun:
+                <process:
+                    - eval:
+                        expression: "'hello' + zone"
+                        output_key: my_private_key
+                    - eval:
+                        expression: "my_private_key + '350'"
+                    - regex:
+                        pattern: "([ne]+)"
+                        replacement: "<\\1\\1>"
+            test_processors_moon:
+                <process:
+                    - interpolate: "1{hex_42}"
+                    - type:
+                        target: int
+                        radix: 16
+            test_processors_jupiter:
+                <process:
+                    - type:
+                        input_key: a_timestamp
+                        target: datetime
     device: "best device ever"
     """
     )
@@ -200,14 +219,17 @@ def common_configuration_with_result():
         -   id: temperature
             result:
                 value:
-                    type: float
-                    regular_expression:
-                        pattern: "^(.*)$"
-                        replacement: ">>\\1<<"
+                    <process:
+                        - regex:
+                            input_key: temp_input
+                            pattern: "^(.*)$"
+                            replacement: ">>\\1<<"
+                        - type: float
         -   id: rpm
             result:
                 timestamp:
-                    input: "{out_field1}"
+                    <process:
+                        interpolate: "{out_field1}"
     """
     )
     return CommonConfiguration(**params)
@@ -221,47 +243,57 @@ def machine_configuration_with_result():
     common_configuration_ids: cc_w_result
     result:
         timestamp:
-            regular_expression:
-                pattern: "^(|.*[^0-9])(?P<year>[0-9]{{2,4}}).*"
-                flags: i
-                replacement: "20\\g<year>-11-15"
-        value:
-            input: "{{get}}{{the}}{{raw}}"
+            <process:
+                regex:
+                    input_key: raw_timestamp
+                    pattern: "^(|.*[^0-9])(?P<year>[0-9]{{2,4}}).*"
+                    flags: i
+                    replacement: "20\\g<year>-11-15"
+        value: "{get}{the}{raw}"
     out_field2: 2022-11-19
     measurements:
         -   id: temperature
             result:
                 value:
-                    type: float
+                    <process:
+                        type:
+                            target: float
+                            input_key: temp_value
                 timestamp:
-                    input: "{{temp_ts_raw}}"
+                    <process:
+                        interpolate: "{temp_ts_raw}"
         -   id: rpm
             result:
                 value:
-                    type: int
-                    regular_expression:
-                        -   pattern: "^(.*)$"
+                    <process:
+                        - regex:
+                            input_key: rpm_value
+                            pattern: "^(.*)$"
                             replacement: "0x\\1"
-                        -   pattern: "[83]"
+                        - regex:
+                            pattern: "[83]"
                             replacement: "7"
+                        - type:
+                            target: int
+                            radix: 0
                 timestamp:
-                    input: 23
-                    regular_expression:
-                        -   pattern: "^(.*)$"
+                    <process:
+                        - eval: "23"
+                        - regex:
+                            pattern: "^(.*)$"
                             replacement: "17-\\1\\1-08"
-                        -   pattern: "^(?P<d>.*)-(?P<y>.*)-(?P<m>.*)$"
+                        - regex:
+                            pattern: "^(?P<d>.*)-(?P<y>.*)-(?P<m>.*)$"
                             replacement: "\\g<y>-\\g<m>-\\g<d>"
+                        - type: date
         -   id: humidity
             result:
                 timestamp:
-                    regular_expression:
-                    input: "{out_field2}"
-                #timestamp:
-                #    process:
-                #        - eval: "out_field2"
-                #        - interpolate: "aa{_}aa"
-                #        - type: datetime
-                #        - eval: "datetime(seconds=_)"
+                    <process:
+                        regex:
+                            input_key: out_field2
+                            pattern: "^(.*)$"
+                            replacement: "<\\1>"
     """
     )
     return MachineConfiguration(**params)

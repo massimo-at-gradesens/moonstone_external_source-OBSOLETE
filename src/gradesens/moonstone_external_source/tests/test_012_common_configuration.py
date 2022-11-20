@@ -1,8 +1,8 @@
 import pytest
 
-from gradesens.moonstone_external_source import ConfigurationError
+from gradesens.moonstone_external_source import ConfigurationError, Settings
 
-from .utils import assert_eq_dicts
+from .utils import assert_eq
 
 
 @pytest.mark.usefixtures("io_manager_1")
@@ -29,9 +29,13 @@ async def test_common_configuration_nesting(
             "data": None,
         },
         "measurements": {},
-        "result": {},
+        "result": {
+            "_interpolation_settings": Settings.InterpolationSettings(
+                interpolate=False,
+            ),
+        },
     }
-    assert_eq_dicts(settings, expected)
+    assert_eq(settings, expected)
 
     comm_conf = await io_manager_1.common_configurations.get("cc2-n")
     settings = await comm_conf.get_common_settings(io_manager_1)
@@ -51,6 +55,11 @@ async def test_common_configuration_nesting(
             },
             "data": None,
         },
+        "result": {
+            "_interpolation_settings": Settings.InterpolationSettings(
+                interpolate=False,
+            ),
+        },
         "measurements": {
             "temperature": {
                 "id": "temperature",
@@ -65,12 +74,15 @@ async def test_common_configuration_nesting(
                     "query_string": {},
                     "data": None,
                 },
-                "result": {},
+                "result": {
+                    "_interpolation_settings": Settings.InterpolationSettings(
+                        interpolate=False,
+                    ),
+                },
             },
         },
-        "result": {},
     }
-    assert_eq_dicts(settings, expected)
+    assert_eq(settings, expected)
 
     comm_conf = await io_manager_1.common_configurations.get("cc3-n")
     settings = await comm_conf.get_common_settings(io_manager_1)
@@ -96,6 +108,11 @@ async def test_common_configuration_nesting(
             },
             "data": None,
         },
+        "result": {
+            "_interpolation_settings": Settings.InterpolationSettings(
+                interpolate=False,
+            ),
+        },
         "measurements": {
             "temperature": {
                 "id": "temperature",
@@ -110,7 +127,11 @@ async def test_common_configuration_nesting(
                     "query_string": {},
                     "data": None,
                 },
-                "result": {},
+                "result": {
+                    "_interpolation_settings": Settings.InterpolationSettings(
+                        interpolate=False,
+                    ),
+                },
             },
             "rpm": {
                 "id": "rpm",
@@ -122,12 +143,15 @@ async def test_common_configuration_nesting(
                     "query_string": {},
                     "data": None,
                 },
-                "result": {},
+                "result": {
+                    "_interpolation_settings": Settings.InterpolationSettings(
+                        interpolate=False,
+                    ),
+                },
             },
         },
-        "result": {},
     }
-    assert_eq_dicts(settings, expected)
+    assert_eq(settings, expected)
 
 
 @pytest.mark.usefixtures("io_manager_1")

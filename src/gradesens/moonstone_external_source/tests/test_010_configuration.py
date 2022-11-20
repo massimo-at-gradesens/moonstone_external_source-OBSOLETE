@@ -11,7 +11,7 @@ from gradesens.moonstone_external_source import (
     TimeError,
 )
 
-from .utils import assert_eq_dicts
+from .utils import assert_eq, expand_processors
 
 
 @pytest.mark.usefixtures("common_configuration_1")
@@ -30,18 +30,65 @@ def test_common_configuration(common_configuration_1):
                 "head": "oval",
                 "fingers": "count_{finger_count}",
                 "bearer": "{token}",
+                "test_processors_sun": {
+                    "<process": [
+                        {
+                            "__processor": "eval",
+                            "expression": "'hello' + zone",
+                            "output_key": "my_private_key",
+                        },
+                        {
+                            "__processor": "eval",
+                            "expression": "my_private_key + '350'",
+                        },
+                        {
+                            "__processor": "regex",
+                            "pattern": "([ne]+)",
+                            "replacement": r"<\1\1>",
+                            "flags": 0,
+                        },
+                    ],
+                },
+                "test_processors_moon": {
+                    "<process": [
+                        {
+                            "__processor": "interpolate",
+                            "string": "1{hex_42}",
+                        },
+                        {
+                            "__processor": "type",
+                            "converter": "int{radix=16}",
+                        },
+                    ],
+                },
+                "test_processors_jupiter": {
+                    "<process": [
+                        {
+                            "__processor": "type",
+                            "input_key": "a_timestamp",
+                            "converter": "datetime",
+                        },
+                    ],
+                },
             },
             "query_string": {
                 "HELLO": "{region}@world",
             },
             "data": None,
         },
+        "result": {
+            "_interpolation_settings": Settings.InterpolationSettings(
+                interpolate=False,
+            ),
+        },
         "zone": "area42",
         "device": "best device ever",
+        "a_timestamp": "2022-11-12",
+        "hex_42": "2a",
         "measurements": {},
-        "result": {},
     }
-    assert_eq_dicts(common_configuration_1, expected)
+    common_configuration_1 = expand_processors(common_configuration_1)
+    assert_eq(common_configuration_1, expected)
 
 
 @pytest.mark.usefixtures("machine_configuration_1")
@@ -65,7 +112,11 @@ def test_machine_configuration(machine_configuration_1):
             "data": None,
         },
         "finger_count": 5,
-        "result": {},
+        "result": {
+            "_interpolation_settings": Settings.InterpolationSettings(
+                interpolate=False,
+            ),
+        },
         "region": "basel",
         "measurements": {
             "temperature": {
@@ -82,7 +133,11 @@ def test_machine_configuration(machine_configuration_1):
                     },
                     "data": None,
                 },
-                "result": {},
+                "result": {
+                    "_interpolation_settings": Settings.InterpolationSettings(
+                        interpolate=False,
+                    ),
+                },
             },
             "rpm": {
                 "id": "rpm",
@@ -100,7 +155,11 @@ def test_machine_configuration(machine_configuration_1):
                     "data": None,
                 },
                 "region": "Wallis",
-                "result": {},
+                "result": {
+                    "_interpolation_settings": Settings.InterpolationSettings(
+                        interpolate=False,
+                    ),
+                },
             },
             "power": {
                 "id": "power",
@@ -114,12 +173,16 @@ def test_machine_configuration(machine_configuration_1):
                     "query_string": {},
                     "data": None,
                 },
-                "result": {},
+                "result": {
+                    "_interpolation_settings": Settings.InterpolationSettings(
+                        interpolate=False,
+                    ),
+                },
             },
         },
     }
 
-    assert_eq_dicts(machine_configuration_1, expected)
+    assert_eq(machine_configuration_1, expected)
 
 
 @pytest.mark.usefixtures("machine_configuration_1")
@@ -146,6 +209,9 @@ async def test_interpolated_measurement_settings(
                 "head": "oval",
                 "fingers": "count_5",
                 "bearer": "I am a secret",
+                "test_processors_sun": "h<ee>lloCo<nnenne>cticut350",
+                "test_processors_moon": 0x12A,
+                "test_processors_jupiter": datetime(2022, 11, 12),
             },
             "query_string": {
                 "depth": "12",
@@ -156,7 +222,7 @@ async def test_interpolated_measurement_settings(
         },
         "result": {},
     }
-    assert_eq_dicts(settings, expected)
+    assert_eq(settings, expected)
 
 
 @pytest.mark.usefixtures("machine_configuration_1")
@@ -184,6 +250,9 @@ async def test_interpolated_measurement_all_settings(
                     "head": "oval",
                     "fingers": "count_5",
                     "bearer": "I am a secret",
+                    "test_processors_sun": "h<ee>lloCo<nnenne>cticut350",
+                    "test_processors_moon": 0x12A,
+                    "test_processors_jupiter": datetime(2022, 11, 12),
                 },
                 "query_string": {
                     "depth": "12",
@@ -204,6 +273,9 @@ async def test_interpolated_measurement_all_settings(
                     "head": "oval",
                     "fingers": "count_5",
                     "bearer": "I am a secret",
+                    "test_processors_sun": "h<ee>lloar<ee>a42350",
+                    "test_processors_moon": 0x12A,
+                    "test_processors_jupiter": datetime(2022, 11, 12),
                 },
                 "query_string": {
                     "HELLO": "Wallis@world",
@@ -225,6 +297,9 @@ async def test_interpolated_measurement_all_settings(
                     "head": "oval",
                     "fingers": "count_5",
                     "bearer": "I am a secret",
+                    "test_processors_sun": "h<ee>lloCo<nnenne>cticut350",
+                    "test_processors_moon": 0x12A,
+                    "test_processors_jupiter": datetime(2022, 11, 12),
                 },
                 "query_string": {
                     "HELLO": "basel@world",
@@ -234,7 +309,7 @@ async def test_interpolated_measurement_all_settings(
             "result": {},
         },
     }
-    assert_eq_dicts(settings, expected)
+    assert_eq(settings, expected)
 
 
 @pytest.mark.usefixtures("io_manager_1")
@@ -263,7 +338,7 @@ async def test_complex_interpolated_measurement_all_settings(
             "result": {},
         }
     }
-    assert_eq_dicts(settings, expected)
+    assert_eq(settings, expected)
 
 
 @pytest.mark.usefixtures("io_manager_1")

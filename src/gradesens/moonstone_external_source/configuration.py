@@ -20,17 +20,16 @@ if TYPE_CHECKING:
     from .io_manager import IOManager
 
 from .authentication_configuration import AuthenticationConfiguration
-from .error import ConfigurationError, Error, TimeError
-from .http_settings import (
-    HTTPRequestSettings,
-    HTTPResultFieldSettings,
-    HTTPResultSettings,
-    HTTPResultTimestampFieldSettings,
+from .configuration_ids_configuration import (
+    ConfigurationIdsConfiguration,
+    ConfigurationIdsSettings,
 )
+from .error import ConfigurationError, Error, TimeError
+from .http_settings import HTTPResultSettings, HTTPTransactionSettings
 from .settings import Settings
 
 
-class _CommonConfigurationIdSettings(Settings):
+class _CommonConfigurationIdsSettings(ConfigurationIdsSettings):
     """
     Mixin to provide the optional setting
     :attr:`._common_configuration_ids` to reference to zero or more
@@ -43,7 +42,8 @@ class _CommonConfigurationIdSettings(Settings):
 
     def __init__(
         self,
-        other: Union["_CommonConfigurationIdSettings", None] = None,
+        other: Union["_CommonConfigurationIdsSettings", None] = None,
+        /,
         *,
         common_configuration_ids: Union[
             Iterable["CommonConfiguration.Id"],
@@ -56,20 +56,18 @@ class _CommonConfigurationIdSettings(Settings):
             assert common_configuration_ids is None
             assert not kwargs
             super().__init__(other)
-        else:
-            if common_configuration_ids is None:
-                common_configuration_ids = ()
-            elif isinstance(common_configuration_ids, CommonConfiguration.Id):
-                common_configuration_ids = (common_configuration_ids,)
-            elif isinstance(common_configuration_ids, Iterable):
-                common_configuration_ids = tuple(common_configuration_ids)
-            else:
-                common_configuration_ids = (common_configuration_ids,)
-            super().__init__(
-                other,
-                _common_configuration_ids=(common_configuration_ids),
-                **kwargs,
-            )
+            return
+
+        super().__init__(
+            common_configuration_ids=common_configuration_ids,
+            _configuration_ids_field="common_configuration_ids",
+            _configuration_ids_get=(
+                lambda io_manager, configuration_id: (
+                    io_manager.common_configurations.get(configuration_id)
+                )
+            ),
+            **kwargs,
+        )
 
     async def get_common_settings(
         self,
@@ -79,31 +77,10 @@ class _CommonConfigurationIdSettings(Settings):
         """
         See details in :meth:`CommonConfiguration.get_common_settings`
         """
-        common_configuration_ids = self["_common_configuration_ids"]
-        if len(common_configuration_ids) == 0:
-            return Settings()
-
-        tasks = [
-            io_manager.common_configurations.get(common_configuration_id)
-            for common_configuration_id in common_configuration_ids
-        ]
-        common_configurations = await asyncio.gather(*tasks)
-
-        if already_visited is None:
-            already_visited = set()
-        tasks = [
-            common_configuration.get_common_settings(
-                io_manager=io_manager, already_visited=already_visited
-            )
-            for common_configuration in common_configurations
-        ]
-        all_settings = await asyncio.gather(*tasks)
-
-        result = all_settings[0]
-        for settings in all_settings[1:]:
-            result.update(settings)
-
-        return result
+        return await self.get_merged_settings(
+            io_manager=io_manager,
+            already_visited=already_visited,
+        )
 
 
 class _MeasurementResultSettings(HTTPResultSettings):
@@ -116,64 +93,30 @@ class _MeasurementResultSettings(HTTPResultSettings):
     def __init__(
         self,
         other: Union["_MeasurementResultSettings", None] = None,
+        /,
         *,
-        value: Union[HTTPResultFieldSettings.InputType, None] = None,
-        timestamp: Union[
-            HTTPResultTimestampFieldSettings.InputType, None
-        ] = None,
+        value: Union[Settings.InputType, None] = None,
+        timestamp: Union[Settings.InputType, None] = None,
     ):
         if other is not None:
             assert value is None
             assert timestamp is None
             super().__init__(other)
-        else:
-            kwargs = {}
-            if value is not None:
-                kwargs.update(value=HTTPResultFieldSettings(**value))
-            if timestamp is not None:
-                kwargs.update(
-                    timestamp=HTTPResultTimestampFieldSettings(**timestamp)
-                )
-            super().__init__(**kwargs)
+            return
 
-    class InterpolatedSettings(HTTPResultSettings.InterpolatedSettings):
-        def __init__(
-            self,
-            *,
-            context: Settings.InterpolationContext,
-            dict_iterable: Iterable,
-        ):
-            self.__context = context
-            super().__init__(dict_iterable)
-
-        def process_result(
-            self, raw_result: "HTTPResultSettings.RawResultType"
-        ) -> "HTTPResultSettings.ResultType":
-            try:
-                return super().process_result(raw_result)
-            except Error as err:
-                machine_id = self.__context["machine_configuration"]["id"]
-                measurement_id = self.__context["measurement_configuration"][
-                    "id"
-                ]
-                raise type(err)(
-                    f"Machine {machine_id!r}: "
-                    f"Measurement {measurement_id!r}: "
-                    f"{err}"
-                ) from None
-
-    def interpolate(
-        self, *args, context: Settings.InterpolationContext, **kwargs
-    ) -> InterpolatedSettings:
-        return self.InterpolatedSettings(
-            context=context,
-            dict_iterable=self.interpolated_items(
-                *args, context=context, **kwargs
-            ),
-        )
+        kwargs = {}
+        if value is not None:
+            kwargs.update(value=value)
+        if timestamp is not None:
+            kwargs.update(timestamp=timestamp)
+        super().__init__(**kwargs)
 
 
-class _MeasurementSettings(_CommonConfigurationIdSettings):
+class _MeasurementSettings(
+    HTTPTransactionSettings,
+    _CommonConfigurationIdsSettings,
+    result_type=_MeasurementResultSettings,
+):
     """
     Configuration settings for a single measurement.
 
@@ -184,44 +127,23 @@ class _MeasurementSettings(_CommonConfigurationIdSettings):
     def __init__(
         self,
         other: Union["_MeasurementSettings", None] = None,
+        /,
         *,
         authentication_configuration_id: Union[
             AuthenticationConfiguration.Id, None
         ] = None,
-        request: Union[HTTPRequestSettings, None] = None,
-        result: Union[_MeasurementResultSettings, None] = None,
         **kwargs: Settings.InputType,
     ):
         if other is not None:
             assert authentication_configuration_id is None
-            assert request is None
-            assert result is None
             assert not kwargs
             super().__init__(other)
-        else:
-            # Force a non-copy creation, so as to instantiate the
-            # field-specific settings classes, required for proper result
-            # parsing.
-            # Furthermore, always force the creation of request and result
-            # settings object, even if empty, to make sure any settings-
-            # specific features are properly set, such as the _interpolate
-            # field of _MeasurementResultSettings
-            if request is None:
-                request = {}
-            request = HTTPRequestSettings(**request)
-            if result is None:
-                result = {}
-            result = _MeasurementResultSettings(**result)
+            return
 
-            super().__init__(
-                other,
-                _authentication_configuration_id=(
-                    authentication_configuration_id
-                ),
-                request=request,
-                result=result,
-                **kwargs,
-            )
+        super().__init__(
+            _authentication_configuration_id=(authentication_configuration_id),
+            **kwargs,
+        )
 
 
 class MeasurementConfiguration(_MeasurementSettings):
@@ -230,28 +152,30 @@ class MeasurementConfiguration(_MeasurementSettings):
     """
 
     Id = str
-    SettingsType = "MeasurementConfiguration.InterpolatedSettings"
+    SettingsType = HTTPTransactionSettings.InterpolatedSettings
 
     def __init__(
         self,
         other: Union["MeasurementConfiguration", None] = None,
+        /,
         *,
         id: Union[Id, None] = None,
         **kwargs: Settings.InputType,
     ):
-        if other is None:
-            if id is None:
-                raise ConfigurationError(
-                    "Missing measurement configuration's 'id'"
-                )
-            super().__init__(
-                id=id,
-                **kwargs,
-            )
-        else:
+        if other is not None:
             assert id is None
             assert not kwargs
             super().__init__(other)
+            return
+
+        if id is None:
+            raise ConfigurationError(
+                "Missing measurement configuration's 'id'"
+            )
+        super().__init__(
+            id=id,
+            **kwargs,
+        )
 
     class _SettingsResolver:
         # Build the list of actual settings to be retained after resolution.
@@ -362,7 +286,12 @@ class MeasurementConfiguration(_MeasurementSettings):
                 measurement_configuration=self.measurement_configuration,
             )
             try:
-                result = settings.interpolate(context=interpolation_context)
+                result = HTTPTransactionSettings.InterpolatedSettings(
+                    Settings.interpolated_items_from_dict(
+                        settings,
+                        context=interpolation_context,
+                    )
+                )
             except Error as err:
                 err.index = [
                     self.machine_configuration["id"],
@@ -390,27 +319,41 @@ class _MachineConfigurationSettings(_MeasurementSettings):
     def __init__(
         self,
         other: Union["_MachineConfigurationSettings", None] = None,
+        /,
         *,
         measurements: Union[Sequence[Settings.InputType], None] = None,
         **kwargs,
     ):
-        if other is None:
-            if measurements is None:
-                measurements = []
-            measurements = {
-                measurement["id"]: measurement
-                for measurement in map(
-                    lambda m: MeasurementConfiguration(**m), measurements
-                )
-            }
-            super().__init__(measurements=measurements, **kwargs)
-        else:
+        if other is not None:
             assert measurements is None
             assert not kwargs
             super().__init__(other)
+            return
+
+        if measurements is None:
+            measurements = []
+        measurement_dict = {}
+        for index, measurement in enumerate(measurements):
+            measurement_id = measurement["id"]
+            if measurement_id in measurement_dict:
+                raise ConfigurationError(
+                    f"Duplicate measurement {measurement_id!r}",
+                    index="measurements",
+                )
+            try:
+                measurement_dict[measurement_id] = MeasurementConfiguration(
+                    **measurement
+                )
+            except Error as err:
+                err.index = ["measurements", measurement_id] + err.index
+                raise
+        super().__init__(measurements=measurement_dict, **kwargs)
 
 
-class CommonConfiguration(_MachineConfigurationSettings):
+class CommonConfiguration(
+    _MachineConfigurationSettings,
+    ConfigurationIdsConfiguration,
+):
     """
     An :class:`CommonConfiguration` is nothing more than a ``[key, value]``
     dictionary of configuration data, optionally referenced by
@@ -433,18 +376,20 @@ class CommonConfiguration(_MachineConfigurationSettings):
     def __init__(
         self,
         other: Union["CommonConfiguration", None] = None,
+        /,
         *,
         id: Union[Id, None] = None,
         **kwargs: Settings.InputType,
     ):
-        if other is None:
-            if id is None:
-                raise ConfigurationError("Missing common configuration's 'id'")
-            super().__init__(id=id, **kwargs)
-        else:
+        if other is not None:
             assert id is None
             assert not kwargs
             super().__init__(other)
+            return
+
+        if id is None:
+            raise ConfigurationError("Missing common configuration's 'id'")
+        super().__init__(id=id, **kwargs)
 
     async def get_common_settings(
         self,
@@ -469,26 +414,10 @@ class CommonConfiguration(_MachineConfigurationSettings):
         from this :class:`CommonConfiguration` - have higher precedence over
         same-name settings from other :class:`CommonConfiguration`s
         """
-
-        common_configuration_id = self["id"]
-        if already_visited is None:
-            already_visited = {common_configuration_id}
-        else:
-            if common_configuration_id in already_visited:
-                raise ConfigurationError(
-                    "Common configuration loop"
-                    f" for {common_configuration_id!r}."
-                    " All visited common configurations"
-                    f" in this loop: {already_visited}"
-                )
-            already_visited.add(common_configuration_id)
-
-        result = await super().get_common_settings(
+        return await self.get_merged_settings(
             io_manager=io_manager,
             already_visited=already_visited,
         )
-        result.update(self)
-        return result
 
 
 class MachineConfiguration(_MachineConfigurationSettings):
@@ -504,24 +433,24 @@ class MachineConfiguration(_MachineConfigurationSettings):
     def __init__(
         self,
         other: Union["MeasurementConfiguration", None] = None,
+        /,
         *,
         id: Union[Id, None] = None,
         **kwargs,
     ):
-        if other is None:
-            if id is None:
-                raise ConfigurationError(
-                    "Missing machine configuration'a 'id'"
-                )
-            super().__init__(id=id, **kwargs)
-            if not self["measurements"]:
-                raise ConfigurationError(
-                    "Missing machine configuration's 'measurements'"
-                )
-        else:
+        if other is not None:
             assert id is None
             assert not kwargs
             super().__init__(other)
+            return
+
+        if id is None:
+            raise ConfigurationError("Missing machine configuration'a 'id'")
+        super().__init__(id=id, **kwargs)
+        if not self["measurements"]:
+            raise ConfigurationError(
+                "Missing machine configuration's 'measurements' field"
+            )
 
     class _SettingsResolver:
         def __init__(

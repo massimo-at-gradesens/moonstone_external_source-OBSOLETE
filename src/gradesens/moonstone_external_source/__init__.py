@@ -16,9 +16,11 @@ from .configuration import (
     MachineConfiguration,
     MeasurementConfiguration,
 )
+from .datetime import Date, DateTime, Time
 from .error import (
     ConfigurationError,
     DataTypeError,
+    DataValueError,
     Error,
     HTTPError,
     HTTPResponseError,
@@ -28,39 +30,46 @@ from .error import (
 from .external_source import ExternalSource
 from .http_settings import (
     HTTPRequestSettings,
-    HTTPResultFieldSettings,
     HTTPResultSettings,
-    HTTPResultTimestampFieldSettings,
+    HTTPTransactionSettings,
 )
 from .io_manager import IODriver, IOManager
-from .settings import RegexProcessor, Settings
+from .settings import Settings
 
 __all__ = [
-    "Settings",
-    "RegexProcessor",
-    "HTTPRequestSettings",
-    "HTTPResultFieldSettings",
-    "HTTPResultTimestampFieldSettings",
-    "HTTPResultSettings",
-    "AuthenticationContext",
-    "AuthenticationConfiguration",
     "AsyncConcurrentPool",
+    #
+    "AuthenticationConfiguration",
+    "AuthenticationContext",
+    #
     "BackendDriver",
     "HTTPBackendDriver",
-    "AuthenticationContext",
-    "AuthenticationConfiguration",
+    #
     "CommonConfiguration",
     "MachineConfiguration",
     "MeasurementConfiguration",
-    "Settings",
+    #
+    "DateTime",
+    "Date",
+    "Time",
+    #
     "ConfigurationError",
     "DataTypeError",
+    "DataValueError",
     "Error",
     "HTTPError",
     "HTTPResponseError",
-    "TimeError",
     "PatternError",
+    "TimeError",
+    #
     "ExternalSource",
+    #
+    "HTTPRequestSettings",
+    "HTTPResultSettings",
+    "HTTPTransactionSettings",
+    #
     "IODriver",
     "IOManager",
+    #
+    "Settings",
 ]
