@@ -32,6 +32,7 @@ from .configuration_ids_configuration import (
     ConfigurationIdsConfiguration,
     ConfigurationIdsSettings,
 )
+from .datetime import TimeDelta
 from .error import ConfigurationError, Error, TimeError
 from .http_settings import HTTPResultSettings, HTTPTransactionSettings
 from .settings import Settings
@@ -141,13 +142,47 @@ class _MeasurementSettings(
         authentication_configuration_id: Optional[
             AuthenticationConfiguration.Id
         ] = None,
+        time_margin: Optional[TimeDelta.InputType] = None,
+        start_time_margin: Optional[TimeDelta.InputType] = None,
+        end_time_margin: Optional[TimeDelta.InputType] = None,
         **kwargs: Settings.InputType,
     ):
         if other is not None:
             assert authentication_configuration_id is None
+            assert time_margin is None
+            assert start_time_margin is None
+            assert end_time_margin is None
             assert not kwargs
             super().__init__(other)
             return
+
+        time_margins = {}
+        for key in (
+            "time_margin",
+            "start_time_margin",
+            "end_time_margin",
+        ):
+            value = locals()[key]
+            if value is None:
+                continue
+            try:
+                parsed_value = TimeDelta(value)
+                if parsed_value.total_seconds() < 0:
+                    raise ValueError(
+                        f"Time margin cannot be negative: {value!r}"
+                    )
+            except ValueError as err:
+                raise ConfigurationError(str(err), index=key) from None
+            time_margins[key] = parsed_value
+        for key in (
+            "start_time_margin",
+            "end_time_margin",
+        ):
+            value = time_margins.get(key)
+            if value is None:
+                value = time_margins.get("time_margin")
+            if value is not None:
+                kwargs[key] = value
 
         super().__init__(
             _authentication_configuration_id=(authentication_configuration_id),

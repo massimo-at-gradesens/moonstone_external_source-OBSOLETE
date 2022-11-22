@@ -91,11 +91,26 @@ def authentication_configuration_tak_dev():
 
 
 @pytest.fixture
+def machine_configuration_tak_dev_1():
+    params = load_yaml(
+        """
+    id: tak-mach-1
+    time_margin: 2m
+    measurements:
+        - id: temperature
+    """
+    )
+    return MachineConfiguration(**params)
+
+
+@pytest.fixture
 def io_driver_tak_dev(
     authentication_configuration_oauth2_password,
     authentication_configuration_tak_client,
     authentication_configuration_tak_credentials,
     authentication_configuration_tak_dev,
+    #
+    machine_configuration_tak_dev_1,
 ):
     class TestIODriver(IODriver):
         def __init__(
@@ -142,7 +157,9 @@ def io_driver_tak_dev(
             authentication_configuration_tak_dev,
         ],
         common_configurations=[],
-        machine_configurations=[],
+        machine_configurations=[
+            machine_configuration_tak_dev_1,
+        ],
     )
 
 

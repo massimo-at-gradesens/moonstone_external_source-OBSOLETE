@@ -8,6 +8,7 @@ __copyright__ = "Copyright 2022, GradeSens AG"
 
 
 from datetime import date, datetime, time, timedelta
+from typing import Union
 
 from pytimeparse import parse as parse_seconds
 
@@ -23,6 +24,8 @@ class DateTime(datetime):
     * a :class:`datetime.date` object,
     * a :class:`datetime.time` object.
     """
+
+    InputType = Union[int, datetime, str, float, time, date]
 
     def __new__(cls, year, *args, **kwargs):
         if isinstance(year, int):
@@ -73,6 +76,8 @@ class Date(date):
     * a :class:`datetime.datetime` object,
     """
 
+    InputType = Union[int, date, str, float]
+
     def __new__(cls, year, *args, **kwargs):
         if isinstance(year, int):
             return super().__new__(cls, year, *args, **kwargs)
@@ -113,6 +118,8 @@ class Time(time):
     * a POSIX timestamp,
     * a :class:`datetime.datetime` object,
     """
+
+    InputType = Union[int, time, str, float, datetime]
 
     def __new__(cls, hour=0, *args, **kwargs):
         if isinstance(hour, int):
@@ -177,6 +184,8 @@ class TimeDelta(timedelta):
         For this format to be valid, the `value unit` components must follow
         the same order as the list of units here above.
     """
+
+    InputType = Union[int, float, timedelta, str]
 
     def __new__(cls, days=0, *args, **kwargs):
         if isinstance(days, (int, float)):
