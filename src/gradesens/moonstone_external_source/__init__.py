@@ -16,7 +16,7 @@ from .configuration import (
     MachineConfiguration,
     MeasurementConfiguration,
 )
-from .datetime import Date, DateTime, Time
+from .datetime import Date, DateTime, Time, TimeDelta
 from .error import (
     ConfigurationError,
     DataTypeError,
@@ -52,6 +52,7 @@ __all__ = [
     "DateTime",
     "Date",
     "Time",
+    "TimeDelta",
     #
     "ConfigurationError",
     "DataTypeError",

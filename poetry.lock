@@ -130,7 +130,7 @@ python-versions = ">=3.7"
 
 [[package]]
 name = "identify"
-version = "2.5.8"
+version = "2.5.9"
 description = "File identification library for Python"
 category = "dev"
 optional = false
@@ -256,6 +256,14 @@ python-versions = ">=3.6.8"
 diagrams = ["railroad-diagrams", "jinja2"]
 
 [[package]]
+name = "pytimeparse"
+version = "1.1.8"
+description = "Time expression parser"
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "pyyaml"
 version = "6.0"
 description = "YAML parser and emitter for Python"
@@ -341,7 +349,7 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "603db9e366e458e2283222824107f8d0059a85ba9e0157ea0fa73a3f95dec0cd"
+content-hash = "01a4b65b65b0ee62632e68da5784a96dfef2ef1f663ef66552067535f8903a0d"
 
 [metadata.files]
 aiodns = []
@@ -368,6 +376,7 @@ py = []
 pycares = []
 pycparser = []
 pyparsing = []
+pytimeparse = []
 pyyaml = []
 six = []
 toml = []

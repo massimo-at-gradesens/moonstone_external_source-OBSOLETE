@@ -12,10 +12,9 @@ __copyright__ = "Copyright 2022, GradeSens AG"
 import abc
 import collections
 import re
-from datetime import timedelta
 from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Union
 
-from .datetime import Date, DateTime, Time
+from .datetime import Date, DateTime, Time, TimeDelta
 from .error import (
     ConfigurationError,
     DataTypeError,
@@ -649,7 +648,7 @@ class EvalProcessor(Processor):
         "datetime": DateTime,
         "date": Date,
         "time": Time,
-        "timedelta": timedelta,
+        "timedelta": TimeDelta,
     }
 
     def __init__(
@@ -770,7 +769,7 @@ class TypeProcessor(Processor):
                 Converter(DateTime, "datetime"),
                 Converter(Date, "date"),
                 Converter(Time, "time"),
-                Converter(timedelta),
+                Converter(TimeDelta, "timedelta"),
             )
         )
     )

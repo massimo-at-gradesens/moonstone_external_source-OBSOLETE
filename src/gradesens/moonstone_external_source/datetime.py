@@ -7,7 +7,9 @@ __author__ = "Massimo Ravasi"
 __copyright__ = "Copyright 2022, GradeSens AG"
 
 
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
+
+from pytimeparse import parse as parse_seconds
 
 
 class DateTime(datetime):
@@ -112,7 +114,7 @@ class Time(time):
     * a :class:`datetime.datetime` object,
     """
 
-    def __new__(cls, hour, *args, **kwargs):
+    def __new__(cls, hour=0, *args, **kwargs):
         if isinstance(hour, int):
             return super().__new__(cls, hour, *args, **kwargs)
 
@@ -150,6 +152,52 @@ class Time(time):
             )
         if isinstance(value, datetime):
             return value.timetz()
+        raise ValueError(
+            f"Don't know how to create a {cls.__name__!r} object from"
+            f" a {type(value).__name__!r} object: {value!r}"
+        )
+
+
+class TimeDelta(timedelta):
+    """
+    A clone of stock library :class:`datetime.timedelta`, extending the
+    constructor capabilities to enable creating a new object directly from any
+    of the following:
+    * another :class:`datetime.timedelta` object,
+    * a floating-point number of days (i.e. single value construction from
+      stock :meth:`datetime.timedelta.__init__` constructor)
+    * a human readable string representation of time:
+      * ``[[[DD:]HH:]MM:]SS[.fractional part]``
+      * ``value unit [,/] [value unit [,/] [...]]`` with unit equal to any of:
+        * weeks, w, week, wks, wk,
+        * days, d, day, dys, dy,
+        * hours, h, hour, hrs, hr,
+        * minutes, m, minute, mins, min,
+        * seconds, s, second, secs, sec.
+        For this format to be valid, the `value unit` components must follow
+        the same order as the list of units here above.
+    """
+
+    def __new__(cls, days=0, *args, **kwargs):
+        if isinstance(days, (int, float)):
+            return super().__new__(cls, days, *args, **kwargs)
+
+        assert not args
+        assert not kwargs
+        other = cls.__convert(days)
+        return super().__new__(cls, seconds=other)
+
+    @classmethod
+    def __convert(cls, value):
+        if isinstance(value, timedelta):
+            return value.total_seconds()
+        if isinstance(value, str):
+            result = parse_seconds(value)
+            if result is not None:
+                return result
+            raise ValueError(
+                f"Not a valid {cls.__name__!r} representation {value!r}"
+            )
         raise ValueError(
             f"Don't know how to create a {cls.__name__!r} object from"
             f" a {type(value).__name__!r} object: {value!r}"

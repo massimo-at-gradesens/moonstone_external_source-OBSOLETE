@@ -1,12 +1,19 @@
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time, timedelta, timezone
 
-from gradesens.moonstone_external_source import Date, DateTime, Time
+import pytest
+
+from gradesens.moonstone_external_source import Date, DateTime, Time, TimeDelta
 
 
 def test_datetime():
     tested_type = DateTime
-
     reference_type = datetime
+
+    with pytest.raises(TypeError):
+        reference_type()
+    with pytest.raises(TypeError):
+        tested_type()
+
     reference = reference_type(
         2022,
         11,
@@ -91,8 +98,13 @@ def test_datetime():
 
 def test_time():
     tested_type = Time
-
     reference_type = time
+
+    value = tested_type()
+    reference = reference_type()
+    assert isinstance(value, reference_type)
+    assert value == reference
+
     reference = reference_type(
         9,
         58,
@@ -155,9 +167,14 @@ def test_time():
 
 def test_date():
     tested_type = Date
-
     reference_type = date
+
     reference = reference_type(2022, 11, 21)
+
+    with pytest.raises(TypeError):
+        reference_type()
+    with pytest.raises(TypeError):
+        tested_type()
 
     value = tested_type(
         reference.year,
@@ -196,3 +213,90 @@ def test_date():
     value = tested_type(value)
     assert isinstance(value, reference_type)
     assert value == reference
+
+
+def test_timedelta():
+    tested_type = TimeDelta
+    reference_type = timedelta
+
+    value = tested_type()
+    reference = reference_type()
+    assert isinstance(value, reference_type)
+    assert value == reference
+
+    reference_kwargs = dict(
+        weeks=3, days=2, hours=13, minutes=37, seconds=19, microseconds=876345
+    )
+    reference = reference_type(**reference_kwargs)
+
+    value = tested_type(
+        reference.days,
+        reference.seconds,
+        reference.microseconds,
+    )
+    assert isinstance(value, reference_type)
+    assert value == reference
+
+    value = tested_type(**reference_kwargs)
+    assert isinstance(value, reference_type)
+    assert value == reference
+
+    value = tested_type(reference)
+    assert isinstance(value, reference_type)
+    assert value is not reference
+    assert value == reference
+
+    value = tested_type(7.5)
+    assert isinstance(value, reference_type)
+    assert value == timedelta(days=7, hours=12)
+
+    value = tested_type(6)
+    assert isinstance(value, reference_type)
+    assert value == timedelta(days=6)
+
+    value = tested_type("12:56")
+    assert isinstance(value, reference_type)
+    assert value == timedelta(minutes=12, seconds=56)
+
+    value = tested_type("12:56.13")
+    assert isinstance(value, reference_type)
+    assert value == timedelta(minutes=12, seconds=56, milliseconds=130)
+
+    value = tested_type("12 wks 56.13 secs")
+    assert isinstance(value, reference_type)
+    assert value == timedelta(weeks=12, seconds=56, milliseconds=130)
+
+    value = tested_type("13 d, 17 m")
+    assert isinstance(value, reference_type)
+    assert value == timedelta(days=13, minutes=17)
+
+    #
+    # value = tested_type(
+    #     year=reference.year,
+    #     month=reference.month,
+    #     day=reference.day,
+    # )
+    # assert isinstance(value, reference_type)
+    # assert value == reference
+    #
+    # value = tested_type(reference)
+    # assert isinstance(value, reference_type)
+    # assert value == reference
+    #
+    # value = reference.isoformat()
+    # assert isinstance(value, str)
+    # value = tested_type(value)
+    # assert isinstance(value, reference_type)
+    # assert value == reference
+    #
+    # value = DateTime(reference).timestamp()
+    # assert isinstance(value, float)
+    # value = tested_type(value)
+    # assert isinstance(value, reference_type)
+    # assert DateTime(value).timestamp() == DateTime(reference).timestamp()
+    #
+    # value = datetime.combine(reference, time.min)
+    # assert isinstance(value, datetime)
+    # value = tested_type(value)
+    # assert isinstance(value, reference_type)
+    # assert value == reference
