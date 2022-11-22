@@ -14,6 +14,30 @@ from .configuration_fixtures import load_yaml
 
 
 @pytest.fixture
+def authentication_configuration_oauth2_password():
+    params = load_yaml(
+        """
+    id: oauth2:password
+
+    request:
+        headers:
+            client_id: "{client_id}"
+            client_secret: "{client_secret}"
+        data:
+            username: "{username}"
+            password: "{password}"
+            grant_type: password
+    result:
+        token: "{access_token}"
+        expiration_at:
+            <process:
+                - eval: "datetime.now() + timedelta(seconds=expires_in)"
+    """
+    )
+    return AuthenticationConfiguration(**params)
+
+
+@pytest.fixture
 def authentication_configuration_tak_client():
     params = load_yaml(
         """
@@ -45,6 +69,7 @@ def authentication_configuration_tak_dev():
         """
     id: tak-dev
     authentication_configuration_ids:
+        - "oauth2:password"
         - "tak-dev:client"
         - "tak-dev:creds"
 
@@ -55,19 +80,10 @@ def authentication_configuration_tak_dev():
             "https://api-us-aws2.takeda.com/sail-proxy-sys/api/security/\\
             oauth2/token"
         headers:
-            client_id: "{client_id}"
-            client_secret: "{client_secret}"
             env: "{env}"
         data:
-            username: "{username}"
-            password: "{password}"
-            grant_type: password
             authority: ad
     result:
-        token: "{access_token}"
-        expiration_at:
-            <process:
-                - eval: "datetime.now() + timedelta(seconds=expires_in)"
         env: "{env}"
     """
     )
@@ -76,6 +92,7 @@ def authentication_configuration_tak_dev():
 
 @pytest.fixture
 def io_driver_tak_dev(
+    authentication_configuration_oauth2_password,
     authentication_configuration_tak_client,
     authentication_configuration_tak_credentials,
     authentication_configuration_tak_dev,
@@ -119,6 +136,7 @@ def io_driver_tak_dev(
 
     return TestIODriver(
         authentication_configurations=[
+            authentication_configuration_oauth2_password,
             authentication_configuration_tak_client,
             authentication_configuration_tak_credentials,
             authentication_configuration_tak_dev,
