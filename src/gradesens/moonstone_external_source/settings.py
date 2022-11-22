@@ -797,6 +797,20 @@ class TypeProcessor(Processor):
                 f" field instead of {type(target).__name__!r}:"
                 f" {target!r}"
             )
+
+        target_comps = target.split(":", maxsplit=1)
+        if len(target_comps) == 1:
+            radix_from_target = False
+        else:
+            if radix is not None:
+                raise ConfigurationError(
+                    "Radix cannot be specified both"
+                    f" in field 'radix' ({radix!r})"
+                    f" and within target after a colon ':' ({target!r})"
+                )
+            radix_from_target = True
+            target, radix = target_comps
+
         try:
             converter = self.CONVERTERS[target]
         except KeyError:
@@ -813,6 +827,11 @@ class TypeProcessor(Processor):
                     f"Processor {self.KEY}: target type {target!r}"
                     f" does not support the 'radix' field"
                 )
+            if radix_from_target:
+                try:
+                    radix = int(radix)
+                except ValueError:
+                    pass
             if not isinstance(radix, int):
                 raise ConfigurationError(
                     f"Processor {self.KEY}: 'int' expected for 'radix'"
@@ -822,7 +841,7 @@ class TypeProcessor(Processor):
             orig_convert_func = converter.convert_func
             converter = self.Converter(
                 convert_func=lambda value: orig_convert_func(value, radix),
-                name=converter.name + f"{{radix={radix}}}",
+                name=converter.name + f":{radix}",
                 with_radix=False,
             )
 

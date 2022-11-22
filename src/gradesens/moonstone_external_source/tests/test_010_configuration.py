@@ -57,7 +57,7 @@ def test_common_configuration(common_configuration_1):
                         },
                         {
                             "__processor": "type",
-                            "converter": "int{radix=16}",
+                            "converter": "int:16",
                         },
                     ],
                 },

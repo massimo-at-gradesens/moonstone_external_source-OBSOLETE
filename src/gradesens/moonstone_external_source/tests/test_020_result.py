@@ -105,7 +105,7 @@ async def test_machine_configuration_with_result(io_manager_1):
                             },
                             {
                                 "__processor": "type",
-                                "converter": "int{radix=0}",
+                                "converter": "int:0",
                             },
                         ],
                     },
@@ -228,7 +228,7 @@ async def test_machine_settings_with_result(io_manager_1):
                         },
                         {
                             "__processor": "type",
-                            "converter": "int{radix=0}",
+                            "converter": "int:0",
                         },
                     ],
                 },

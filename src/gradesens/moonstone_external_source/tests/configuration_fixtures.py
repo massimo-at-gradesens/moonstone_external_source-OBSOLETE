@@ -273,9 +273,7 @@ def machine_configuration_with_result():
                         - regex:
                             pattern: "[83]"
                             replacement: "7"
-                        - type:
-                            target: int
-                            radix: 0
+                        - type: int:0
                 timestamp:
                     <process:
                         - eval: "23"
