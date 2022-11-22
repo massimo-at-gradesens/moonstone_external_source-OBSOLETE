@@ -156,17 +156,6 @@ class AuthenticationConfiguration(
             )
         )
 
-    def interpolate(
-        self, *args, **kwargs
-    ) -> (HTTPTransactionSettings.InterpolatedSettings):
-        return self.InterpolatedSettings(
-            self.interpolated_items_from_dict(
-                {key: value for key, value in self.items() if key[0] != "_"},
-                *args,
-                **kwargs,
-            )
-        )
-
     async def authenticate(
         self,
         io_manager: "IOManager",

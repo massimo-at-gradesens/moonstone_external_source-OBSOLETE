@@ -230,13 +230,6 @@ class HTTPTransactionSettings(
                 context=interpolation_context,
             )
 
-    def interpolate(
-        self, *args, **kwargs
-    ) -> ("HTTPTransactionSettings.InterpolatedSettings"):
-        return self.InterpolatedSettings(
-            self.interpolated_items(*args, **kwargs)
-        )
-
     async def fetch_result(
         self, io_manager: "IOManager", **kwargs
     ) -> "HTTPResultSettings.ResultType":
