@@ -12,13 +12,13 @@ __copyright__ = "Copyright 2022, Gradesens AG"
 
 import abc
 from datetime import datetime, timedelta
-from typing import Callable, Union
+from typing import Callable, Optional, Union
 
 from .authentication_configuration import (
     AuthenticationConfiguration,
     AuthenticationContext,
 )
-from .backend_driver import HTTPBackendDriver
+from .backend_driver import BackendDriver, HTTPBackendDriver
 from .configuration import CommonConfiguration, MachineConfiguration
 from .error import Error
 
@@ -197,7 +197,7 @@ class IOManager:
         authentication_context_cache_factory=AuthenticationContextCache,
         common_configuration_cache_factory=Cache,
         machine_configuration_cache_factory=Cache,
-        backend_driver=None,
+        backend_driver: Optional[BackendDriver] = None,
     ):
         self.io_driver = io_driver
         if backend_driver is None:

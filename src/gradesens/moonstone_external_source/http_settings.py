@@ -9,7 +9,7 @@ __author__ = "Massimo Ravasi"
 __copyright__ = "Copyright 2022, Gradesens AG"
 
 
-from typing import Any, Dict, Union
+from typing import Any, Dict, Optional, Union
 
 from .error import Error
 from .settings import Settings
@@ -25,13 +25,13 @@ class HTTPRequestSettings(Settings):
 
     def __init__(
         self,
-        other: Union["HTTPRequestSettings", None] = None,
+        other: Optional["HTTPRequestSettings"] = None,
         /,
         *,
         url: str = None,
-        headers: Union[Settings.InputType, None] = None,
-        query_string: Union[Settings.InputType, None] = None,
-        data: Union[str, bytes, None] = None,
+        headers: Optional[Settings.InputType] = None,
+        query_string: Optional[Settings.InputType] = None,
+        data: Optional[Union[str, bytes]] = None,
         **kwargs: Settings.InputType,
     ):
         if other is not None:
@@ -86,7 +86,7 @@ class HTTPResultSettings(Settings):
     ResultType = Dict[str, ResultValueType]
 
     def __init__(
-        self, other: Union["HTTPResultSettings", None] = None, /, **kwargs
+        self, other: Optional["HTTPResultSettings"] = None, /, **kwargs
     ):
         if other is not None:
             assert not kwargs
@@ -132,11 +132,11 @@ class HTTPTransactionSettings(
 
     def __init__(
         self,
-        other: Union["HTTPTransactionSettings", None] = None,
+        other: Optional["HTTPTransactionSettings"] = None,
         /,
         *,
-        request: Union[HTTPRequestSettings, None] = None,
-        result: Union[HTTPResultSettings, None] = None,
+        request: Optional[HTTPRequestSettings] = None,
+        result: Optional[HTTPResultSettings] = None,
         **kwargs: Settings.InputType,
     ):
         if other is not None:

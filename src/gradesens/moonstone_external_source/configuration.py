@@ -14,7 +14,15 @@ import asyncio
 import collections
 import itertools
 from datetime import datetime
-from typing import TYPE_CHECKING, Dict, Iterable, Sequence, Set, Union
+from typing import (
+    TYPE_CHECKING,
+    Dict,
+    Iterable,
+    Optional,
+    Sequence,
+    Set,
+    Union,
+)
 
 if TYPE_CHECKING:
     from .io_manager import IOManager
@@ -42,13 +50,14 @@ class _CommonConfigurationIdsSettings(ConfigurationIdsSettings):
 
     def __init__(
         self,
-        other: Union["_CommonConfigurationIdsSettings", None] = None,
+        other: Optional["_CommonConfigurationIdsSettings"] = None,
         /,
         *,
-        common_configuration_ids: Union[
-            Iterable["CommonConfiguration.Id"],
-            "CommonConfiguration.Id",
-            None,
+        common_configuration_ids: Optional[
+            Union[
+                Iterable["CommonConfiguration.Id"],
+                "CommonConfiguration.Id",
+            ]
         ] = None,
         **kwargs: Settings.InputType,
     ):
@@ -72,7 +81,7 @@ class _CommonConfigurationIdsSettings(ConfigurationIdsSettings):
     async def get_common_settings(
         self,
         io_manager: "IOManager",
-        already_visited: Union[Set["CommonConfiguration.Id"], None] = None,
+        already_visited: Optional[Set["CommonConfiguration.Id"]] = None,
     ) -> Settings:
         """
         See details in :meth:`CommonConfiguration.get_common_settings`
@@ -92,11 +101,11 @@ class _MeasurementResultSettings(HTTPResultSettings):
 
     def __init__(
         self,
-        other: Union["_MeasurementResultSettings", None] = None,
+        other: Optional["_MeasurementResultSettings"] = None,
         /,
         *,
-        value: Union[Settings.InputType, None] = None,
-        timestamp: Union[Settings.InputType, None] = None,
+        value: Optional[Settings.InputType] = None,
+        timestamp: Optional[Settings.InputType] = None,
     ):
         if other is not None:
             assert value is None
@@ -126,11 +135,11 @@ class _MeasurementSettings(
 
     def __init__(
         self,
-        other: Union["_MeasurementSettings", None] = None,
+        other: Optional["_MeasurementSettings"] = None,
         /,
         *,
-        authentication_configuration_id: Union[
-            AuthenticationConfiguration.Id, None
+        authentication_configuration_id: Optional[
+            AuthenticationConfiguration.Id
         ] = None,
         **kwargs: Settings.InputType,
     ):
@@ -156,10 +165,10 @@ class MeasurementConfiguration(_MeasurementSettings):
 
     def __init__(
         self,
-        other: Union["MeasurementConfiguration", None] = None,
+        other: Optional["MeasurementConfiguration"] = None,
         /,
         *,
-        id: Union[Id, None] = None,
+        id: Optional[Id] = None,
         **kwargs: Settings.InputType,
     ):
         if other is not None:
@@ -200,8 +209,8 @@ class MeasurementConfiguration(_MeasurementSettings):
 
         async def get_settings(
             self,
-            start_time: Union[datetime, None] = None,
-            end_time: Union[datetime, None] = None,
+            start_time: Optional[datetime] = None,
+            end_time: Optional[datetime] = None,
         ) -> "MeasurementConfiguration.SettingsType":
             # Create a temp CommonConfiguration instance to resolve the common
             # configuration settings from both self.machine_configuration
@@ -318,10 +327,10 @@ class _MachineConfigurationSettings(_MeasurementSettings):
 
     def __init__(
         self,
-        other: Union["_MachineConfigurationSettings", None] = None,
+        other: Optional["_MachineConfigurationSettings"] = None,
         /,
         *,
-        measurements: Union[Sequence[Settings.InputType], None] = None,
+        measurements: Optional[Sequence[Settings.InputType]] = None,
         **kwargs,
     ):
         if other is not None:
@@ -375,10 +384,10 @@ class CommonConfiguration(
 
     def __init__(
         self,
-        other: Union["CommonConfiguration", None] = None,
+        other: Optional["CommonConfiguration"] = None,
         /,
         *,
-        id: Union[Id, None] = None,
+        id: Optional[Id] = None,
         **kwargs: Settings.InputType,
     ):
         if other is not None:
@@ -394,7 +403,7 @@ class CommonConfiguration(
     async def get_common_settings(
         self,
         io_manager: "IOManager",
-        already_visited: Union[Set["CommonConfiguration.Id"], None] = None,
+        already_visited: Optional[Set["CommonConfiguration.Id"]] = None,
     ) -> Settings:
         """
         Return a :class:`Settings` instance containing all the
@@ -428,14 +437,14 @@ class MachineConfiguration(_MachineConfigurationSettings):
 
     Id = str
     SettingsType = Dict[str, "MeasurementConfiguration.SettingsType"]
-    MeasurementIdsType = Union[None, Iterable[MeasurementConfiguration.Id]]
+    MeasurementIdsType = Optional[Iterable[MeasurementConfiguration.Id]]
 
     def __init__(
         self,
-        other: Union["MeasurementConfiguration", None] = None,
+        other: Optional["MeasurementConfiguration"] = None,
         /,
         *,
-        id: Union[Id, None] = None,
+        id: Optional[Id] = None,
         **kwargs,
     ):
         if other is not None:

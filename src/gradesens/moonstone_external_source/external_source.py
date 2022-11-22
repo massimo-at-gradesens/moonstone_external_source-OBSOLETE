@@ -13,7 +13,7 @@ import asyncio
 import json
 from collections import OrderedDict
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Type, Union
+from typing import Any, Dict, List, Optional, Type, Union
 
 from .async_concurrent_pool import AsyncConcurrentPool
 from .backend_driver import BackendDriver, HTTPBackendDriver
@@ -47,10 +47,10 @@ class ExternalSource:
     def __init__(
         self,
         io_manager: IOManager,
-        request_task_pool: Union[AsyncConcurrentPool, int, None] = 10,
+        request_task_pool: Optional[Union[AsyncConcurrentPool, int]] = 10,
         time_margin: timedelta = DEFAULT_TIME_MARGIN,
-        start_time_margin: Union[timedelta, None] = None,
-        end_time_margin: Union[timedelta, None] = None,
+        start_time_margin: Optional[timedelta] = None,
+        end_time_margin: Optional[timedelta] = None,
         backend_driver: Union[
             Type[BackendDriver], BackendDriver
         ] = HTTPBackendDriver,
@@ -85,9 +85,9 @@ class ExternalSource:
         end_time: datetime,
         machine_id: MachineConfiguration.Id,
         measurements_ids: (MachineConfiguration.MeasurementIdsType) = None,
-        time_margin: Union[timedelta, None] = None,
-        start_time_margin: Union[timedelta, None] = None,
-        end_time_margin: Union[timedelta, None] = None,
+        time_margin: Optional[timedelta] = None,
+        start_time_margin: Optional[timedelta] = None,
+        end_time_margin: Optional[timedelta] = None,
     ) -> ResultsType:
         start_time_margin = self.__first_non_none(
             start_time_margin,

@@ -10,7 +10,7 @@ __author__ = "Massimo Ravasi"
 __copyright__ = "Copyright 2022, Gradesens AG"
 
 
-from typing import TYPE_CHECKING, Iterable, Union
+from typing import TYPE_CHECKING, Iterable, Optional, Union
 
 if TYPE_CHECKING:
     from .io_manager import IOManager
@@ -38,25 +38,26 @@ class _AuthenticationSettings(
 
     def __init__(
         self,
-        other: Union["_AuthenticationSettings", None] = None,
+        other: Optional["_AuthenticationSettings"] = None,
         /,
         *,
-        common_configuration_ids: Union[
-            Iterable["AuthenticationConfiguration.Id"],
-            "AuthenticationConfiguration.Id",
-            None,
+        authentication_configuration_ids: Optional[
+            Union[
+                Iterable["AuthenticationConfiguration.Id"],
+                "AuthenticationConfiguration.Id",
+            ]
         ] = None,
         **kwargs: Settings.InputType,
     ):
         if other is not None:
-            assert common_configuration_ids is None
+            assert authentication_configuration_ids is None
             assert not kwargs
             super().__init__(other)
             return
 
         super().__init__(
-            common_configuration_ids=common_configuration_ids,
-            _configuration_ids_field="common_configuration_ids",
+            authentication_configuration_ids=authentication_configuration_ids,
+            _configuration_ids_field="authentication_configuration_ids",
             _configuration_ids_get=(
                 lambda io_manager, configuration_id: (
                     (
@@ -83,7 +84,7 @@ class AuthenticationContext(Settings):
 
     def __init__(
         self,
-        other: Union["AuthenticationContext", None] = None,
+        other: Optional["AuthenticationContext"] = None,
         /,
         **kwargs: Settings.InputType,
     ):
@@ -108,17 +109,17 @@ class AuthenticationConfiguration(
 
     See :class:`CommonConfiguration` about hierarchical resolution of
     :class:`Settings` from trees of :class`AuthenticationConfiguration`
-    referencing each other via parameter ``common_configuration_ids``.
+    referencing each other via parameter ``authentication_configuration_ids``.
     """
 
     Id = str
 
     def __init__(
         self,
-        other: Union["AuthenticationConfiguration", None] = None,
+        other: Optional["AuthenticationConfiguration"] = None,
         /,
         *,
-        id: Union[Id, None] = None,
+        id: Optional[Id] = None,
         **kwargs: Settings.InputType,
     ):
         if other is not None:

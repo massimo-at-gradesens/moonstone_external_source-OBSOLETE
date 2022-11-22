@@ -11,7 +11,7 @@ __copyright__ = "Copyright 2022, Gradesens AG"
 
 
 import asyncio
-from typing import TYPE_CHECKING, Callable, Iterable, Set, Union
+from typing import TYPE_CHECKING, Callable, Iterable, Optional, Set
 
 if TYPE_CHECKING:
     from .io_manager import IOManager
@@ -30,7 +30,7 @@ class ConfigurationIdsSettings(
 
     def __init__(
         self,
-        other: Union["ConfigurationIdsSettings", None] = None,
+        other: Optional["ConfigurationIdsSettings"] = None,
         /,
         *,
         _configuration_ids_field: str = None,
@@ -66,8 +66,8 @@ class ConfigurationIdsSettings(
     async def get_merged_settings(
         self,
         io_manager: "IOManager",
-        already_visited: Union[
-            Set["ConfigurationIdsConfiguration.Id"], None
+        already_visited: Optional[
+            Set["ConfigurationIdsConfiguration.Id"]
         ] = None,
     ) -> Settings:
         """
@@ -115,10 +115,10 @@ class ConfigurationIdsConfiguration(ConfigurationIdsSettings):
 
     def __init__(
         self,
-        other: Union["ConfigurationIdsConfiguration", None] = None,
+        other: Optional["ConfigurationIdsConfiguration"] = None,
         /,
         *,
-        id: Union[Id, None] = None,
+        id: Optional[Id] = None,
         **kwargs: Settings.InputType,
     ):
         if other is not None:
@@ -134,8 +134,8 @@ class ConfigurationIdsConfiguration(ConfigurationIdsSettings):
     async def get_merged_settings(
         self,
         io_manager: "IOManager",
-        already_visited: Union[
-            Set["ConfigurationIdsConfiguration.Id"], None
+        already_visited: Optional[
+            Set["ConfigurationIdsConfiguration.Id"]
         ] = None,
     ) -> Settings:
         """

@@ -12,7 +12,7 @@ import abc
 import asyncio
 import json
 from http import HTTPStatus
-from typing import Any, Dict, Union
+from typing import Any, Dict, Optional
 
 import aiohttp
 from multidict import CIMultiDict
@@ -43,7 +43,7 @@ class BackendDriver(abc.ABC):
         url: str,
         headers: Dict[str, str] = {},
         query_string: Dict[str, str] = {},
-        data: Union[Any, None] = None,
+        data: Optional[Any] = None,
     ) -> Response:
         pass
 
@@ -94,7 +94,7 @@ class HTTPBackendDriver(BackendDriver):
         url: str,
         headers: Dict[str, str] = {},
         query_string: Dict[str, str] = {},
-        data: Union[Any, None] = None,
+        data: Optional[Any] = None,
         request_type: str = "GET",
     ) -> BackendDriver.Response:
         """

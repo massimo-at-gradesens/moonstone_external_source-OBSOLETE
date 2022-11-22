@@ -13,7 +13,7 @@ import abc
 import collections
 import re
 from datetime import timedelta
-from typing import Any, Callable, Dict, Iterable, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Union
 
 from .datetime import Date, DateTime, Time
 from .error import (
@@ -51,29 +51,30 @@ class Settings(dict):
     """
 
     KeyType = str
-    ValueType = Union[str, "Settings", None]
+    ValueType = Optional[Union[str, "Settings"]]
     ItemType = Tuple[KeyType, ValueType]
 
     InputValueType = Union[ValueType, Dict[KeyType, "InputValueType"]]
     InputItemType = Tuple[KeyType, InputValueType]
     InputType = Union["Settings", InputValueType]
 
-    InterpolatedValueType = Union[str, None]
+    InterpolatedValueType = Optional[str]
     InterpolatedItemsType = Union["InterpolatedValueType", "InterpolatedType"]
     InterpolatedType = Dict[str, InterpolatedItemsType]
 
     def __init__(
         self,
-        other: Union[
-            InputType,
-            Iterable[InputItemType],
-            None,
+        other: Optional[
+            Union[
+                InputType,
+                Iterable[InputItemType],
+            ]
         ] = None,
         /,
         *,
         _raw_init=False,
-        _interpolation_settings: Union[
-            "Settings.InterpolationSettings", None
+        _interpolation_settings: Optional[
+            "Settings.InterpolationSettings"
         ] = None,
         **kwargs: InputType,
     ):
@@ -232,7 +233,7 @@ class Settings(dict):
     def interpolated_items(
         self,
         context: InterpolationContext,
-        settings: Union[InterpolationSettings, None] = None,
+        settings: Optional[InterpolationSettings] = None,
     ) -> Iterable[InterpolatedItemsType]:
         yield from self.interpolated_items_from_dict(
             source=self,
@@ -245,7 +246,7 @@ class Settings(dict):
         cls,
         source: Dict[str, Any],
         context: InterpolationContext,
-        settings: Union[InterpolationSettings, None] = None,
+        settings: Optional[InterpolationSettings] = None,
     ) -> Iterable[InterpolatedItemsType]:
         if settings is None:
             settings = cls.InterpolationSettings()
@@ -436,11 +437,11 @@ class Processor(Settings, metaclass=ProcessorMeta):
 
     def __init__(
         self,
-        other: Union["Processor", None] = None,
+        other: Optional["Processor"] = None,
         /,
         *,
-        input_key: Union[str, None] = None,
-        output_key: Union[str, None] = None,
+        input_key: Optional[str] = None,
+        output_key: Optional[str] = None,
         **kwargs,
     ):
         if other is not None:
@@ -589,10 +590,10 @@ class InterpolateProcessor(Processor):
 
     def __init__(
         self,
-        other: Union["InterpolateProcessor", None] = None,
+        other: Optional["InterpolateProcessor"] = None,
         /,
         *,
-        string: Union[str, None] = None,
+        string: Optional[str] = None,
         **kwargs,
     ):
         if other is not None:
@@ -653,10 +654,10 @@ class EvalProcessor(Processor):
 
     def __init__(
         self,
-        other: Union["EvalProcessor", None] = None,
+        other: Optional["EvalProcessor"] = None,
         /,
         *,
-        expression: Union[str, None] = None,
+        expression: Optional[str] = None,
         **kwargs,
     ):
         if other is not None:
@@ -742,7 +743,7 @@ class TypeProcessor(Processor):
         def __init__(
             self,
             convert_func: Callable,
-            name: Union[str, None] = None,
+            name: Optional[str] = None,
             with_radix: bool = False,
         ):
             self.convert_func = convert_func
@@ -776,11 +777,11 @@ class TypeProcessor(Processor):
 
     def __init__(
         self,
-        other: Union["TypeProcessor", None] = None,
+        other: Optional["TypeProcessor"] = None,
         /,
         *,
-        target: Union[str, None] = None,
-        radix: Union[int, None] = None,
+        target: Optional[str] = None,
+        radix: Optional[int] = None,
         **kwargs,
     ):
         if other is not None:
@@ -861,12 +862,12 @@ class RegexProcessor(Processor):
 
     def __init__(
         self,
-        other: Union["RegexProcessor", None] = None,
+        other: Optional["RegexProcessor"] = None,
         /,
         *,
-        pattern: Union[str, None] = None,
-        replacement: Union[str, None] = None,
-        flags: Union[str, Iterable[str], int, None] = None,
+        pattern: Optional[str] = None,
+        replacement: Optional[str] = None,
+        flags: Optional[Union[str, Iterable[str], int]] = None,
         **kwargs,
     ):
         if other is not None:
@@ -971,11 +972,11 @@ class Processors(list):
 
     def __init__(
         self,
-        other: Union["Processors", None] = None,
+        other: Optional["Processors"] = None,
         /,
         *,
-        configuration: Union[
-            Settings.InputType, Iterable[Settings.InputType], None
+        configuration: Optional[
+            Union[Settings.InputType, Iterable[Settings.InputType]]
         ] = None,
     ):
 

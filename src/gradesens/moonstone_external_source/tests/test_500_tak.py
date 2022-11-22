@@ -44,7 +44,7 @@ def authentication_configuration_tak_dev():
     params = load_yaml(
         """
     id: tak-dev
-    common_configuration_ids:
+    authentication_configuration_ids:
         - "tak-dev:client"
         - "tak-dev:creds"
 
