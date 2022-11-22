@@ -13,7 +13,7 @@ import asyncio
 import json
 from collections import OrderedDict
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, Iterable, List, Optional, Type, Union
 
 from .async_concurrent_pool import AsyncConcurrentPool
 from .backend_driver import BackendDriver, HTTPBackendDriver
@@ -54,7 +54,7 @@ class ExternalSource:
         backend_driver: Union[
             Type[BackendDriver], BackendDriver
         ] = HTTPBackendDriver,
-        **kwargs,
+        **backend_driver_kwargs: Dict[str, Any],
     ):
         self.io_manager = io_manager
 
@@ -70,9 +70,9 @@ class ExternalSource:
         self.end_time_margin = end_time_margin
 
         if isinstance(backend_driver, type):
-            self.backend_driver = backend_driver(**kwargs)
+            self.backend_driver = backend_driver(**backend_driver_kwargs)
         else:
-            assert len(kwargs) == 0
+            assert len(backend_driver_kwargs) == 0
             self.backend_driver = backend_driver
 
     def get_data(self, *args, **kwargs):
@@ -81,10 +81,8 @@ class ExternalSource:
     async def async_get_data(
         self,
         *,
-        start_time: datetime,
-        end_time: datetime,
+        timestamps: Iterable[datetime],
         machine_id: MachineConfiguration.Id,
-        measurements_ids: (MachineConfiguration.MeasurementIdsType) = None,
         time_margin: Optional[timedelta] = None,
         start_time_margin: Optional[timedelta] = None,
         end_time_margin: Optional[timedelta] = None,
@@ -106,28 +104,32 @@ class ExternalSource:
             await self.io_manager.machine_configurations.get(machine_id)
         )
         resolver = machine_configuration.get_settings_resolver(self.io_manager)
-        settings = await resolver.get_settings(
-            start_time=start_time - start_time_margin,
-            end_time=end_time + end_time_margin,
-            measurements_ids=measurements_ids,
-        )
 
-        # Use an OrderedDict to guarantee order repeatability, so as to
-        # guarantee that ids and results can be correctly zipped
-        # together after asyncio.gather()
-        request_tasks = OrderedDict()
+        # for timestamp in timestamps:
 
-        for measurement_id, measurement_settings in settings.items():
-            request_tasks[measurement_id] = self.request_task_pool.schedule(
-                self.backend_driver.process(measurement_settings)
+        for timestamp in timestamps:
+            settings = await resolver.get_settings(
+                start_time=timestamp - start_time_margin,
+                end_time=timestamp + end_time_margin,
             )
 
+            # Use an OrderedDict to guarantee order repeatability, so as to
+            # guarantee that ids and results can be correctly zipped
+            # together after asyncio.gather()
+            request_tasks = OrderedDict()
+
+            for measurement_id, measurement_settings in settings.items():
+                request_tasks[
+                    measurement_id
+                ] = self.request_task_pool.schedule(
+                    self.backend_driver.process(measurement_settings)
+                )
+
         responses = await asyncio.gather(*request_tasks.values())
+
         return {
             measurement_id: self.process_response(
                 response=response,
-                start_time=start_time,
-                end_time=end_time,
                 settings=measurement_settings[measurement_id],
             )
             for measurement_id, response in zip(

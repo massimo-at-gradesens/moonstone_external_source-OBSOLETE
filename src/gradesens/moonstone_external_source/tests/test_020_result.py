@@ -173,8 +173,9 @@ async def test_machine_configuration_with_result(io_manager_1):
 @pytest.mark.asyncio
 async def test_machine_settings_with_result(io_manager_1):
     mach_conf = await io_manager_1.machine_configurations.get("mach_w_result")
-    resolver = mach_conf.get_settings_resolver(io_manager_1)
-    settings = await resolver.get_settings()
+    settings = await mach_conf.get_settings(
+        io_manager_1,
+    )
     expected = {
         "temperature": {
             "request": {
@@ -290,8 +291,9 @@ async def test_machine_settings_with_result(io_manager_1):
 @pytest.mark.asyncio
 async def test_machine_result(io_manager_1):
     mach_conf = await io_manager_1.machine_configurations.get("mach_w_result")
-    resolver = mach_conf.get_settings_resolver(io_manager_1)
-    settings = await resolver.get_settings()
+    settings = await mach_conf.get_settings(
+        io_manager_1,
+    )
 
     result = settings["temperature"].process_result(
         dict(

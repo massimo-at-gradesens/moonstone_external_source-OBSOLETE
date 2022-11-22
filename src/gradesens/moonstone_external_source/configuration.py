@@ -186,134 +186,120 @@ class MeasurementConfiguration(_MeasurementSettings):
             **kwargs,
         )
 
-    class _SettingsResolver:
-        # Build the list of actual settings to be retained after resolution.
-        # Simple solution: create a bare _MeasurementSettings instance and get
-        # its list of keys(), but filter out the few unwanted ones.
-        __RESULT_KEYS = set(
-            filter(
-                lambda key: not key[0] == "_",
-                _MeasurementSettings().keys(),
-            )
+    __RESULT_KEYS = set(
+        filter(
+            lambda key: not key[0] == "_",
+            _MeasurementSettings().keys(),
+        )
+    )
+
+    async def get_settings(
+        self,
+        io_manager: "IOManager",
+        machine_configuration: "MachineConfiguration",
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+    ) -> "MeasurementConfiguration.SettingsType":
+        # Create a temp CommonConfiguration instance to resolve the common
+        # configuration settings from both self.machine_configuration
+        # and self.measurement_configuration
+        temp_common_configuration = CommonConfiguration(
+            # Use a non-string id, so that there is zero risk of conflict
+            # with user-defined (string-only) ids
+            id=(
+                machine_configuration["id"],
+                self["id"],
+            ),
+            common_configuration_ids=itertools.chain(
+                machine_configuration["_common_configuration_ids"],
+                self["_common_configuration_ids"],
+            ),
+        )
+        settings = await temp_common_configuration.get_common_settings(
+            io_manager=io_manager
         )
 
-        def __init__(
-            self,
-            measurement_configuration: "MeasurementConfiguration",
-            machine_configuration: "MachineConfiguration",
-            io_manager: "IOManager",
-        ):
-            self.measurement_configuration = measurement_configuration
-            self.machine_configuration = machine_configuration
-            self.io_manager = io_manager
+        settings.update(machine_configuration)
 
-        async def get_settings(
-            self,
-            start_time: Optional[datetime] = None,
-            end_time: Optional[datetime] = None,
-        ) -> "MeasurementConfiguration.SettingsType":
-            # Create a temp CommonConfiguration instance to resolve the common
-            # configuration settings from both self.machine_configuration
-            # and self.measurement_configuration
-            temp_common_configuration = CommonConfiguration(
-                # Use a non-string id, so that there is zero risk of conflict
-                # with user-defined (string-only) ids
-                id=(
-                    self.machine_configuration["id"],
-                    self.measurement_configuration["id"],
-                ),
-                common_configuration_ids=itertools.chain(
-                    self.machine_configuration["_common_configuration_ids"],
-                    self.measurement_configuration[
-                        "_common_configuration_ids"
-                    ],
-                ),
-            )
-            settings = await temp_common_configuration.get_common_settings(
-                io_manager=self.io_manager
-            )
+        if start_time is not None:
+            self.__assert_aware_time("start_time", start_time)
+            settings["start_time"] = start_time
+        if end_time is not None:
+            self.__assert_aware_time("end_time", end_time)
+            settings["end_time"] = end_time
 
-            settings.update(self.machine_configuration)
+        settings.update(self)
 
-            if start_time is not None:
-                self.__assert_aware_time("start_time", start_time)
-                settings["start_time"] = start_time
-            if end_time is not None:
-                self.__assert_aware_time("end_time", end_time)
-                settings["end_time"] = end_time
-
-            settings.update(self.measurement_configuration)
-
-            authentication_configuration_id = settings[
-                "_authentication_configuration_id"
-            ]
-            if authentication_configuration_id is not None:
-                authentication_context = (
-                    await self.io_manager.authentication_contexts.get(
-                        authentication_configuration_id
-                    )
+        authentication_configuration_id = settings[
+            "_authentication_configuration_id"
+        ]
+        if authentication_configuration_id is not None:
+            authentication_context = (
+                await io_manager.authentication_contexts.get(
+                    authentication_configuration_id
                 )
-                new_settings = Settings(authentication_context)
-                new_settings.update(settings)
-                settings = new_settings
+            )
+            new_settings = Settings(authentication_context)
+            new_settings.update(settings)
+            settings = new_settings
 
-            # Now settings contains the merging of AuthenticatioContext,
-            # the optional CommonConfiguration, the MachineConfiguration, and
-            # the MeasurementConfiguration.
-            # Furthermore, it contains both the relevant fields (i.e., URL,
-            # query string, headers), as well as values required to interpolate
-            # possible patterns. Therefore, use settings as the base parameters
-            # to interpolate the patterns in its own values.
-            # Anyway, only keep the scalar settings as interpolation
-            # parameters, and insert the machine and measurement ids
-            parameters = {
-                "machine_id": self.machine_configuration["id"],
-                "measurement_id": self.measurement_configuration["id"],
+        # Now settings contains the merging of AuthenticatioContext,
+        # the optional CommonConfiguration, the MachineConfiguration, and
+        # the MeasurementConfiguration.
+        # Furthermore, it contains both the relevant fields (i.e., URL,
+        # query string, headers), as well as values required to interpolate
+        # possible patterns. Therefore, use settings as the base parameters
+        # to interpolate the patterns in its own values.
+        # Anyway, only keep the scalar settings as interpolation
+        # parameters, and insert the machine and measurement ids
+        parameters = {
+            "machine_id": machine_configuration["id"],
+            "measurement_id": self["id"],
+        }
+        parameters.update(
+            {
+                key: value
+                for key, value in settings.items()
+                if not key[0] == "_"
             }
-            parameters.update(
-                {
-                    key: value
-                    for key, value in settings.items()
-                    if not key[0] == "_"
-                }
-            )
+        )
 
-            # As for settings, only keep the keys specified for
-            # _MeasurementSettings, as they are the only relevant fields to be
-            # presented to the backend driver.
-            settings = Settings(
-                _raw_init=True,
-                **{
-                    key: value
-                    for key, value in settings.items()
-                    if key in self.__RESULT_KEYS
-                },
-            )
-            interpolation_context = Settings.InterpolationContext(
-                parameters=parameters,
-                machine_configuration=self.machine_configuration,
-                measurement_configuration=self.measurement_configuration,
-            )
-            try:
-                result = HTTPTransactionSettings.InterpolatedSettings(
-                    Settings.interpolated_items_from_dict(
-                        settings,
-                        context=interpolation_context,
-                    )
+        # As for settings, only keep the keys specified for
+        # _MeasurementSettings, as they are the only relevant fields to be
+        # presented to the backend driver.
+        settings = Settings(
+            _raw_init=True,
+            **{
+                key: value
+                for key, value in settings.items()
+                if key in self.__RESULT_KEYS
+            },
+        )
+        interpolation_context = Settings.InterpolationContext(
+            parameters=parameters,
+            machine_configuration=machine_configuration,
+            measurement_configuration=self,
+        )
+        try:
+            result = HTTPTransactionSettings.InterpolatedSettings(
+                Settings.interpolated_items_from_dict(
+                    settings,
+                    context=interpolation_context,
                 )
-            except Error as err:
-                err.index = [
-                    self.machine_configuration["id"],
-                    "measurements",
-                    self.measurement_configuration["id"],
-                ] + err.index
-                raise err from None
-            return result
+            )
+        except Error as err:
+            err.index = [
+                machine_configuration["id"],
+                "measurements",
+                self["id"],
+            ] + err.index
+            raise err from None
+        return result
 
-        @staticmethod
-        def __assert_aware_time(description, time):
-            if time.tzinfo is None or time.tzinfo.utcoffset(time) is None:
-                raise TimeError(f"{description} is not timezone-aware: {time}")
+    @staticmethod
+    def __assert_aware_time(description, time):
+        if time.tzinfo is None or time.tzinfo.utcoffset(time) is None:
+            raise TimeError(f"{description} is not timezone-aware: {time}")
 
 
 class _MachineConfigurationSettings(_MeasurementSettings):
@@ -461,87 +447,23 @@ class MachineConfiguration(_MachineConfigurationSettings):
                 "Missing machine configuration's 'measurements' field"
             )
 
-    class _SettingsResolver:
-        def __init__(
-            self,
-            machine_configuration: "MachineConfiguration",
-            io_manager: "IOManager",
-        ):
-            self.machine_configuration = machine_configuration
-            self.io_manager = io_manager
-
-        class __MeasurementProxy:
-            def __init__(self, parent):
-                self.parent = parent
-
-            def __getitem__(
-                self, id: MeasurementConfiguration.Id
-            ) -> MeasurementConfiguration._SettingsResolver:
-                measurements = self.parent.machine_configuration[
-                    "measurements"
-                ]
-                try:
-                    measurement_configuration = measurements[id]
-                except KeyError:
-                    valid_ids = ", ".join(measurements.keys())
-                    raise ConfigurationError(
-                        f"Unrecognized measurement id {id}."
-                        f" Valid ids: {valid_ids}"
-                    ) from None
-                return MeasurementConfiguration._SettingsResolver(
-                    measurement_configuration=measurement_configuration,
-                    machine_configuration=self.parent.machine_configuration,
-                    io_manager=self.parent.io_manager,
+    async def get_settings(
+        self,
+        io_manager: "IOManager",
+        **kwargs,
+    ) -> ("MachineConfiguration.SettingsType"):
+        tasks = collections.OrderedDict(
+            **{
+                measurement_id: measurement_configuration.get_settings(
+                    io_manager=io_manager, machine_configuration=self, **kwargs
                 )
-
-        def __getitem__(self, key):
-            if key == "measurements":
-                return self.__MeasurementProxy(self)
-            raise KeyError(key)
-
-        async def get_settings(
-            self,
-            measurement_ids: (
-                "MachineConfiguration.MeasurementIdsType"
-            ) = None,
-            **kwargs,
-        ) -> "MachineConfiguration.SettingsType":
-            if measurement_ids is None:
-                # If no ids are specified, return all measurements
-                measurement_ids = self.machine_configuration[
+                for measurement_id, measurement_configuration in self[
                     "measurements"
-                ].keys()
-            measurement_ids = set(measurement_ids)
-
-            # Retain only the ids that actually match this machine
-            # measurements.
-            # Silently drop the other ones.
-            measurement_ids &= set(
-                self.machine_configuration["measurements"].keys()
-            )
-
-            measurements_settings = self["measurements"]
-
-            # Use an OrderedDict to guarantee order repeatability, so as to
-            # guarantee that ids and results can be correctly zipped
-            # together after asyncio.gather()
-            tasks = collections.OrderedDict(
-                **{
-                    measurement_id: measurements_settings[
-                        measurement_id
-                    ].get_settings(**kwargs)
-                    for measurement_id in measurement_ids
-                }
-            )
-            results = await asyncio.gather(*tasks.values())
-            return {
-                measurement_id: result
-                for measurement_id, result in zip(tasks.keys(), results)
+                ].items()
             }
-
-    def get_settings_resolver(
-        self, io_manager: "IOManager"
-    ) -> _SettingsResolver:
-        return self._SettingsResolver(
-            machine_configuration=self, io_manager=io_manager
         )
+        results = await asyncio.gather(*tasks.values())
+        return {
+            measurement_id: result
+            for measurement_id, result in zip(tasks.keys(), results)
+        }

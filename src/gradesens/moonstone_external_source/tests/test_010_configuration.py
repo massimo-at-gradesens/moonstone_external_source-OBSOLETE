@@ -193,8 +193,11 @@ async def test_interpolated_measurement_settings(
     io_manager_1,
 ):
     assert isinstance(machine_configuration_1, MachineConfiguration)
-    resolver = machine_configuration_1.get_settings_resolver(io_manager_1)
-    settings = await resolver["measurements"]["temperature"].get_settings()
+    settings = await machine_configuration_1.get_settings(io_manager_1)
+    assert isinstance(settings, dict)
+    assert not isinstance(settings, Settings)
+
+    settings = settings["temperature"]
     assert isinstance(settings, dict)
     assert not isinstance(settings, Settings)
 
@@ -233,8 +236,7 @@ async def test_interpolated_measurement_all_settings(
     io_manager_1,
 ):
     assert isinstance(machine_configuration_1, MachineConfiguration)
-    resolver = machine_configuration_1.get_settings_resolver(io_manager_1)
-    settings = await resolver.get_settings()
+    settings = await machine_configuration_1.get_settings(io_manager_1)
     assert isinstance(settings, dict)
     assert not isinstance(settings, Settings)
 
@@ -319,8 +321,7 @@ async def test_complex_interpolated_measurement_all_settings(
 ):
     mach_conf_2 = await io_manager_1.machine_configurations.get("mach2")
     assert isinstance(mach_conf_2, MachineConfiguration)
-    resolver = mach_conf_2.get_settings_resolver(io_manager_1)
-    settings = await resolver.get_settings()
+    settings = await mach_conf_2.get_settings(io_manager_1)
     assert isinstance(settings, dict)
     assert not isinstance(settings, Settings)
 
@@ -347,44 +348,58 @@ async def test_start_end_times(
     io_manager_1,
 ):
     mach_conf_1 = await io_manager_1.machine_configurations.get("mach_w_time")
-    resolver = mach_conf_1.get_settings_resolver(io_manager_1)
     with pytest.raises(TimeError) as exc:
-        await resolver.get_settings(start_time=datetime.now())
+        await mach_conf_1.get_settings(
+            io_manager_1,
+            start_time=datetime.now(),
+        )
     assert "start_time" in str(exc.value)
 
     with pytest.raises(TimeError) as exc:
-        await resolver.get_settings(end_time=datetime.now())
+        await mach_conf_1.get_settings(
+            io_manager_1,
+            end_time=datetime.now(),
+        )
     assert "end_time" in str(exc.value)
 
     with pytest.raises(PatternError) as exc:
-        await resolver.get_settings()
+        await mach_conf_1.get_settings(
+            io_manager_1,
+        )
     with pytest.raises(PatternError) as exc:
-        await resolver["measurements"]["temperature"].get_settings()
+        await mach_conf_1.get_settings(
+            io_manager_1,
+            start_time=datetime.now(timezone.utc),
+        )
     with pytest.raises(PatternError) as exc:
-        await resolver.get_settings(start_time=datetime.now(timezone.utc))
-    with pytest.raises(PatternError) as exc:
-        await resolver.get_settings(end_time=datetime.now(timezone.utc))
+        await mach_conf_1.get_settings(
+            io_manager_1,
+            end_time=datetime.now(timezone.utc),
+        )
 
-    settings = await resolver["measurements"]["temperature"].get_settings(
-        start_time=datetime(
-            year=2022,
-            month=11,
-            day=14,
-            hour=17,
-            minute=34,
-            second=17,
-            tzinfo=timezone.utc,
-        ),
-        end_time=datetime(
-            year=3022,
-            month=9,
-            day=2,
-            hour=5,
-            minute=27,
-            second=3,
-            tzinfo=timezone.utc,
-        ),
-    )
+    settings = (
+        await mach_conf_1.get_settings(
+            io_manager_1,
+            start_time=datetime(
+                year=2022,
+                month=11,
+                day=14,
+                hour=17,
+                minute=34,
+                second=17,
+                tzinfo=timezone.utc,
+            ),
+            end_time=datetime(
+                year=3022,
+                month=9,
+                day=2,
+                hour=5,
+                minute=27,
+                second=3,
+                tzinfo=timezone.utc,
+            ),
+        )
+    )["temperature"]
     query_string = settings["request"]["query_string"]
 
     assert isinstance(query_string["start"], str)
