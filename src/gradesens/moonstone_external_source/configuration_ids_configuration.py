@@ -7,7 +7,7 @@ These configurations contain all the parameters requested to query the
 external measurements on the target machines.
 """
 __author__ = "Massimo Ravasi"
-__copyright__ = "Copyright 2022, Gradesens AG"
+__copyright__ = "Copyright 2022, GradeSens AG"
 
 
 import asyncio

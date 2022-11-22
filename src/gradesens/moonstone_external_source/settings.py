@@ -6,7 +6,7 @@ whole package. All feature-specific settings are implemented as classes
 derived or using the classes in this module.
 """
 __author__ = "Massimo Ravasi"
-__copyright__ = "Copyright 2022, Gradesens AG"
+__copyright__ = "Copyright 2022, GradeSens AG"
 
 
 import abc

@@ -6,7 +6,7 @@ They provide access to the actual core functionality of the package:
 customizable support to retrieve measurement data from external sources.
 """
 __author__ = "Massimo Ravasi"
-__copyright__ = "Copyright 2022, Gradesens AG"
+__copyright__ = "Copyright 2022, GradeSens AG"
 
 
 import asyncio

@@ -2,7 +2,7 @@
 GradeSens - External Source package
 """
 __author__ = "Massimo Ravasi"
-__copyright__ = "Copyright 2022, Gradesens AG"
+__copyright__ = "Copyright 2022, GradeSens AG"
 
 
 from .async_concurrent_pool import AsyncConcurrentPool

@@ -5,7 +5,7 @@ Simple-minded execution pool for any number of async tasks, but limiting the
 maximum number of concurrent tasks active at the same time.
 """
 __author__ = "Massimo Ravasi"
-__copyright__ = "Copyright 2022, Gradesens AG"
+__copyright__ = "Copyright 2022, GradeSens AG"
 
 
 import asyncio

@@ -4,7 +4,7 @@ GradeSens - External Source package - Datetime support tools
 This module provides extensions to stock module :module:`datetime`.
 """
 __author__ = "Massimo Ravasi"
-__copyright__ = "Copyright 2022, Gradesens AG"
+__copyright__ = "Copyright 2022, GradeSens AG"
 
 
 from datetime import date, datetime, time

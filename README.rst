@@ -3,7 +3,7 @@
   ****************************************************
   GradeSens - Moonstone External Source python package
 
-  Copyright 2022, Gradesens AG
+  Copyright 2022, GradeSens AG
   ****************************************************
 
 Moontone External Source

@@ -6,7 +6,7 @@ transactions and parse their responses into higher abstraction results,
 according to user specified rules.
 """
 __author__ = "Massimo Ravasi"
-__copyright__ = "Copyright 2022, Gradesens AG"
+__copyright__ = "Copyright 2022, GradeSens AG"
 
 
 from typing import Any, Dict, Optional, Union
