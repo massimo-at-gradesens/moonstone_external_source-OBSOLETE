@@ -9,7 +9,7 @@ __author__ = "Massimo Ravasi"
 __copyright__ = "Copyright 2022, GradeSens AG"
 
 
-from typing import TYPE_CHECKING, Any, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Type, Union
 
 if TYPE_CHECKING:
     from .io_manager import IOManager
@@ -113,8 +113,8 @@ class HTTPTransactionMeta(type):
         name,
         bases,
         kwargs,
-        request_type: type(HTTPRequestSettings) = HTTPRequestSettings,
-        result_type: type(HTTPResultSettings) = HTTPResultSettings,
+        request_type: Type[HTTPRequestSettings] = HTTPRequestSettings,
+        result_type: Type[HTTPResultSettings] = HTTPResultSettings,
     ):
         assert issubclass(request_type, HTTPRequestSettings)
         assert issubclass(result_type, HTTPResultSettings)
