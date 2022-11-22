@@ -67,7 +67,7 @@ def authentication_configuration_tak_dev():
         token: "{access_token}"
         expiration_at:
             <process:
-                eval: "datetime.now() + timedelta(seconds=expires_in)"
+                - eval: "datetime.now() + timedelta(seconds=expires_in)"
         env: "{env}"
     """
     )

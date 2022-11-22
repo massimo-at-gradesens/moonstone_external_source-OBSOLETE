@@ -19,7 +19,7 @@ from .configuration_ids_configuration import (
     ConfigurationIdsConfiguration,
     ConfigurationIdsSettings,
 )
-from .error import ConfigurationError
+from .error import ConfigurationError, Error
 from .http_settings import HTTPTransactionSettings
 from .settings import Settings
 
@@ -168,28 +168,11 @@ class AuthenticationConfiguration(
         )
 
     async def authenticate(
-        self, io_manager: "IOManager"
+        self,
+        io_manager: "IOManager",
     ) -> AuthenticationContext:
-        settings = await self.get_settings(io_manager=io_manager)
-        request = settings["request"]
-        request_kwargs = {}
-
-        for key in (
-            "url",
-            "data",
-            "query_string",
-            "headers",
-        ):
-            value = request.get(key, None)
-            if value is None:
-                continue
-            request_kwargs[key] = value
-        if "url" not in request_kwargs:
-            raise ConfigurationError(
-                f"AuthenticationConfiguration {self['id']!r}" " has no URL"
-            )
-        raw_result = await io_manager.backend_driver.get_raw_result(
-            **request_kwargs
-        )
-
-        return settings.process_result(raw_result.data)
+        try:
+            return await self.fetch_result(io_manager=io_manager)
+        except Error as err:
+            err.index.insert(0, f"Authentication configuration {self['id']!r}")
+            raise

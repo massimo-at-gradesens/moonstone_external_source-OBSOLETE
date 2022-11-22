@@ -19,8 +19,11 @@ class Error(Exception):
             index = list(index)
         self.index = index
 
+    def _raw_str(self):
+        return super().__str__()
+
     def __str__(self):
-        msg = super().__str__()
+        msg = self._raw_str()
         if len(self.index) == 0:
             return msg
         index = "".join(f"[{elem!r}]" for elem in self.index)
@@ -32,7 +35,7 @@ class HTTPError(Error):
         super().__init__(msg)
         self.status = status
 
-    def __str__(self):
+    def _raw_str(self):
         status_suffix = (
             "" if self.status is None else f"(status={self.status})"
         )
@@ -53,7 +56,7 @@ class EvalError(Error):
         self.expression = expression
         self.message = message
 
-    def __str__(self):
+    def _raw_str(self):
         message = "" if self.message is None else str(self.message)
         if self.expression is None:
             return message
@@ -68,12 +71,12 @@ class PatternError(Error):
         self.pattern = pattern
         self.message = message
 
-    def __str__(self):
+    def _raw_str(self):
         message = "" if self.message is None else str(self.message)
         if self.pattern is None:
             return message
-        if message:
-            message = ": " + message
+        if len(message) != 0:
+            message = f": {message}"
         return f"Pattern {self.pattern!r}{message}"
 
 

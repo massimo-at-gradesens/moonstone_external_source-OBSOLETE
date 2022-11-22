@@ -9,9 +9,12 @@ __author__ = "Massimo Ravasi"
 __copyright__ = "Copyright 2022, GradeSens AG"
 
 
-from typing import Any, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
-from .error import Error
+if TYPE_CHECKING:
+    from .io_manager import IOManager
+
+from .error import ConfigurationError, Error
 from .settings import Settings
 
 
@@ -175,9 +178,48 @@ class HTTPTransactionSettings(
         )
 
     class InterpolatedSettings(dict):
+        async def fetch_result(
+            self,
+            io_manager: "IOManager",
+        ) -> "HTTPResultSettings.ResultType":
+            """
+            Complete fetch-result cycle:
+            * Execute the HTTP transaction specified in ``self["request"]``,
+            * Parse the corresponding response according to the rules in
+               ``self["result"]`` - see also :meth:`.process_result`
+            * Return the parsed data
+            """
+            request = self["request"]
+            request_kwargs = {}
+
+            for key in (
+                "url",
+                "data",
+                "query_string",
+                "headers",
+            ):
+                value = request.get(key, None)
+                if value is None:
+                    continue
+                request_kwargs[key] = value
+            if "url" not in request_kwargs:
+                raise ConfigurationError(
+                    "No URL specified, the request cannot be carried out"
+                )
+            raw_result = await io_manager.backend_driver.get_raw_result(
+                **request_kwargs
+            )
+
+            return self.process_result(raw_result.data)
+
         def process_result(
             self, raw_result: "HTTPResultSettings.RawResultType"
         ) -> "HTTPResultSettings.ResultType":
+            """
+            Parse a request's raw result, i.e. an HTTP response, according to
+            the rules in ``self["result"]``
+            """
+
             parameters = dict(self)
             parameters.update(raw_result)
             interpolation_context = Settings.InterpolationContext(
@@ -194,3 +236,15 @@ class HTTPTransactionSettings(
         return self.InterpolatedSettings(
             self.interpolated_items(*args, **kwargs)
         )
+
+    async def fetch_result(
+        self, io_manager: "IOManager", **kwargs
+    ) -> "HTTPResultSettings.ResultType":
+        """
+        A wrapper around :meth:`.InterpolatedSettings.fetch_result`, that
+        first interpolates self's settings and the executes
+        :meth:`.InterpolatedSettings.fetch_result` on them,
+        """
+
+        settings = await self.get_settings(io_manager=io_manager, **kwargs)
+        return await settings.fetch_result(io_manager=io_manager)

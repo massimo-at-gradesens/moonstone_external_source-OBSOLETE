@@ -105,8 +105,7 @@ class Cache:
             if err != "":
                 err = f": {err}"
             raise Error(
-                f"Unable to load a {self.entry_description!r} for {id!r}"
-                f"{err}"
+                f"Unable to load a {self.entry_description!r} for {id!r}{err}"
             ) from None
 
         creation_time = datetime.now()
