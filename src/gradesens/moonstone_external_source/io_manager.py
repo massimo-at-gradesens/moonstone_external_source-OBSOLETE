@@ -154,7 +154,7 @@ class Cache:
                 if err != "":
                     err = f": {err}"
                 raise Error(
-                    f"Unable to load a {self.entry_description!r}"
+                    f"Unable to load a {self.cache.entry_description!r}"
                     f" for {id!r}{err}"
                 ) from None
 

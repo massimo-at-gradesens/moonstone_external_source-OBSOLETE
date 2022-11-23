@@ -9,8 +9,9 @@ from collections.abc import Iterable
 
 
 class Error(Exception):
-    def __init__(self, *args, index=None, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, message, index=None):
+        self.message = message
+
         if index is None:
             index = []
         elif isinstance(index, str) or not isinstance(index, Iterable):
@@ -20,33 +21,39 @@ class Error(Exception):
         self.index = index
 
     def _raw_str(self):
-        return super().__str__()
+        if self.message is None:
+            return ""
+        return str(self.message)
 
     def __str__(self):
-        msg = self._raw_str()
+        message = self._raw_str()
         if len(self.index) == 0:
-            return msg
+            return message
         index = "".join(f"[{elem!r}]" for elem in self.index)
-        return f"@{index}: {msg}"
+        return f"@{index}: {message}"
 
 
-class HTTPError(Error):
-    def __init__(self, msg, status=None):
-        super().__init__(msg)
+class BackendError(Error):
+    pass
+
+
+class HTTPError(BackendError):
+    def __init__(self, message, status=None):
+        super().__init__(message)
         self.status = status
 
     def _raw_str(self):
         status_suffix = (
             "" if self.status is None else f"(status={self.status})"
         )
-        return f"HTTP ERROR{status_suffix}: {super().__str__()}"
-
-
-class ConfigurationError(Error):
-    pass
+        return f"HTTP ERROR{status_suffix}: {super()._raw_str()}"
 
 
 class HTTPResponseError(HTTPError):
+    pass
+
+
+class ConfigurationError(Error):
     pass
 
 
@@ -54,7 +61,6 @@ class EvalError(Error):
     def __init__(self, message=None, expression=None):
         super().__init__(message)
         self.expression = expression
-        self.message = message
 
     def _raw_str(self):
         message = "" if self.message is None else str(self.message)

@@ -17,7 +17,7 @@ from typing import Any, Dict, Optional
 import aiohttp
 from multidict import CIMultiDict
 
-from .error import HTTPError, HTTPResponseError
+from .error import BackendError, HTTPError, HTTPResponseError
 
 
 class BackendDriver:
@@ -30,6 +30,15 @@ class BackendDriver:
     """
 
     CONTENT_TYPE_HANDLERS = {"application/json": json.loads}
+
+    def __init__(
+        self,
+        *,
+        max_attempts: int = 1,
+        attempt_delay: float = 0.5,
+    ):
+        self.max_attempts = max_attempts
+        self.attempt_delay = attempt_delay
 
     class Response:
         """
@@ -69,7 +78,23 @@ class BackendDriver:
             pass
 
         async def execute(self, *args, **kwargs) -> "BackendDriver.Response":
-            response = await self.execute_raw(*args, **kwargs)
+            max_attempts = self.backend_driver.max_attempts
+            remaining_attempts = max_attempts
+            while True:
+                try:
+                    response = await self.execute_raw(*args, **kwargs)
+                except BackendError as err:
+                    remaining_attempts -= 1
+                    if remaining_attempts <= 0:
+                        if max_attempts > 1:
+                            err.message = (
+                                err.message
+                                + f" (after {max_attempts} attempts)"
+                            )
+                        raise
+                else:
+                    break
+                await asyncio.sleep(self.backend_driver.attempt_delay)
 
             content_type = response.headers["content-type"].lower()
             content_type = set(
@@ -132,15 +157,6 @@ class AsyncHTTPBackendDriver(BackendDriver):
     `AIOHTTP package <https://docs.aiohttp.org/en/stable/>`_
     """
 
-    def __init__(
-        self,
-        *,
-        max_attempts: int = 3,
-        attempt_delay: float = 0.5,
-    ):
-        self.max_attempts = max_attempts
-        self.attempt_delay = attempt_delay
-
     class ClientSession(BackendDriver.ClientSession):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
@@ -164,7 +180,6 @@ class AsyncHTTPBackendDriver(BackendDriver):
             """
 
             status = None
-            remaining_attempts = self.backend_driver.max_attempts
             request_kwargs = dict(
                 url=url,
             )
@@ -184,22 +199,17 @@ class AsyncHTTPBackendDriver(BackendDriver):
                 raise HTTPError(
                     f"Unsupported or invalid request type {request_type}"
                 )
-            while True:
-                async with request_func(**request_kwargs) as response:
-                    status = response.status
+            async with request_func(**request_kwargs) as response:
+                status = response.status
 
-                    if status == HTTPStatus.OK:
-                        text = await response.text()
-                        return BackendDriver.Response(
-                            data=text,
-                            headers=response.headers,
-                        )
+                if status == HTTPStatus.OK:
+                    text = await response.text()
+                    return BackendDriver.Response(
+                        data=text,
+                        headers=response.headers,
+                    )
 
-                    remaining_attempts -= 1
-                    if remaining_attempts <= 0:
-                        raise HTTPError(
-                            f"HTTP request to {url!r} failed"
-                            f" after {self.max_attempts} attempts",
-                            status=status,
-                        )
-                    await asyncio.sleep(self.backend_driver.attempt_delay)
+                raise HTTPError(
+                    f"HTTP request to {url!r} failed",
+                    status=status,
+                )

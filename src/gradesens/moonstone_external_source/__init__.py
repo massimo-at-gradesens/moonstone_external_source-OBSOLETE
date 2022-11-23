@@ -18,6 +18,7 @@ from .configuration import (
 )
 from .datetime import Date, DateTime, Time, TimeDelta
 from .error import (
+    BackendError,
     ConfigurationError,
     DataTypeError,
     DataValueError,
@@ -54,6 +55,7 @@ __all__ = [
     "Time",
     "TimeDelta",
     #
+    "BackendError",
     "ConfigurationError",
     "DataTypeError",
     "DataValueError",
