@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, Iterable, List, Optional, Type, Union
 
 from .async_concurrent_pool import AsyncConcurrentPool
-from .backend_driver import BackendDriver, HTTPBackendDriver
+from .backend_driver import AsyncHTTPBackendDriver, BackendDriver
 from .configuration import MachineConfiguration, MeasurementConfiguration
 from .error import Error, HTTPResponseError
 from .io_manager import IOManager
@@ -53,7 +53,7 @@ class ExternalSource:
         end_time_margin: Optional[timedelta] = None,
         backend_driver: Union[
             Type[BackendDriver], BackendDriver
-        ] = HTTPBackendDriver,
+        ] = AsyncHTTPBackendDriver,
         **backend_driver_kwargs: Dict[str, Any],
     ):
         self.client_session = client_session

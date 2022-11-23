@@ -124,9 +124,12 @@ class BackendDriver:
         )
 
 
-class HTTPBackendDriver(BackendDriver):
+class AsyncHTTPBackendDriver(BackendDriver):
     """
-    HTTP backend driver.
+    Async HTTP backend driver.
+
+    This :class:`BackendDriver` specialization is based on
+    `AIOHTTP package <https://docs.aiohttp.org/en/stable/>`_
     """
 
     def __init__(

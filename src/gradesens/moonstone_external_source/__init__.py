@@ -10,7 +10,7 @@ from .authentication_configuration import (
     AuthenticationConfiguration,
     AuthenticationContext,
 )
-from .backend_driver import BackendDriver, HTTPBackendDriver
+from .backend_driver import AsyncHTTPBackendDriver, BackendDriver
 from .configuration import (
     CommonConfiguration,
     MachineConfiguration,
@@ -43,7 +43,7 @@ __all__ = [
     "AuthenticationContext",
     #
     "BackendDriver",
-    "HTTPBackendDriver",
+    "AsyncHTTPBackendDriver",
     #
     "CommonConfiguration",
     "MachineConfiguration",

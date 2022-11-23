@@ -18,7 +18,7 @@ from .authentication_configuration import (
     AuthenticationConfiguration,
     AuthenticationContext,
 )
-from .backend_driver import BackendDriver, HTTPBackendDriver
+from .backend_driver import AsyncHTTPBackendDriver, BackendDriver
 from .configuration import CommonConfiguration, MachineConfiguration
 from .error import Error
 
@@ -273,7 +273,7 @@ class IOManager:
         backend_driver: Optional[BackendDriver] = None,
     ):
         if backend_driver is None:
-            backend_driver = HTTPBackendDriver()
+            backend_driver = AsyncHTTPBackendDriver()
         self.__backend_driver = backend_driver
 
         self.__caches = dict(
