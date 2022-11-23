@@ -46,7 +46,7 @@ class ExternalSource:
 
     def __init__(
         self,
-        io_manager: IOManager,
+        client_session: "IOManager.ClientSession",
         request_task_pool: Optional[Union[AsyncConcurrentPool, int]] = 10,
         time_margin: timedelta = DEFAULT_TIME_MARGIN,
         start_time_margin: Optional[timedelta] = None,
@@ -56,7 +56,7 @@ class ExternalSource:
         ] = HTTPBackendDriver,
         **backend_driver_kwargs: Dict[str, Any],
     ):
-        self.io_manager = io_manager
+        self.client_session = client_session
 
         if request_task_pool is None:
             request_task_pool = 1
@@ -101,9 +101,11 @@ class ExternalSource:
         )
 
         machine_configuration = (
-            await self.io_manager.machine_configurations.get(machine_id)
+            await self.client_session.machine_configurations.get(machine_id)
         )
-        resolver = machine_configuration.get_settings_resolver(self.io_manager)
+        resolver = machine_configuration.get_settings_resolver(
+            self.client_session
+        )
 
         # for timestamp in timestamps:
 

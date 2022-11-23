@@ -72,8 +72,8 @@ class _CommonConfigurationIdsSettings(ConfigurationIdsSettings):
             common_configuration_ids=common_configuration_ids,
             _configuration_ids_field="common_configuration_ids",
             _configuration_ids_get=(
-                lambda io_manager, configuration_id: (
-                    io_manager.common_configurations.get(configuration_id)
+                lambda client_session, configuration_id: (
+                    client_session.common_configurations.get(configuration_id)
                 )
             ),
             **kwargs,
@@ -81,14 +81,14 @@ class _CommonConfigurationIdsSettings(ConfigurationIdsSettings):
 
     async def get_common_settings(
         self,
-        io_manager: "IOManager",
+        client_session: "IOManager.ClientSession",
         already_visited: Optional[Set["CommonConfiguration.Id"]] = None,
     ) -> Settings:
         """
         See details in :meth:`CommonConfiguration.get_common_settings`
         """
         return await self.get_merged_settings(
-            io_manager=io_manager,
+            client_session=client_session,
             already_visited=already_visited,
         )
 
@@ -230,7 +230,7 @@ class MeasurementConfiguration(_MeasurementSettings):
 
     async def get_settings(
         self,
-        io_manager: "IOManager",
+        client_session: "IOManager.ClientSession",
         machine_configuration: "MachineConfiguration",
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
@@ -251,7 +251,7 @@ class MeasurementConfiguration(_MeasurementSettings):
             ),
         )
         settings = await temp_common_configuration.get_common_settings(
-            io_manager=io_manager
+            client_session=client_session
         )
 
         settings.update(machine_configuration)
@@ -270,7 +270,7 @@ class MeasurementConfiguration(_MeasurementSettings):
         ]
         if authentication_configuration_id is not None:
             authentication_context = (
-                await io_manager.authentication_contexts.get(
+                await client_session.authentication_contexts.get(
                     authentication_configuration_id
                 )
             )
@@ -423,7 +423,7 @@ class CommonConfiguration(
 
     async def get_common_settings(
         self,
-        io_manager: "IOManager",
+        client_session: "IOManager.ClientSession",
         already_visited: Optional[Set["CommonConfiguration.Id"]] = None,
     ) -> Settings:
         """
@@ -445,7 +445,7 @@ class CommonConfiguration(
         same-name settings from other :class:`CommonConfiguration`s
         """
         return await self.get_merged_settings(
-            io_manager=io_manager,
+            client_session=client_session,
             already_visited=already_visited,
         )
 
@@ -484,13 +484,15 @@ class MachineConfiguration(_MachineConfigurationSettings):
 
     async def get_settings(
         self,
-        io_manager: "IOManager",
+        client_session: "IOManager.ClientSession",
         **kwargs,
     ) -> ("MachineConfiguration.SettingsType"):
         tasks = collections.OrderedDict(
             **{
                 measurement_id: measurement_configuration.get_settings(
-                    io_manager=io_manager, machine_configuration=self, **kwargs
+                    client_session=client_session,
+                    machine_configuration=self,
+                    **kwargs,
                 )
                 for measurement_id, measurement_configuration in self[
                     "measurements"

@@ -65,7 +65,7 @@ class ConfigurationIdsSettings(
 
     async def get_merged_settings(
         self,
-        io_manager: "IOManager",
+        client_session: "IOManager.ClientSession",
         already_visited: Optional[
             Set["ConfigurationIdsConfiguration.Id"]
         ] = None,
@@ -79,7 +79,7 @@ class ConfigurationIdsSettings(
             return Settings()
 
         tasks = [
-            self._configuration_ids_get(io_manager, configuration_id)
+            self._configuration_ids_get(client_session, configuration_id)
             for configuration_id in configuration_ids
         ]
         configurations = await asyncio.gather(*tasks)
@@ -88,7 +88,7 @@ class ConfigurationIdsSettings(
             already_visited = set()
         tasks = [
             configuration.get_merged_settings(
-                io_manager=io_manager, already_visited=already_visited
+                client_session=client_session, already_visited=already_visited
             )
             for configuration in configurations
         ]
@@ -133,7 +133,7 @@ class ConfigurationIdsConfiguration(ConfigurationIdsSettings):
 
     async def get_merged_settings(
         self,
-        io_manager: "IOManager",
+        client_session: "IOManager.ClientSession",
         already_visited: Optional[
             Set["ConfigurationIdsConfiguration.Id"]
         ] = None,
@@ -172,7 +172,7 @@ class ConfigurationIdsConfiguration(ConfigurationIdsSettings):
             already_visited.add(configuration_id)
 
         result = await super().get_merged_settings(
-            io_manager=io_manager,
+            client_session=client_session,
             already_visited=already_visited,
         )
         result.update(self)

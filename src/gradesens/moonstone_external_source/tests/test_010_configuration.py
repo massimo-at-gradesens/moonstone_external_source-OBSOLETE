@@ -193,7 +193,8 @@ async def test_interpolated_measurement_settings(
     io_manager_1,
 ):
     assert isinstance(machine_configuration_1, MachineConfiguration)
-    settings = await machine_configuration_1.get_settings(io_manager_1)
+    async with io_manager_1.client_session() as client_session:
+        settings = await machine_configuration_1.get_settings(client_session)
     assert isinstance(settings, dict)
     assert not isinstance(settings, Settings)
 
@@ -236,7 +237,8 @@ async def test_interpolated_measurement_all_settings(
     io_manager_1,
 ):
     assert isinstance(machine_configuration_1, MachineConfiguration)
-    settings = await machine_configuration_1.get_settings(io_manager_1)
+    async with io_manager_1.client_session() as client_session:
+        settings = await machine_configuration_1.get_settings(client_session)
     assert isinstance(settings, dict)
     assert not isinstance(settings, Settings)
 
@@ -319,9 +321,10 @@ async def test_interpolated_measurement_all_settings(
 async def test_complex_interpolated_measurement_all_settings(
     io_manager_1,
 ):
-    mach_conf_2 = await io_manager_1.machine_configurations.get("mach2")
-    assert isinstance(mach_conf_2, MachineConfiguration)
-    settings = await mach_conf_2.get_settings(io_manager_1)
+    async with io_manager_1.client_session() as client_session:
+        mach_conf_2 = await client_session.machine_configurations.get("mach2")
+        assert isinstance(mach_conf_2, MachineConfiguration)
+        settings = await mach_conf_2.get_settings(client_session)
     assert isinstance(settings, dict)
     assert not isinstance(settings, Settings)
 
@@ -347,63 +350,66 @@ async def test_complex_interpolated_measurement_all_settings(
 async def test_start_end_times(
     io_manager_1,
 ):
-    mach_conf_1 = await io_manager_1.machine_configurations.get("mach_w_time")
-    with pytest.raises(TimeError) as exc:
-        await mach_conf_1.get_settings(
-            io_manager_1,
-            start_time=datetime.now(),
+    async with io_manager_1.client_session() as client_session:
+        mach_conf_1 = await client_session.machine_configurations.get(
+            "mach_w_time"
         )
-    assert "start_time" in str(exc.value)
+        with pytest.raises(TimeError) as exc:
+            await mach_conf_1.get_settings(
+                client_session,
+                start_time=datetime.now(),
+            )
+        assert "start_time" in str(exc.value)
 
-    with pytest.raises(TimeError) as exc:
-        await mach_conf_1.get_settings(
-            io_manager_1,
-            end_time=datetime.now(),
-        )
-    assert "end_time" in str(exc.value)
+        with pytest.raises(TimeError) as exc:
+            await mach_conf_1.get_settings(
+                client_session,
+                end_time=datetime.now(),
+            )
+        assert "end_time" in str(exc.value)
 
-    with pytest.raises(PatternError) as exc:
-        await mach_conf_1.get_settings(
-            io_manager_1,
-        )
-    with pytest.raises(PatternError) as exc:
-        await mach_conf_1.get_settings(
-            io_manager_1,
-            start_time=datetime.now(timezone.utc),
-        )
-    with pytest.raises(PatternError) as exc:
-        await mach_conf_1.get_settings(
-            io_manager_1,
-            end_time=datetime.now(timezone.utc),
-        )
+        with pytest.raises(PatternError) as exc:
+            await mach_conf_1.get_settings(
+                client_session,
+            )
+        with pytest.raises(PatternError) as exc:
+            await mach_conf_1.get_settings(
+                client_session,
+                start_time=datetime.now(timezone.utc),
+            )
+        with pytest.raises(PatternError) as exc:
+            await mach_conf_1.get_settings(
+                client_session,
+                end_time=datetime.now(timezone.utc),
+            )
 
-    settings = (
-        await mach_conf_1.get_settings(
-            io_manager_1,
-            start_time=datetime(
-                year=2022,
-                month=11,
-                day=14,
-                hour=17,
-                minute=34,
-                second=17,
-                tzinfo=timezone.utc,
-            ),
-            end_time=datetime(
-                year=3022,
-                month=9,
-                day=2,
-                hour=5,
-                minute=27,
-                second=3,
-                tzinfo=timezone.utc,
-            ),
-        )
-    )["temperature"]
-    query_string = settings["request"]["query_string"]
+        settings = (
+            await mach_conf_1.get_settings(
+                client_session,
+                start_time=datetime(
+                    year=2022,
+                    month=11,
+                    day=14,
+                    hour=17,
+                    minute=34,
+                    second=17,
+                    tzinfo=timezone.utc,
+                ),
+                end_time=datetime(
+                    year=3022,
+                    month=9,
+                    day=2,
+                    hour=5,
+                    minute=27,
+                    second=3,
+                    tzinfo=timezone.utc,
+                ),
+            )
+        )["temperature"]
+        query_string = settings["request"]["query_string"]
 
-    assert isinstance(query_string["start"], str)
-    assert query_string["start"] == "2022-11-14T17:34:17+00:00"
+        assert isinstance(query_string["start"], str)
+        assert query_string["start"] == "2022-11-14T17:34:17+00:00"
 
-    assert isinstance(query_string["end"], str)
-    assert query_string["end"] == "3022-09-02T05:27:03+00:00"
+        assert isinstance(query_string["end"], str)
+        assert query_string["end"] == "3022-09-02T05:27:03+00:00"

@@ -20,56 +20,108 @@ from multidict import CIMultiDict
 from .error import HTTPError, HTTPResponseError
 
 
-class BackendDriver(abc.ABC):
+class BackendDriver:
     """
-    Abstract base class for all backend drivers.
+    Base class for all backend drivers.
 
-    Backend drivers are responsible for formatting and performing requests to
-    the target remote sources.
+    The whole backend-specific customization is not to be provided directly by
+    overriding this class' methods, but rather doing by doing it within its
+    :class:`.ClientSession` inner class.
     """
-
-    class Response:
-        def __init__(
-            self,
-            data: Any,
-            headers: CIMultiDict,
-        ):
-            self.data = data
-            self.headers = headers
-
-    @abc.abstractclassmethod
-    async def request(
-        self,
-        url: str,
-        headers: Dict[str, str] = {},
-        query_string: Dict[str, str] = {},
-        data: Optional[Any] = None,
-    ) -> Response:
-        pass
 
     CONTENT_TYPE_HANDLERS = {"application/json": json.loads}
 
-    async def get_raw_result(self, *args, **kwargs) -> Response:
-        response = await self.request(*args, **kwargs)
+    class Response:
+        """
+        Generic response for client operations
+        """
 
-        content_type = response.headers["content-type"].lower()
-        content_type = set(comp.strip() for comp in content_type.split(";"))
-        content_type_handlers = []
-        for key, value in self.CONTENT_TYPE_HANDLERS.items():
-            if key in content_type:
-                content_type_handlers.append(value)
-        if len(content_type_handlers) != 1:
-            valid_content_type_handlers = ", ".join(
-                self.CONTENT_TYPE_HANDLERS.keys()
+        def __init__(
+            self,
+            headers: CIMultiDict,
+            data: Any,
+        ):
+            self.headers = headers
+            self.data = data
+
+    class ClientSession(abc.ABC):
+        """
+        Abstract base class for all backend drivers's context managers.
+
+        Derived context manaegers are responsible for formatting and performing
+        requests to the target remote sources, and extract the corresponding
+        output results.
+        """
+
+        def __init__(
+            self,
+            backend_driver: "BackendDriver",
+        ):
+            self.backend_driver = backend_driver
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            await self.close()
+
+        async def close(self):
+            pass
+
+        async def execute(self, *args, **kwargs) -> "BackendDriver.Response":
+            response = await self.execute_raw(*args, **kwargs)
+
+            content_type = response.headers["content-type"].lower()
+            content_type = set(
+                comp.strip() for comp in content_type.split(";")
             )
-            raise HTTPResponseError(
-                f"Unable to process content-type {content_type}.\n"
-                f"Supported content-types: {valid_content_type_handlers}"
-            ) from None
-        content_type_handler = content_type_handlers[0]
+            content_type_handlers = []
+            for key, value in BackendDriver.CONTENT_TYPE_HANDLERS.items():
+                if key in content_type:
+                    content_type_handlers.append(value)
+            if len(content_type_handlers) != 1:
+                valid_content_type_handlers = ", ".join(
+                    BackendDriver.CONTENT_TYPE_HANDLERS.keys()
+                )
+                raise HTTPResponseError(
+                    f"Unable to process content-type {content_type}.\n"
+                    f"Supported content-types: {valid_content_type_handlers}"
+                ) from None
+            content_type_handler = content_type_handlers[0]
 
-        response.data = content_type_handler(response.data)
-        return response
+            response.data = content_type_handler(response.data)
+            return response
+
+        @abc.abstractclassmethod
+        async def execute_raw(
+            self,
+            url: str,
+            headers: Dict[str, str] = {},
+            query_string: Dict[str, str] = {},
+            data: Optional[Any] = None,
+        ) -> "BackendDriver.Response":
+            """
+            THE method enabling executing backend requests.
+
+            To be implemented by derived classes.
+            """
+
+    def client_session(self, *args, **kwargs):
+        """
+        Return the client session context manager, which is the actual entry
+        point to perform any backend transaction.
+
+        The returned client sessions is a backend-specific specialization
+        derived from :class:`.ClientSession`, customized within
+        backend-specific classes derived from this class
+        :class:`BackendDriver`.
+        """
+
+        return self.ClientSession(
+            *args,
+            **kwargs,
+            backend_driver=self,
+        )
 
 
 class HTTPBackendDriver(BackendDriver):
@@ -85,73 +137,66 @@ class HTTPBackendDriver(BackendDriver):
     ):
         self.max_attempts = max_attempts
         self.attempt_delay = attempt_delay
-        # aiohttp.ClientSession() must be created in an async function:
-        # delay its creation to the first call of request
-        self.client_session = None
 
-    async def request(
-        self,
-        url: str,
-        headers: Dict[str, str] = {},
-        query_string: Dict[str, str] = {},
-        data: Optional[Any] = None,
-        request_type: str = "GET",
-    ) -> BackendDriver.Response:
-        """
-        Default implementation of HTTP request driver.
-        By default a GET operation is performed.
-        If ``data`` is not ``None``, a POST is performed instead.
-        """
+    class ClientSession(BackendDriver.ClientSession):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.aiohttp_client_session = aiohttp.ClientSession()
 
-        # Create a single client session once.
-        # See recommendation against opening a client session per request
-        # at https://docs.aiohttp.org/\
-        #   en/stable/client_quickstart.html#make-a-request .
-        # Also the comment about letting client sessions live forever at
-        # https://github.com/\
-        #   aio-libs/aiohttp/issues/789#issuecomment-186333636
-        if self.client_session is None:
-            self.client_session = aiohttp.ClientSession()
-        if self.client_session.closed:
-            raise HTTPError("HTTP client session unexpectedly closed")
+        async def close(self):
+            await self.aiohttp_client_session.close()
 
-        status = None
-        remaining_attempts = self.max_attempts
-        request_kwargs = dict(
-            url=url,
-        )
-        if headers:
-            request_kwargs.update(headers=headers)
-        if query_string:
-            request_kwargs.update(params=query_string)
-        if data is not None:
-            request_kwargs.update(data=data)
-        try:
-            request_func = {
-                "GET": self.client_session.get,
-                "PUT": self.client_session.put,
-                "POST": self.client_session.post,
-            }[request_type.upper()]
-        except KeyError:
-            raise HTTPError(
-                f"Unsupported or invalid request type {request_type}"
+        async def execute_raw(
+            self,
+            url: str,
+            headers: Dict[str, str] = {},
+            query_string: Dict[str, str] = {},
+            data: Optional[Any] = None,
+            request_type: str = "GET",
+        ) -> BackendDriver.Response:
+            """
+            Default implementation of HTTP request driver.
+            By default a GET operation is performed.
+            If ``data`` is not ``None``, a POST is performed instead.
+            """
+
+            status = None
+            remaining_attempts = self.backend_driver.max_attempts
+            request_kwargs = dict(
+                url=url,
             )
-        while True:
-            async with request_func(**request_kwargs) as response:
-                status = response.status
+            if headers:
+                request_kwargs.update(headers=headers)
+            if query_string:
+                request_kwargs.update(params=query_string)
+            if data is not None:
+                request_kwargs.update(data=data)
+            try:
+                request_func = {
+                    "GET": self.aiohttp_client_session.get,
+                    "PUT": self.aiohttp_client_session.put,
+                    "POST": self.aiohttp_client_session.post,
+                }[request_type.upper()]
+            except KeyError:
+                raise HTTPError(
+                    f"Unsupported or invalid request type {request_type}"
+                )
+            while True:
+                async with request_func(**request_kwargs) as response:
+                    status = response.status
 
-                if status == HTTPStatus.OK:
-                    text = await response.text()
-                    return self.Response(
-                        data=text,
-                        headers=response.headers,
-                    )
+                    if status == HTTPStatus.OK:
+                        text = await response.text()
+                        return BackendDriver.Response(
+                            data=text,
+                            headers=response.headers,
+                        )
 
-                remaining_attempts -= 1
-                if remaining_attempts <= 0:
-                    raise HTTPError(
-                        f"HTTP request to {url!r} failed"
-                        f" after {self.max_attempts} attempts",
-                        status=status,
-                    )
-                await asyncio.sleep(self.attempt_delay)
+                    remaining_attempts -= 1
+                    if remaining_attempts <= 0:
+                        raise HTTPError(
+                            f"HTTP request to {url!r} failed"
+                            f" after {self.max_attempts} attempts",
+                            status=status,
+                        )
+                    await asyncio.sleep(self.backend_driver.attempt_delay)

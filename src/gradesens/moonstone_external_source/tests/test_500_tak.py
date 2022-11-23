@@ -172,9 +172,10 @@ def io_manager_tak_dev(io_driver_tak_dev):
 
 @pytest.mark.asyncio
 async def test_authentication(io_manager_tak_dev):
-    auth_context = await io_manager_tak_dev.authentication_contexts.get(
-        "tak-dev"
-    )
+    async with io_manager_tak_dev.client_session() as client_session:
+        auth_context = await client_session.authentication_contexts.get(
+            "tak-dev"
+        )
     assert set(auth_context.keys()) == {
         "token",
         "expiration_at",

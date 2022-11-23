@@ -11,7 +11,10 @@ from .utils import assert_eq, expand_processors
 @pytest.mark.usefixtures("io_manager_1")
 @pytest.mark.asyncio
 async def test_machine_configuration_with_result(io_manager_1):
-    mach_conf = await io_manager_1.machine_configurations.get("mach_w_result")
+    async with io_manager_1.client_session() as client_session:
+        mach_conf = await client_session.machine_configurations.get(
+            "mach_w_result"
+        )
     expected = {
         "id": "mach_w_result",
         "_common_configuration_ids": ("cc_w_result",),
@@ -172,10 +175,11 @@ async def test_machine_configuration_with_result(io_manager_1):
 @pytest.mark.usefixtures("io_manager_1")
 @pytest.mark.asyncio
 async def test_machine_settings_with_result(io_manager_1):
-    mach_conf = await io_manager_1.machine_configurations.get("mach_w_result")
-    settings = await mach_conf.get_settings(
-        io_manager_1,
-    )
+    async with io_manager_1.client_session() as client_session:
+        mach_conf = await client_session.machine_configurations.get(
+            "mach_w_result"
+        )
+        settings = await mach_conf.get_settings(client_session)
     expected = {
         "temperature": {
             "request": {
@@ -290,10 +294,11 @@ async def test_machine_settings_with_result(io_manager_1):
 @pytest.mark.usefixtures("io_manager_1")
 @pytest.mark.asyncio
 async def test_machine_result(io_manager_1):
-    mach_conf = await io_manager_1.machine_configurations.get("mach_w_result")
-    settings = await mach_conf.get_settings(
-        io_manager_1,
-    )
+    async with io_manager_1.client_session() as client_session:
+        mach_conf = await client_session.machine_configurations.get(
+            "mach_w_result"
+        )
+        settings = await mach_conf.get_settings(client_session)
 
     result = settings["temperature"].process_result(
         dict(

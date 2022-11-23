@@ -36,7 +36,7 @@ def authentication_configuration_1(authentication_context_1):
     class CustomAuthenticationConfiguration(AuthenticationConfiguration):
         async def authenticate(
             self,
-            io_manager: IOManager,
+            client_session: IOManager.ClientSession,
         ) -> AuthenticationContext:
             return authentication_context_1
 
@@ -62,7 +62,7 @@ def authentication_configuration_expired(authentication_context_expired):
     class CustomAuthenticationConfiguration(AuthenticationConfiguration):
         async def authenticate(
             self,
-            io_manager: IOManager,
+            client_session: IOManager.ClientSession,
         ) -> AuthenticationContext:
             return authentication_context_expired
 
@@ -480,13 +480,36 @@ def io_manager_1(io_driver_1):
             super().__init__(*args, **kwargs)
             self.load_count = 0
 
-        async def load_context(
-            self, id: AuthenticationConfiguration.Id
-        ) -> AuthenticationContext:
-            self.load_count += 1
-            return await super().load_context(id)
+        class ClientSession(AuthenticationContextCache.ClientSession):
+            async def authenticate(
+                self, id: AuthenticationConfiguration.Id
+            ) -> AuthenticationContext:
+                self.cache.load_count += 1
+                return await super().authenticate(id)
 
-    return IOManager(
+    class TestIOManager(IOManager):
+        def __init__(self, io_driver: IODriver, **kwargs):
+            super().__init__(io_driver, **kwargs)
+            self.io_driver = io_driver
+
+        def client_session(self, *args, **kwargs):
+            return super().client_session(
+                *args,
+                **kwargs,
+                io_driver=self.io_driver,
+            )
+
+        class ClientSession(IOManager.ClientSession):
+            def __init__(
+                self,
+                caches,
+                backend,
+                io_driver,
+            ):
+                super().__init__(caches=caches, backend=backend)
+                self.io_driver = io_driver
+
+    return TestIOManager(
         io_driver_1,
         authentication_context_cache_factory=TestAuthenticationContextCache,
     )

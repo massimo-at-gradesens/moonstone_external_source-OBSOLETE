@@ -180,7 +180,7 @@ class HTTPTransactionSettings(
     class InterpolatedSettings(dict):
         async def fetch_result(
             self,
-            io_manager: "IOManager",
+            client_session: "IOManager.ClientSession",
         ) -> "HTTPResultSettings.ResultType":
             """
             Complete fetch-result cycle:
@@ -206,9 +206,7 @@ class HTTPTransactionSettings(
                 raise ConfigurationError(
                     "No URL specified, the request cannot be carried out"
                 )
-            raw_result = await io_manager.backend_driver.get_raw_result(
-                **request_kwargs
-            )
+            raw_result = await client_session.backend.execute(**request_kwargs)
 
             return self.process_result(raw_result.data)
 
@@ -231,7 +229,7 @@ class HTTPTransactionSettings(
             )
 
     async def fetch_result(
-        self, io_manager: "IOManager", **kwargs
+        self, client_session: "IOManager.ClientSession", **kwargs
     ) -> "HTTPResultSettings.ResultType":
         """
         A wrapper around :meth:`.InterpolatedSettings.fetch_result`, that
@@ -239,5 +237,7 @@ class HTTPTransactionSettings(
         :meth:`.InterpolatedSettings.fetch_result` on them,
         """
 
-        settings = await self.get_settings(io_manager=io_manager, **kwargs)
-        return await settings.fetch_result(io_manager=io_manager)
+        settings = await self.get_settings(
+            client_session=client_session, **kwargs
+        )
+        return await settings.fetch_result(client_session=client_session)

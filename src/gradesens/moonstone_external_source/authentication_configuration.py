@@ -59,9 +59,9 @@ class _AuthenticationSettings(
             authentication_configuration_ids=authentication_configuration_ids,
             _configuration_ids_field="authentication_configuration_ids",
             _configuration_ids_get=(
-                lambda io_manager, configuration_id: (
+                lambda client_session, configuration_id: (
                     (
-                        io_manager.authentication_contexts
+                        client_session.authentication_contexts
                     ).authentication_configurations.get(configuration_id)
                 )
             ),
@@ -133,13 +133,13 @@ class AuthenticationConfiguration(
         super().__init__(id=id, **kwargs)
 
     async def get_settings(
-        self, io_manager: "IOManager"
+        self, client_session: "IOManager.ClientSession"
     ) -> Settings.InterpolatedType:
         """
         Return the resolved (aka interpolated) settings for this
         :class:`AuthenticationConfiguration`
         """
-        settings = await self.get_merged_settings(io_manager)
+        settings = await self.get_merged_settings(client_session)
         settings = {
             key: value for key, value in settings.items() if not key[0] == "_"
         }
@@ -158,10 +158,10 @@ class AuthenticationConfiguration(
 
     async def authenticate(
         self,
-        io_manager: "IOManager",
+        client_session: "IOManager.ClientSession",
     ) -> AuthenticationContext:
         try:
-            return await self.fetch_result(io_manager=io_manager)
+            return await self.fetch_result(client_session=client_session)
         except Error as err:
             err.index.insert(0, f"Authentication configuration {self['id']!r}")
             raise
