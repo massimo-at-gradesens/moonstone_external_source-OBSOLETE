@@ -34,7 +34,11 @@ from .configuration_ids_configuration import (
 )
 from .datetime import TimeDelta
 from .error import ConfigurationError, Error, TimeError
-from .http_settings import HTTPResultSettings, HTTPTransactionSettings
+from .http_settings import (
+    HTTPRequestSettings,
+    HTTPResultSettings,
+    HTTPTransactionSettings,
+)
 from .settings import Settings
 
 
@@ -93,6 +97,77 @@ class _CommonConfigurationIdsSettings(ConfigurationIdsSettings):
         )
 
 
+class _MeasurementRequestSettings(HTTPRequestSettings):
+    """
+    Configuration settings for measurement request.
+
+    These configuration settings are used by :class:`_MeasurementSettings`.
+    """
+
+    def __init__(
+        self,
+        other: Optional["_MeasurementRequestSettings"] = None,
+        /,
+        *,
+        start_time: Optional[TimeDelta.InputType] = None,
+        end_time: Optional[TimeDelta.InputType] = None,
+        time_margin: Optional[TimeDelta.InputType] = None,
+        start_time_margin: Optional[TimeDelta.InputType] = None,
+        end_time_margin: Optional[TimeDelta.InputType] = None,
+        **kwargs: Settings.InputType,
+    ):
+        if other is not None:
+            assert start_time is None
+            assert end_time is None
+            assert time_margin is None
+            assert start_time_margin is None
+            assert end_time_margin is None
+            super().__init__(other)
+            return
+
+        for key in (
+            "start_time",
+            "end_time",
+        ):
+            value = locals()[key]
+            if value is not None:
+                raise ConfigurationError(
+                    f"Key {key!r} cannot be defined in configurations,"
+                    " as it set dynamically at request time,"
+                    " to represent the requested measurement time-stamp"
+                )
+
+        time_margins = {}
+        for key in (
+            "time_margin",
+            "start_time_margin",
+            "end_time_margin",
+        ):
+            value = locals()[key]
+            if value is None:
+                continue
+            try:
+                parsed_value = TimeDelta(value)
+                if parsed_value.total_seconds() < 0:
+                    raise ValueError(
+                        f"Time margin cannot be negative: {value!r}"
+                    )
+            except ValueError as err:
+                raise ConfigurationError(str(err), index=key) from None
+            time_margins[key] = parsed_value
+        for key in (
+            "start_time_margin",
+            "end_time_margin",
+        ):
+            value = time_margins.get(key)
+            if value is None:
+                value = time_margins.get("time_margin")
+            if value is not None:
+                kwargs[key] = value
+
+        super().__init__(**kwargs)
+
+
 class _MeasurementResultSettings(HTTPResultSettings):
     """
     Configuration settings for measurement results.
@@ -125,6 +200,7 @@ class _MeasurementResultSettings(HTTPResultSettings):
 class _MeasurementSettings(
     HTTPTransactionSettings,
     _CommonConfigurationIdsSettings,
+    request_type=_MeasurementRequestSettings,
     result_type=_MeasurementResultSettings,
 ):
     """
@@ -142,47 +218,13 @@ class _MeasurementSettings(
         authentication_configuration_id: Optional[
             AuthenticationConfiguration.Id
         ] = None,
-        time_margin: Optional[TimeDelta.InputType] = None,
-        start_time_margin: Optional[TimeDelta.InputType] = None,
-        end_time_margin: Optional[TimeDelta.InputType] = None,
         **kwargs: Settings.InputType,
     ):
         if other is not None:
             assert authentication_configuration_id is None
-            assert time_margin is None
-            assert start_time_margin is None
-            assert end_time_margin is None
             assert not kwargs
             super().__init__(other)
             return
-
-        time_margins = {}
-        for key in (
-            "time_margin",
-            "start_time_margin",
-            "end_time_margin",
-        ):
-            value = locals()[key]
-            if value is None:
-                continue
-            try:
-                parsed_value = TimeDelta(value)
-                if parsed_value.total_seconds() < 0:
-                    raise ValueError(
-                        f"Time margin cannot be negative: {value!r}"
-                    )
-            except ValueError as err:
-                raise ConfigurationError(str(err), index=key) from None
-            time_margins[key] = parsed_value
-        for key in (
-            "start_time_margin",
-            "end_time_margin",
-        ):
-            value = time_margins.get(key)
-            if value is None:
-                value = time_margins.get("time_margin")
-            if value is not None:
-                kwargs[key] = value
 
         super().__init__(
             _authentication_configuration_id=(authentication_configuration_id),

@@ -203,8 +203,8 @@ def machine_configuration_with_time():
         -   id: temperature
             request:
                 query_string:
-                    start: "{start_time.isoformat()}"
-                    end: "{end_time.isoformat()}"
+                    start: "{request.start_time.isoformat()}"
+                    end: "{request.end_time.isoformat()}"
     """
     )
     return MachineConfiguration(**params)

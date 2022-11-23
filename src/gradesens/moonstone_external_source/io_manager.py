@@ -14,6 +14,7 @@ import abc
 from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, Optional, Union
 
+from .async_concurrent_pool import AsyncConcurrentPool
 from .authentication_configuration import (
     AuthenticationConfiguration,
     AuthenticationContext,
@@ -350,14 +351,24 @@ class IOManager:
             self,
             caches: Dict[str, Cache],
             backend: BackendDriver.ClientSession,
+            task_pool: Optional[Union[AsyncConcurrentPool, int]] = 10,
         ):
             self.__sub_client_sessions = []
+
             self.backend = backend
             self.__sub_client_sessions.append(self.backend)
+
             for cache_name, cache in caches.items():
                 cache_client_session = cache.client_session(self)
                 self.__sub_client_sessions.append(cache_client_session)
                 setattr(self, cache_name, cache_client_session)
+
+            if task_pool is None:
+                task_pool = 1
+            if isinstance(task_pool, int):
+                task_pool = max(1, task_pool)
+                task_pool = AsyncConcurrentPool(task_pool)
+            self.task_pool = task_pool
 
         async def __aenter__(self):
             return self

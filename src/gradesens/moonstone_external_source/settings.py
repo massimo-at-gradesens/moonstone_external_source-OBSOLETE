@@ -34,6 +34,12 @@ class Settings(dict):
 #formatted-string-literals>`_ to be interpolated by calling
     :meth:`.interpolate`.
 
+    Also, to ease the readability in configuration fields, the dictionary
+    elements can be retrieved also as attributes - of course, provided that
+    there are no context-specific attributes with the same name defined in the
+    same object. For instance ``an_instance["a_key"]`` and
+    ``an_instance.a_key`` would produce the same result.
+
     .. note::
         All the methods or operations that change the contents of a
         :class:`Settings` instance, including :meth:`.__init__`, automatically
@@ -110,6 +116,9 @@ class Settings(dict):
             kwargs = self.__normalize_values(kwargs)
 
         super().__init__(**kwargs)
+
+    def __getattr__(self, name):
+        return self[name]
 
     def __setitem__(self, key: KeyType, value: InputValueType):
         super().__setitem__(key, self.__normalize_value(value, key=key))
@@ -319,32 +328,34 @@ class Settings(dict):
 
         try:
             try:
-                return eval(f"f{value!r}", {}, parameters)
-            except KeyError:
-                raise
-            except NameError as err:
                 try:
-                    name = err.name
-                except AttributeError:
-                    # Given that is seems that err.name is available since
-                    # py 3.10, try retrieving the key name by parsing the
-                    # error string.
-                    err = str(err)
-                    re_match = re.match(r".*'([^']+)'.*", err)
-                    name = err if re_match is None else re_match.group(1)
-                raise KeyError(name) from None
-            except Exception as err:
-                raise PatternError(str(err)) from None
-        except KeyError as err:
-            try:
-                missing_key = err.args[0]
-            except IndexError:
-                raise PatternError(str(err)) from None
-            raise PatternError(
-                f"Pattern {value!r}:"
-                f" key {missing_key!r} is not defined."
-                f" Valid keys: {list(parameters.keys())}"
-            ) from None
+                    return eval(f"f{value!r}", {}, parameters)
+                except KeyError:
+                    raise
+                except NameError as err:
+                    try:
+                        name = err.name
+                    except AttributeError:
+                        # Given that is seems that err.name is available since
+                        # py 3.10, try retrieving the key name by parsing the
+                        # error string.
+                        err = str(err)
+                        re_match = re.match(r".*'([^']+)'.*", err)
+                        name = err if re_match is None else re_match.group(1)
+                    raise KeyError(name) from None
+                except Exception as err:
+                    raise PatternError(str(err)) from None
+            except KeyError as err:
+                try:
+                    missing_key = err.args[0]
+                except IndexError:
+                    raise PatternError(str(err)) from None
+                raise PatternError(
+                    f" key {missing_key!r} is not defined."
+                    f" Valid keys: {list(parameters.keys())}"
+                ) from None
+        except Error as err:
+            raise type(err)(f"Pattern {value!r}:" f" {err}") from None
 
 
 class ProcessorMeta(type(abc.ABC)):

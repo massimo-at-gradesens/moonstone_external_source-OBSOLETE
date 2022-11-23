@@ -113,15 +113,18 @@ class HTTPTransactionMeta(type):
         name,
         bases,
         kwargs,
-        request_type: Type[HTTPRequestSettings] = HTTPRequestSettings,
-        result_type: Type[HTTPResultSettings] = HTTPResultSettings,
+        request_type: Optional[Type[HTTPRequestSettings]] = None,
+        result_type: Optional[Type[HTTPResultSettings]] = None,
     ):
-        assert issubclass(request_type, HTTPRequestSettings)
-        assert issubclass(result_type, HTTPResultSettings)
-        kwargs.update(
-            HTTPRequestSettings=request_type,
-            HTTPResultSettings=result_type,
-        )
+        for key, base_type in (
+            ("request_type", HTTPRequestSettings),
+            ("result_type", HTTPResultSettings),
+        ):
+            value = locals()[key]
+            if value is None:
+                continue
+            assert issubclass(value, base_type)
+            kwargs[base_type.__name__] = value
         return super().__new__(cls, name, bases, kwargs)
 
 
@@ -130,8 +133,8 @@ class HTTPTransactionSettings(
     metaclass=HTTPTransactionMeta,
 ):
     # Initialized by metaclass
-    HTTPRequestSettings = None
-    HTTPResultSettings = None
+    HTTPRequestSettings = HTTPRequestSettings
+    HTTPResultSettings = HTTPResultSettings
 
     def __init__(
         self,
