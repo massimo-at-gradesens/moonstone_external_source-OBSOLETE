@@ -297,14 +297,6 @@ class MeasurementConfiguration(_MeasurementSettings):
         )
 
         settings.update(machine_configuration)
-
-        if start_time is not None:
-            self.__assert_aware_time("start_time", start_time)
-            settings["start_time"] = start_time
-        if end_time is not None:
-            self.__assert_aware_time("end_time", end_time)
-            settings["end_time"] = end_time
-
         settings.update(self)
 
         authentication_configuration_id = settings[
@@ -319,6 +311,13 @@ class MeasurementConfiguration(_MeasurementSettings):
             new_settings = Settings(authentication_context)
             new_settings.update(settings)
             settings = new_settings
+
+        for key in ("start_time", "end_time"):
+            value = locals()[key]
+            if value is None:
+                continue
+            self.__assert_aware_time(key, value)
+            settings["request"][key] = value
 
         # Now settings contains the merging of AuthenticatioContext,
         # the optional CommonConfiguration, the MachineConfiguration, and

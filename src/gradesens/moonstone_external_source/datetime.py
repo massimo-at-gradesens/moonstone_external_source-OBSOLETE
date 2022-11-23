@@ -23,6 +23,10 @@ class DateTime(datetime):
     * a POSIX timestamp,
     * a :class:`datetime.date` object,
     * a :class:`datetime.time` object.
+
+    Furthermore, :meth:`.__str__` relies on :meth:`.isoformat()` instead of
+    the default human-readable format of stock :class:`datetime.datetime`
+    class.
     """
 
     InputType = Union[int, datetime, str, float, time, date]
@@ -47,6 +51,19 @@ class DateTime(datetime):
             fold=other.fold,
         )
 
+    def date(self, *args, **kwargs) -> "Date":
+        return Date(super().date(*args, **kwargs))
+
+    def time(self, *args, **kwargs) -> "Time":
+        return Time(super().time(*args, **kwargs))
+
+    def timetz(self, *args, **kwargs) -> "Time":
+        return Time(super().timetz(*args, **kwargs))
+
+    @classmethod
+    def combine(cls, *args, **kwargs) -> "DateTime":
+        return DateTime(datetime.combine(*args, **kwargs))
+
     @classmethod
     def __convert(cls, value):
         if isinstance(value, datetime):
@@ -64,6 +81,9 @@ class DateTime(datetime):
             f" a {type(value).__name__!r} object: {value!r}"
         )
 
+    def __str__(self):
+        return self.isoformat()
+
 
 class Date(date):
     """
@@ -74,6 +94,9 @@ class Date(date):
     * an ISO 8601 string,
     * a POSIX timestamp,
     * a :class:`datetime.datetime` object,
+
+    Furthermore, :meth:`.__str__` relies on :meth:`.isoformat()` instead of
+    the default human-readable format of stock :class:`datetime.date` class.
     """
 
     InputType = Union[int, date, str, float]
@@ -107,6 +130,9 @@ class Date(date):
             f" a {type(value).__name__!r} object: {value!r}"
         )
 
+    def __str__(self):
+        return self.isoformat()
+
 
 class Time(time):
     """
@@ -117,6 +143,9 @@ class Time(time):
     * an ISO 8601 string,
     * a POSIX timestamp,
     * a :class:`datetime.datetime` object,
+
+    Furthermore, :meth:`.__str__` relies on :meth:`.isoformat()` instead of
+    the default human-readable format of stock :class:`datetime.time` class.
     """
 
     InputType = Union[int, time, str, float, datetime]
@@ -163,6 +192,9 @@ class Time(time):
             f"Don't know how to create a {cls.__name__!r} object from"
             f" a {type(value).__name__!r} object: {value!r}"
         )
+
+    def __str__(self):
+        return self.isoformat()
 
 
 class TimeDelta(timedelta):

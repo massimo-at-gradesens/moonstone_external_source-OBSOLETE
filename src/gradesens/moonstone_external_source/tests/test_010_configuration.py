@@ -1,9 +1,10 @@
-from datetime import datetime, timezone
+from datetime import timezone
 
 import pytest
 
 from gradesens.moonstone_external_source import (
     CommonConfiguration,
+    DateTime,
     MachineConfiguration,
     MeasurementConfiguration,
     PatternError,
@@ -215,7 +216,7 @@ async def test_interpolated_measurement_settings(
                 "bearer": "I am a secret",
                 "test_processors_sun": "h<ee>lloCo<nnenne>cticut350",
                 "test_processors_moon": 0x12A,
-                "test_processors_jupiter": datetime(2022, 11, 12),
+                "test_processors_jupiter": DateTime(2022, 11, 12),
             },
             "query_string": {
                 "depth": "12",
@@ -256,7 +257,7 @@ async def test_interpolated_measurement_all_settings(
                     "bearer": "I am a secret",
                     "test_processors_sun": "h<ee>lloCo<nnenne>cticut350",
                     "test_processors_moon": 0x12A,
-                    "test_processors_jupiter": datetime(2022, 11, 12),
+                    "test_processors_jupiter": DateTime(2022, 11, 12),
                 },
                 "query_string": {
                     "depth": "12",
@@ -279,7 +280,7 @@ async def test_interpolated_measurement_all_settings(
                     "bearer": "I am a secret",
                     "test_processors_sun": "h<ee>lloar<ee>a42350",
                     "test_processors_moon": 0x12A,
-                    "test_processors_jupiter": datetime(2022, 11, 12),
+                    "test_processors_jupiter": DateTime(2022, 11, 12),
                 },
                 "query_string": {
                     "HELLO": "Wallis@world",
@@ -303,7 +304,7 @@ async def test_interpolated_measurement_all_settings(
                     "bearer": "I am a secret",
                     "test_processors_sun": "h<ee>lloCo<nnenne>cticut350",
                     "test_processors_moon": 0x12A,
-                    "test_processors_jupiter": datetime(2022, 11, 12),
+                    "test_processors_jupiter": DateTime(2022, 11, 12),
                 },
                 "query_string": {
                     "HELLO": "basel@world",
@@ -357,14 +358,14 @@ async def test_start_end_times(
         with pytest.raises(TimeError) as exc:
             await mach_conf_1.get_settings(
                 client_session,
-                start_time=datetime.now(),
+                start_time=DateTime.now(),
             )
         assert "start_time" in str(exc.value)
 
         with pytest.raises(TimeError) as exc:
             await mach_conf_1.get_settings(
                 client_session,
-                end_time=datetime.now(),
+                end_time=DateTime.now(),
             )
         assert "end_time" in str(exc.value)
 
@@ -375,18 +376,18 @@ async def test_start_end_times(
         with pytest.raises(PatternError) as exc:
             await mach_conf_1.get_settings(
                 client_session,
-                start_time=datetime.now(timezone.utc),
+                start_time=DateTime.now(timezone.utc),
             )
         with pytest.raises(PatternError) as exc:
             await mach_conf_1.get_settings(
                 client_session,
-                end_time=datetime.now(timezone.utc),
+                end_time=DateTime.now(timezone.utc),
             )
 
         settings = (
             await mach_conf_1.get_settings(
                 client_session,
-                start_time=datetime(
+                start_time=DateTime(
                     year=2022,
                     month=11,
                     day=14,
@@ -395,7 +396,7 @@ async def test_start_end_times(
                     second=17,
                     tzinfo=timezone.utc,
                 ),
-                end_time=datetime(
+                end_time=DateTime(
                     year=3022,
                     month=9,
                     day=2,

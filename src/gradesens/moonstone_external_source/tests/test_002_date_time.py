@@ -270,33 +270,58 @@ def test_timedelta():
     assert isinstance(value, reference_type)
     assert value == timedelta(days=13, minutes=17)
 
-    #
-    # value = tested_type(
-    #     year=reference.year,
-    #     month=reference.month,
-    #     day=reference.day,
-    # )
-    # assert isinstance(value, reference_type)
-    # assert value == reference
-    #
-    # value = tested_type(reference)
-    # assert isinstance(value, reference_type)
-    # assert value == reference
-    #
-    # value = reference.isoformat()
-    # assert isinstance(value, str)
-    # value = tested_type(value)
-    # assert isinstance(value, reference_type)
-    # assert value == reference
-    #
-    # value = DateTime(reference).timestamp()
-    # assert isinstance(value, float)
-    # value = tested_type(value)
-    # assert isinstance(value, reference_type)
-    # assert DateTime(value).timestamp() == DateTime(reference).timestamp()
-    #
-    # value = datetime.combine(reference, time.min)
-    # assert isinstance(value, datetime)
-    # value = tested_type(value)
-    # assert isinstance(value, reference_type)
-    # assert value == reference
+
+def test_conversions():
+    tested_type = DateTime
+    reference_type = datetime
+
+    reference = reference_type(
+        2022,
+        11,
+        21,
+        9,
+        58,
+        13,
+        87654,
+        tzinfo=timezone.utc,
+        fold=1,
+    )
+
+    value = tested_type(
+        reference.year,
+        reference.month,
+        reference.day,
+        reference.hour,
+        reference.minute,
+        reference.second,
+        reference.microsecond,
+        reference.tzinfo,
+        fold=reference.fold,
+    )
+
+    reference_time = reference.time()
+    value_time = value.time()
+    assert isinstance(reference_time, time)
+    assert isinstance(value_time, Time)
+    assert reference_time == value_time
+
+    reference_time = reference.timetz()
+    value_time = value.timetz()
+    assert isinstance(reference_time, time)
+    assert isinstance(value_time, Time)
+    assert reference_time == value_time
+
+    reference_date = reference.date()
+    value_date = value.date()
+    assert isinstance(reference_date, date)
+    assert isinstance(value_date, Date)
+    assert reference_date == value_date
+
+    reference2 = datetime.combine(reference_date, reference_time)
+    value2 = DateTime.combine(reference_date, reference_time)
+    value3 = DateTime.combine(value_date, value_time)
+    assert isinstance(reference2, datetime)
+    assert isinstance(value2, DateTime)
+    assert isinstance(value3, DateTime)
+    assert reference2 == value2
+    assert reference2 == value3
