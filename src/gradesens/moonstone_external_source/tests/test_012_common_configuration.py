@@ -15,10 +15,10 @@ async def test_common_configuration_nesting(
         settings = await comm_conf.get_common_settings(client_session)
     expected = {
         "id": "cc1-n",
-        "_authentication_configuration_id": None,
         "_common_configuration_ids": (),
         "zone": "area42",
         "request": {
+            "_authentication_configuration_id": None,
             "url": "123",
             "headers": {
                 "head": "oval",
@@ -43,9 +43,9 @@ async def test_common_configuration_nesting(
         settings = await comm_conf.get_common_settings(client_session)
     expected = {
         "id": "cc2-n",
-        "_authentication_configuration_id": None,
         "_common_configuration_ids": (),
         "request": {
+            "_authentication_configuration_id": None,
             "url": None,
             "headers": {
                 "square": "four sides",
@@ -65,9 +65,9 @@ async def test_common_configuration_nesting(
         "measurements": {
             "temperature": {
                 "id": "temperature",
-                "_authentication_configuration_id": None,
                 "_common_configuration_ids": (),
                 "request": {
+                    "_authentication_configuration_id": None,
                     "url": None,
                     "headers": {
                         "bicycle": "two wheels",
@@ -91,13 +91,13 @@ async def test_common_configuration_nesting(
         settings = await comm_conf.get_common_settings(client_session)
     expected = {
         "id": "cc3-n",
-        "_authentication_configuration_id": None,
         "_common_configuration_ids": (
             "cc1-n",
             "cc2-n",
         ),
         "zone": "area42",
         "request": {
+            "_authentication_configuration_id": None,
             "url": "123",
             "headers": {
                 "head": "oval",
@@ -119,9 +119,9 @@ async def test_common_configuration_nesting(
         "measurements": {
             "temperature": {
                 "id": "temperature",
-                "_authentication_configuration_id": None,
                 "_common_configuration_ids": (),
                 "request": {
+                    "_authentication_configuration_id": None,
                     "url": None,
                     "headers": {
                         "bicycle": "two wheels",
@@ -138,9 +138,9 @@ async def test_common_configuration_nesting(
             },
             "rpm": {
                 "id": "rpm",
-                "_authentication_configuration_id": None,
                 "_common_configuration_ids": (),
                 "request": {
+                    "_authentication_configuration_id": None,
                     "url": None,
                     "headers": {},
                     "query_string": {},

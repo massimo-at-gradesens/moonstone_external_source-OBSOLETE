@@ -20,9 +20,9 @@ def test_common_configuration(common_configuration_1):
     assert isinstance(common_configuration_1, CommonConfiguration)
     expected = {
         "id": "cc1",
-        "_authentication_configuration_id": "ac1",
         "_common_configuration_ids": (),
         "request": {
+            "_authentication_configuration_id": "ac1",
             "url": (
                 "https://gradesens.com/{zone}/{machine_id}"
                 "/{device}/{measurement_id}"
@@ -102,8 +102,8 @@ def test_machine_configuration(machine_configuration_1):
     expected = {
         "id": "mach1",
         "_common_configuration_ids": ("cc1",),
-        "_authentication_configuration_id": None,
         "request": {
+            "_authentication_configuration_id": None,
             "url": (
                 "https://gradesens.com/{zone}/MACHINE/{machine_id}/{device}"
                 "/{measurement_id}"
@@ -123,9 +123,9 @@ def test_machine_configuration(machine_configuration_1):
             "temperature": {
                 "id": "temperature",
                 "_common_configuration_ids": ("cc2",),
-                "_authentication_configuration_id": None,
                 "region": "zurich",
                 "request": {
+                    "_authentication_configuration_id": None,
                     "url": None,
                     "headers": {},
                     "query_string": {
@@ -143,8 +143,8 @@ def test_machine_configuration(machine_configuration_1):
             "rpm": {
                 "id": "rpm",
                 "_common_configuration_ids": (),
-                "_authentication_configuration_id": None,
                 "request": {
+                    "_authentication_configuration_id": None,
                     "url": (
                         "https://gradesens.com/{zone}/{machine_id}"
                         "/{device}/RPM/{measurement_id}"
@@ -165,8 +165,8 @@ def test_machine_configuration(machine_configuration_1):
             "power": {
                 "id": "power",
                 "_common_configuration_ids": ("cc2",),
-                "_authentication_configuration_id": None,
                 "request": {
+                    "_authentication_configuration_id": None,
                     "url": None,
                     "headers": {
                         "animal": "cow",

@@ -26,6 +26,7 @@ def test_time_parsing():
     expected = {
         "id": "time-margin-mach",
         "request": {
+            "_authentication_configuration_id": None,
             "start_time_margin": timedelta(minutes=2),
             "end_time_margin": timedelta(minutes=2),
             "url": None,
@@ -39,11 +40,12 @@ def test_time_parsing():
             ),
         },
         "_common_configuration_ids": (),
-        "_authentication_configuration_id": None,
         "measurements": {
             "temperature": {
+                "_common_configuration_ids": (),
                 "id": "temperature",
                 "request": {
+                    "_authentication_configuration_id": None,
                     "url": None,
                     "headers": {},
                     "query_string": {},
@@ -54,8 +56,6 @@ def test_time_parsing():
                         interpolate=False,
                     ),
                 },
-                "_common_configuration_ids": (),
-                "_authentication_configuration_id": None,
             }
         },
     }

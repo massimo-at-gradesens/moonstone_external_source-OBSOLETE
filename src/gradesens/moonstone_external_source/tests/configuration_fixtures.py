@@ -74,11 +74,11 @@ def common_configuration_1():
     params = load_yaml(
         r"""
     id: cc1
-    authentication_configuration_id: ac1
     zone: area42
     a_timestamp: "2022-11-12"
     hex_42: "2a"
     request:
+        authentication_configuration_id: ac1
         url:
             "https://gradesens.com/{zone}/{machine_id}/\
             {device}/{measurement_id}"

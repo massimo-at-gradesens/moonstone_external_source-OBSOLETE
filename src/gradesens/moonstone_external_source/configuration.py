@@ -109,6 +109,9 @@ class _MeasurementRequestSettings(HTTPRequestSettings):
         other: Optional["_MeasurementRequestSettings"] = None,
         /,
         *,
+        authentication_configuration_id: Optional[
+            AuthenticationConfiguration.Id
+        ] = None,
         start_time: Optional[TimeDelta.InputType] = None,
         end_time: Optional[TimeDelta.InputType] = None,
         time_margin: Optional[TimeDelta.InputType] = None,
@@ -117,6 +120,7 @@ class _MeasurementRequestSettings(HTTPRequestSettings):
         **kwargs: Settings.InputType,
     ):
         if other is not None:
+            assert authentication_configuration_id is None
             assert start_time is None
             assert end_time is None
             assert time_margin is None
@@ -165,7 +169,10 @@ class _MeasurementRequestSettings(HTTPRequestSettings):
             if value is not None:
                 kwargs[key] = value
 
-        super().__init__(**kwargs)
+        super().__init__(
+            _authentication_configuration_id=(authentication_configuration_id),
+            **kwargs,
+        )
 
 
 class _MeasurementResultSettings(HTTPResultSettings):
@@ -214,22 +221,14 @@ class _MeasurementSettings(
         self,
         other: Optional["_MeasurementSettings"] = None,
         /,
-        *,
-        authentication_configuration_id: Optional[
-            AuthenticationConfiguration.Id
-        ] = None,
         **kwargs: Settings.InputType,
     ):
         if other is not None:
-            assert authentication_configuration_id is None
             assert not kwargs
             super().__init__(other)
             return
 
-        super().__init__(
-            _authentication_configuration_id=(authentication_configuration_id),
-            **kwargs,
-        )
+        super().__init__(**kwargs)
 
 
 class MeasurementConfiguration(_MeasurementSettings):
@@ -299,7 +298,8 @@ class MeasurementConfiguration(_MeasurementSettings):
         settings.update(machine_configuration)
         settings.update(self)
 
-        authentication_configuration_id = settings[
+        request_settings = settings["request"]
+        authentication_configuration_id = request_settings[
             "_authentication_configuration_id"
         ]
         if authentication_configuration_id is not None:
@@ -308,13 +308,14 @@ class MeasurementConfiguration(_MeasurementSettings):
                     authentication_configuration_id
                 )
             )
-            request_settings = settings["request"]
             try:
                 authentication_settings = request_settings["authentication"]
             except KeyError:
                 authentication_settings = authentication_context
             else:
-                authentication_context.update(authentication_settings)
+                authentication_context.update(
+                    Settings._RawInit(authentication_settings)
+                )
             request_settings["authentication"] = authentication_context
 
         for key in ("start_time", "end_time"):
