@@ -68,6 +68,16 @@ class Settings(dict):
     InterpolatedItemsType = Union["InterpolatedValueType", "InterpolatedType"]
     InterpolatedType = Dict[str, InterpolatedItemsType]
 
+    class _RawInit:
+        """
+        Wrapper for initialization or assignment values, to indicate raw
+        initialization is required instead of the default copy-and-normalize
+        one.
+        """
+
+        def __init__(self, value):
+            self.value = value
+
     def __init__(
         self,
         other: Optional[
@@ -78,7 +88,6 @@ class Settings(dict):
         ] = None,
         /,
         *,
-        _raw_init=False,
         _interpolation_settings: Optional[
             "Settings.InterpolationSettings"
         ] = None,
@@ -87,7 +96,7 @@ class Settings(dict):
         if other is not None:
             assert _interpolation_settings is None
             assert not kwargs
-            kwargs = dict(other)
+            initializer = other
             has_processors = Processors.KEY in kwargs
         else:
             try:
@@ -112,20 +121,22 @@ class Settings(dict):
 
             if _interpolation_settings is not None:
                 kwargs["_interpolation_settings"] = _interpolation_settings
+            initializer = kwargs
 
-        if not (_raw_init or has_processors):
-            kwargs = self.__normalize_values(kwargs)
+        if isinstance(initializer, self._RawInit):
+            initializer = initializer.value
+            if not isinstance(initializer, dict):
+                initializer = dict(initializer)
+        elif not has_processors:
+            initializer = self.__normalize_values(initializer)
 
-        super().__init__(**kwargs)
+        super().__init__(**initializer)
 
     def __getattr__(self, name):
         return self[name]
 
-    def _raw__setitem__(self, key: KeyType, value: "Settings"):
-        super().__setitem__(key, value)
-
     def __setitem__(self, key: KeyType, value: InputValueType):
-        self._raw__setitem__(key, self.__normalize_value(value, key=key))
+        super().__setitem__(key, self.__normalize_value(value, key=key))
 
     def setdefault(
         self, key: KeyType, default: InputValueType = None
@@ -173,9 +184,10 @@ class Settings(dict):
 
     @classmethod
     def __normalize_values(cls, other: InputType):
+        iterator = other.items() if isinstance(other, dict) else iter(other)
         return {
             key: cls.__normalize_value(value, key=key)
-            for key, value in other.items()
+            for key, value in iterator
         }
 
     __NORMALIZE_VALUE_TYPES = (
@@ -187,6 +199,9 @@ class Settings(dict):
 
     @classmethod
     def __normalize_value(cls, value: InputValueType, key: Any = None):
+        if isinstance(value, cls._RawInit):
+            return value.value
+
         try:
             if isinstance(value, Settings):
                 return type(value)(value)

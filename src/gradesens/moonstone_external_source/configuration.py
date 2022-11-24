@@ -349,12 +349,13 @@ class MeasurementConfiguration(_MeasurementSettings):
         # _MeasurementSettings, as they are the only relevant fields to be
         # presented to the backend driver.
         settings = Settings(
-            _raw_init=True,
-            **{
-                key: value
-                for key, value in settings.items()
-                if key in self.__RESULT_KEYS
-            },
+            Settings._RawInit(
+                {
+                    key: value
+                    for key, value in settings.items()
+                    if key in self.__RESULT_KEYS
+                }
+            )
         )
         interpolation_context = Settings.InterpolationContext(
             parameters=parameters,
