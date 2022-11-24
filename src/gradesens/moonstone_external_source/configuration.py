@@ -12,7 +12,6 @@ __copyright__ = "Copyright 2022, GradeSens AG"
 
 import asyncio
 import collections
-import itertools
 from datetime import datetime
 from typing import TYPE_CHECKING, Dict, Iterable, Optional, Sequence, Union
 
@@ -148,8 +147,13 @@ class _MeasurementRequestSettings(HTTPRequestSettings):
             if value is not None:
                 kwargs[key] = value
 
+        if "_authentication_configuration_id" in kwargs:
+            assert authentication_configuration_id is None
+        else:
+            kwargs[
+                "_authentication_configuration_id"
+            ] = authentication_configuration_id
         super().__init__(
-            _authentication_configuration_id=(authentication_configuration_id),
             **kwargs,
         )
 
@@ -168,6 +172,7 @@ class _MeasurementResultSettings(HTTPResultSettings):
         *,
         value: Optional[Settings.InputType] = None,
         timestamp: Optional[Settings.InputType] = None,
+        **kwargs,
     ):
         if other is not None:
             assert value is None
@@ -175,7 +180,6 @@ class _MeasurementResultSettings(HTTPResultSettings):
             super().__init__(other)
             return
 
-        kwargs = {}
         if value is not None:
             kwargs.update(value=value)
         if timestamp is not None:
@@ -210,7 +214,10 @@ class _MeasurementSettings(
         super().__init__(**kwargs)
 
 
-class MeasurementConfiguration(_MeasurementSettings):
+class MeasurementConfiguration(
+    _MeasurementSettings,
+    ConfigurationIdsConfiguration,
+):
     """
     Configuration for a single measurement (e.g. temperature, RPM, etc.).
     """
@@ -260,26 +267,19 @@ class MeasurementConfiguration(_MeasurementSettings):
         machine_configuration: "MachineConfiguration",
         timestamp: Optional[datetime] = None,
     ) -> Settings.InterpolatedType:
-        # Create a temp CommonConfiguration instance to resolve the common
-        # configuration settings from both self.machine_configuration
-        # and self.measurement_configuration
-        temp_common_configuration = CommonConfiguration(
-            # Use a non-string id, so that there is zero risk of conflict
-            # with user-defined (string-only) ids
-            id=(
-                machine_configuration["id"],
-                self["id"],
-            ),
-            common_configuration_ids=itertools.chain(
-                machine_configuration["_common_configuration_ids"],
-                self["_common_configuration_ids"],
-            ),
+        settings = type(self)(
+            **{
+                key: value
+                for key, value in machine_configuration.items()
+                if key != "measurements"
+            }
         )
-        settings = await temp_common_configuration.get_aggregated_settings(
-            client_session=client_session
+        settings.update(
+            await super().get_aggregated_settings(
+                client_session=client_session
+            )
         )
 
-        settings.update(machine_configuration)
         settings.update(self)
 
         request_settings = settings["request"]
@@ -313,6 +313,7 @@ class MeasurementConfiguration(_MeasurementSettings):
             settings["request"]["start_time"] = timestamp - start_time_margin
             settings["request"]["end_time"] = timestamp + end_time_margin
 
+        assert isinstance(settings, type(self))
         return settings
 
     def get_interpolation_parameters(
@@ -334,7 +335,10 @@ class MeasurementConfiguration(_MeasurementSettings):
             raise TimeError(f"{description} is not timezone-aware: {time}")
 
 
-class _MachineConfigurationSettings(_MeasurementSettings):
+class _MachineConfigurationSettings(
+    _MeasurementSettings,
+    ConfigurationIdsConfiguration,
+):
     """
     Configuration settings for one machine, containing a machine-specific
     number of :class:`MeasurementConfiguration`s.
@@ -359,6 +363,9 @@ class _MachineConfigurationSettings(_MeasurementSettings):
 
         if measurements is None:
             measurements = []
+        elif isinstance(measurements, dict):
+            # this is coming from some "clone" copy operation
+            measurements = list(measurements.values())
         measurement_dict = {}
         for index, measurement in enumerate(measurements):
             measurement_id = measurement["id"]
@@ -379,7 +386,6 @@ class _MachineConfigurationSettings(_MeasurementSettings):
 
 class CommonConfiguration(
     _MachineConfigurationSettings,
-    ConfigurationIdsConfiguration,
 ):
     """
     An :class:`CommonConfiguration` is nothing more than a ``[key, value]``
@@ -446,16 +452,29 @@ class MachineConfiguration(_MachineConfigurationSettings):
         if id is None:
             raise ConfigurationError("Missing machine configuration'a 'id'")
         super().__init__(id=id, **kwargs)
-        if not self["measurements"]:
-            raise ConfigurationError(
-                "Missing machine configuration's 'measurements' field"
-            )
 
     async def get_interpolated_settings(
         self,
         client_session: "IOManager.ClientSession",
         **kwargs,
     ) -> ("MachineConfiguration.SettingsType"):
+        if self.get("_common_configuration_ids"):
+            settings = await self.get_aggregated_settings(
+                client_session=client_session
+            )
+            mach_conf = MachineConfiguration(settings)
+            mach_conf.pop("_common_configuration_ids", None)
+            result = await mach_conf.get_interpolated_settings(
+                client_session=client_session, **kwargs
+            )
+            return result
+
+        measurements = self["measurements"]
+        if len(measurements) == 0:
+            raise ConfigurationError(
+                f"Machine {self.id!r}: No measurements specified"
+            )
+
         tasks = collections.OrderedDict(
             **{
                 measurement_id: self.__fetch_measurement_result(
@@ -463,9 +482,9 @@ class MachineConfiguration(_MachineConfigurationSettings):
                     measurement_configuration=measurement_configuration,
                     **kwargs,
                 )
-                for measurement_id, measurement_configuration in self[
-                    "measurements"
-                ].items()
+                for measurement_id, measurement_configuration in (
+                    measurements.items()
+                )
             }
         )
         results = await asyncio.gather(*tasks.values())

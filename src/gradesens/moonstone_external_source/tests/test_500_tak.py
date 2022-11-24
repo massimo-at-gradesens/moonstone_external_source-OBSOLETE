@@ -12,6 +12,8 @@ from gradesens.moonstone_external_source import (
 
 from .configuration_fixtures import load_yaml
 
+# from .utils import to_basic_types
+
 
 @pytest.fixture
 def authentication_configuration_oauth2_password():
@@ -91,13 +93,54 @@ def authentication_configuration_tak_dev():
 
 
 @pytest.fixture
+def common_configuration_tak_dev_1():
+    params = load_yaml(
+        """
+    id: tak-common
+
+    request:
+        authentication_configuration_id: tak-dev
+        time_margin: 2m
+
+        url:
+            "https://api-us-aws2.takeda.com/sail-proxy-sys/api/v2/\
+            execfunction/tak-clarityenergy/api/aggResponse"
+
+        query_string:
+            start: {request.start_time}
+            end: {request.end_time}
+            item:
+                "/System/Core/CHQNC-Relay/CHQNC/\
+                Redundant items for vibration monitoring/\
+                ROLoop(ZU4)/RC11/ZU4_RC11_PUC260_temperature"
+            secp: iwa
+
+        headers:
+            client_id: "{request.authentication.client_id}"
+            client_secret: "{request.authentication.client_secret}"
+            env: "{request.authentication.env}"
+
+    result:
+        timestamp: "{ts}"
+
+    measurements:
+        -   id: result
+            value:
+                <process:
+                    -   type:
+                            target: bool
+                            input_key: v
+    """
+    )
+    return CommonConfiguration(**params)
+
+
+@pytest.fixture
 def machine_configuration_tak_dev_1():
     params = load_yaml(
         """
     id: tak-mach-1
-    time_margin: 2m
-    measurements:
-        - id: temperature
+    common_configuration_ids: tak-common
     """
     )
     return MachineConfiguration(**params)
@@ -109,6 +152,8 @@ def io_driver_tak_dev(
     authentication_configuration_tak_client,
     authentication_configuration_tak_credentials,
     authentication_configuration_tak_dev,
+    #
+    common_configuration_tak_dev_1,
     #
     machine_configuration_tak_dev_1,
 ):
@@ -156,7 +201,9 @@ def io_driver_tak_dev(
             authentication_configuration_tak_credentials,
             authentication_configuration_tak_dev,
         ],
-        common_configurations=[],
+        common_configurations=[
+            common_configuration_tak_dev_1,
+        ],
         machine_configurations=[
             machine_configuration_tak_dev_1,
         ],
@@ -186,3 +233,14 @@ async def test_authentication(io_manager_tak_dev):
     assert auth_context["expiration_at"] > datetime.now()
 
     assert auth_context["env"] == "dev"
+
+    async with io_manager_tak_dev.client_session() as client_session:
+        _ = await client_session.machine_configurations.get("tak-mach-1")
+        # mach = await mach.get_interpolated_settings(
+        #    client_session=client_session
+        # )
+
+        # import json
+
+
+#        print(json.dumps(to_basic_types(mach), indent=2))

@@ -285,7 +285,7 @@ class Settings(dict):
         specialize it to take into account settings coming from configuration
         trees.
         """
-        return Settings(self)
+        return type(self)(self)
 
     class InterpolatedSettings(dict):
         """

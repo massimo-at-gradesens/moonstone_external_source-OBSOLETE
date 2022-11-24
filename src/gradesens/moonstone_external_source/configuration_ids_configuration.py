@@ -44,8 +44,21 @@ class ConfigurationIdsSettings(
             super().__init__(other)
             _configuration_ids_field = other._configuration_ids_field
             _configuration_ids_get = other._configuration_ids_get
+            saved_configuration_ids_field = _configuration_ids_field
+
         else:
+            saved_configuration_ids_field = "_" + _configuration_ids_field
+
             configuration_ids = kwargs.pop(_configuration_ids_field, None)
+            try:
+                other_configuration_ids = kwargs.pop(
+                    saved_configuration_ids_field
+                )
+                assert configuration_ids is None
+                configuration_ids = other_configuration_ids
+            except KeyError:
+                pass
+
             if configuration_ids is None:
                 configuration_ids = ()
             elif isinstance(configuration_ids, Iterable) and not isinstance(
@@ -55,12 +68,11 @@ class ConfigurationIdsSettings(
             else:
                 configuration_ids = (configuration_ids,)
 
-            _configuration_ids_field = "_" + _configuration_ids_field
-            kwargs[_configuration_ids_field] = configuration_ids
+            kwargs[saved_configuration_ids_field] = configuration_ids
 
             super().__init__(**kwargs)
 
-        self._configuration_ids_field = _configuration_ids_field
+        self._configuration_ids_field = saved_configuration_ids_field
         self._configuration_ids_get = _configuration_ids_get
 
     async def _get_merged_settings(
@@ -181,4 +193,5 @@ class ConfigurationIdsConfiguration(ConfigurationIdsSettings):
             already_visited=already_visited,
         )
         result.update(self)
+        result = type(self)(**result)
         return result

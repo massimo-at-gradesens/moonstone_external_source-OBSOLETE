@@ -82,3 +82,16 @@ def load_yaml(text):
         with open(text, "rt") as f:
             text = f.read()
     return yaml.load(text, yaml.Loader)
+
+
+def to_basic_types(value):
+    if isinstance(value, dict):
+        return {key: to_basic_types(value) for key, value in value.items()}
+
+    if isinstance(value, (list, tuple)):
+        return list(map(to_basic_types, value))
+
+    if isinstance(value, (int, float, bool)):
+        return value
+
+    return str(value)

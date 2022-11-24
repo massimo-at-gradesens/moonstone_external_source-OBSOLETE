@@ -95,15 +95,14 @@ class HTTPResultSettings(Settings):
             super().__init__(other)
             return
 
-        super().__init__(
+        if "_interpolation_settings" not in kwargs:
             # Set _interpolation_settings.interpolate to False to make sure
             # interpolation is only applied in a second phase, using HTTP
             # response data as interpolation parameters
-            _interpolation_settings=Settings.InterpolationSettings(
+            kwargs["_interpolation_settings"] = Settings.InterpolationSettings(
                 interpolate=False,
-            ),
-            **kwargs,
-        )
+            )
+        super().__init__(**kwargs)
 
 
 class HTTPTransactionMeta(type):
