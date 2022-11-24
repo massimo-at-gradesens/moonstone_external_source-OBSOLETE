@@ -87,7 +87,7 @@ def common_configuration_1():
         headers:
             head: oval
             fingers: "count_{finger_count}"
-            bearer: "{token}"
+            bearer: "{request.authentication.token}"
             test_processors_sun:
                 <process:
                     - eval:

@@ -120,8 +120,11 @@ class Settings(dict):
     def __getattr__(self, name):
         return self[name]
 
+    def _raw__setitem__(self, key: KeyType, value: "Settings"):
+        super().__setitem__(key, value)
+
     def __setitem__(self, key: KeyType, value: InputValueType):
-        super().__setitem__(key, self.__normalize_value(value, key=key))
+        self._raw__setitem__(key, self.__normalize_value(value, key=key))
 
     def setdefault(
         self, key: KeyType, default: InputValueType = None

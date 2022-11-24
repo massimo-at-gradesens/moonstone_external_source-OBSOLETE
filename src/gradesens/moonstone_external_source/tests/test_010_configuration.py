@@ -1,4 +1,4 @@
-from datetime import timezone
+from datetime import timedelta, timezone
 
 import pytest
 
@@ -30,7 +30,7 @@ def test_common_configuration(common_configuration_1):
             "headers": {
                 "head": "oval",
                 "fingers": "count_{finger_count}",
-                "bearer": "{token}",
+                "bearer": "{request.authentication.token}",
                 "test_processors_sun": {
                     "<process": [
                         {
@@ -205,6 +205,10 @@ async def test_interpolated_measurement_settings(
 
     expected = {
         "request": {
+            "authentication": {
+                "token": "I am a secret",
+                "expires_in": timedelta(seconds=100),
+            },
             "url": (
                 "https://gradesens.com/Connecticut/MACHINE"
                 "/mach1/better than cc1 device/temperature"
@@ -246,6 +250,10 @@ async def test_interpolated_measurement_all_settings(
     expected = {
         "temperature": {
             "request": {
+                "authentication": {
+                    "token": "I am a secret",
+                    "expires_in": timedelta(seconds=100),
+                },
                 "url": (
                     "https://gradesens.com/Connecticut/MACHINE"
                     "/mach1/better than cc1 device/temperature"
@@ -270,6 +278,10 @@ async def test_interpolated_measurement_all_settings(
         },
         "rpm": {
             "request": {
+                "authentication": {
+                    "token": "I am a secret",
+                    "expires_in": timedelta(seconds=100),
+                },
                 "url": (
                     "https://gradesens.com/area42/mach1"
                     "/best device ever/RPM/rpm"
@@ -292,6 +304,10 @@ async def test_interpolated_measurement_all_settings(
         },
         "power": {
             "request": {
+                "authentication": {
+                    "token": "I am a secret",
+                    "expires_in": timedelta(seconds=100),
+                },
                 "url": (
                     "https://gradesens.com/Connecticut/MACHINE"
                     "/mach1/better than cc1 device/power"

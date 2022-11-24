@@ -308,12 +308,14 @@ class MeasurementConfiguration(_MeasurementSettings):
                     authentication_configuration_id
                 )
             )
-            # request_settings = settings["request"]
-            # try:
-            #    authentication_settings = settings["request"]
-            new_settings = Settings(authentication_context)
-            new_settings.update(settings)
-            settings = new_settings
+            request_settings = settings["request"]
+            try:
+                authentication_settings = request_settings["authentication"]
+            except KeyError:
+                authentication_settings = authentication_context
+            else:
+                authentication_context.update(authentication_settings)
+            request_settings["authentication"] = authentication_context
 
         for key in ("start_time", "end_time"):
             value = locals()[key]
