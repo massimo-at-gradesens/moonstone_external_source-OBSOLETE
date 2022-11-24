@@ -85,8 +85,7 @@ class HTTPResultSettings(Settings):
 
     RawResultValueType = Any
     RawResultType = Dict[str, Union[RawResultValueType, "RawResultType"]]
-    ResultValueType = Any
-    ResultType = Dict[str, ResultValueType]
+    ResultType = Settings
 
     def __init__(
         self, other: Optional["HTTPResultSettings"] = None, /, **kwargs
@@ -226,7 +225,7 @@ class HTTPTransactionSettings(
             interpolation_context = Settings.InterpolationContext(
                 parameters=parameters
             )
-            return Settings.interpolate_dict(
+            return HTTPResultSettings.ResultType.interpolate_dict(
                 self["result"],
                 context=interpolation_context,
             )

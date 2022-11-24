@@ -2,7 +2,13 @@ from datetime import date, datetime, time, timedelta, timezone
 
 import pytest
 
-from gradesens.moonstone_external_source import Date, DateTime, Time, TimeDelta
+from gradesens.moonstone_external_source import (
+    Date,
+    DateTime,
+    Settings,
+    Time,
+    TimeDelta,
+)
 
 
 def test_datetime():
@@ -325,3 +331,30 @@ def test_conversions():
     assert isinstance(value3, DateTime)
     assert reference2 == value2
     assert reference2 == value3
+
+
+def test_settings_date_time_conversions():
+    init = dict(
+        time=time(hour=10, minute=20),
+        date=date(year=2022, month=11, day=24),
+        datetime=datetime(year=2022, month=11, day=24),
+        timedelta=timedelta(12.34),
+    )
+    type_map = {
+        time: Time,
+        date: Date,
+        datetime: DateTime,
+        timedelta: TimeDelta,
+    }
+
+    settings = Settings(**init)
+
+    assert isinstance(settings, Settings)
+    assert set(settings.keys()) == set(init.keys())
+
+    for key, init_value in init.items():
+        init_type = type(init_value)
+        settings_type = type_map[init_type]
+        assert not isinstance(init_value, settings_type)
+        settings_value = settings[key]
+        assert isinstance(settings_value, settings_type)

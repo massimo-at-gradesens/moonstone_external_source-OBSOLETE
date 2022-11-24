@@ -12,6 +12,7 @@ __copyright__ = "Copyright 2022, GradeSens AG"
 import abc
 import collections
 import re
+from datetime import date, datetime, time, timedelta
 from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Union
 
 from .datetime import Date, DateTime, Time, TimeDelta
@@ -170,13 +171,22 @@ class Settings(dict):
 
             self[key] = other_value
 
-    def __normalize_values(self, other: InputType):
+    @classmethod
+    def __normalize_values(cls, other: InputType):
         return {
-            key: self.__normalize_value(value, key=key)
+            key: cls.__normalize_value(value, key=key)
             for key, value in other.items()
         }
 
-    def __normalize_value(self, value: InputValueType, key: Any = None):
+    __NORMALIZE_VALUE_TYPES = (
+        (datetime, DateTime),
+        (date, Date),
+        (time, Time),
+        (timedelta, TimeDelta),
+    )
+
+    @classmethod
+    def __normalize_value(cls, value: InputValueType, key: Any = None):
         try:
             if isinstance(value, Settings):
                 return type(value)(value)
@@ -186,9 +196,13 @@ class Settings(dict):
 
             if isinstance(value, (list, tuple)):
                 return type(value)(
-                    self.__normalize_value(item, index)
+                    cls.__normalize_value(item, index)
                     for index, item in enumerate(value)
                 )
+
+            for src_type, dst_type in cls.__NORMALIZE_VALUE_TYPES:
+                if isinstance(value, src_type):
+                    return dst_type(value)
 
             return value
         except Error as err:
