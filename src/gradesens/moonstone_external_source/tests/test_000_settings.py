@@ -125,3 +125,21 @@ def test_settings_patterns():
         assert values["sub"]["lausanne"] == "Vaud is a canton"
         assert values["sub"]["inner"]["bern"] == "Bern is a canton"
         assert values["complex"] == ">>branches<<"
+
+
+def test_settings_attribute_access():
+    settings = Settings(
+        hello="world{shape}",
+        sub=dict(
+            lausanne="{vd}{canton}",
+            inner=dict(
+                bern="{be}{canton}",
+            ),
+        ),
+        complex=">>{array[index]}<<",
+    )
+
+    assert settings["sub"] is settings.sub
+    assert settings["sub"]["inner"] is settings.sub.inner
+    assert settings["sub"]["inner"] is settings["sub"].inner
+    assert settings["sub"]["inner"] is settings.sub["inner"]

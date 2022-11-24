@@ -308,6 +308,9 @@ class MeasurementConfiguration(_MeasurementSettings):
                     authentication_configuration_id
                 )
             )
+            # request_settings = settings["request"]
+            # try:
+            #    authentication_settings = settings["request"]
             new_settings = Settings(authentication_context)
             new_settings.update(settings)
             settings = new_settings
