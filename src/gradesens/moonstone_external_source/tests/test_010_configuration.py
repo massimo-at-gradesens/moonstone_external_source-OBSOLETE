@@ -3,7 +3,6 @@ from datetime import timedelta, timezone
 import pytest
 
 from gradesens.moonstone_external_source import (
-    CommonConfiguration,
     DateTime,
     MachineConfiguration,
     MeasurementConfiguration,
@@ -17,7 +16,7 @@ from .utils import assert_eq, expand_processors
 
 @pytest.mark.usefixtures("common_configuration_1")
 def test_common_configuration(common_configuration_1):
-    assert isinstance(common_configuration_1, CommonConfiguration)
+    assert isinstance(common_configuration_1, MachineConfiguration)
     expected = {
         "id": "cc1",
         "_common_configuration_ids": (),
@@ -206,6 +205,7 @@ async def test_interpolated_measurement_settings(
     assert not isinstance(settings, Settings)
 
     expected = {
+        "id": "temperature",
         "request": {
             "authentication": {
                 "token": "I am a secret",
@@ -253,6 +253,7 @@ async def test_interpolated_measurement_all_settings(
 
     expected = {
         "temperature": {
+            "id": "temperature",
             "request": {
                 "authentication": {
                     "token": "I am a secret",
@@ -281,6 +282,7 @@ async def test_interpolated_measurement_all_settings(
             "result": {},
         },
         "rpm": {
+            "id": "rpm",
             "request": {
                 "authentication": {
                     "token": "I am a secret",
@@ -307,6 +309,7 @@ async def test_interpolated_measurement_all_settings(
             "result": {},
         },
         "power": {
+            "id": "power",
             "request": {
                 "authentication": {
                     "token": "I am a secret",
@@ -351,6 +354,7 @@ async def test_complex_interpolated_measurement_all_settings(
 
     expected = {
         "temperature": {
+            "id": "temperature",
             "request": {
                 "url": "this is a 4: FouR",
                 "headers": {},

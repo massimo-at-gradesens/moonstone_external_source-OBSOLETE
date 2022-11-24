@@ -11,11 +11,7 @@ from .authentication_configuration import (
     AuthenticationContext,
 )
 from .backend_driver import AsyncHTTPBackendDriver, BackendDriver
-from .configuration import (
-    CommonConfiguration,
-    MachineConfiguration,
-    MeasurementConfiguration,
-)
+from .configuration import MachineConfiguration, MeasurementConfiguration
 from .datetime import Date, DateTime, Time, TimeDelta
 from .error import (
     BackendError,
@@ -46,7 +42,6 @@ __all__ = [
     "BackendDriver",
     "AsyncHTTPBackendDriver",
     #
-    "CommonConfiguration",
     "MachineConfiguration",
     "MeasurementConfiguration",
     #

@@ -4,7 +4,6 @@ import pytest
 
 from gradesens.moonstone_external_source import (
     AuthenticationConfiguration,
-    CommonConfiguration,
     IODriver,
     IOManager,
     MachineConfiguration,
@@ -132,7 +131,7 @@ def common_configuration_tak_dev_1():
                             input_key: v
     """
     )
-    return CommonConfiguration(**params)
+    return MachineConfiguration(**params)
 
 
 @pytest.fixture
@@ -162,17 +161,12 @@ def io_driver_tak_dev(
             self,
             *args,
             authentication_configurations,
-            common_configurations,
             machine_configurations,
             **kwargs
         ):
             super().__init__(*args, **kwargs)
             self.__authentication_configurations = {
                 item["id"]: item for item in authentication_configurations
-            }
-
-            self.__common_configurations = {
-                item["id"]: item for item in common_configurations
             }
 
             self.__machine_configurations = {
@@ -183,11 +177,6 @@ def io_driver_tak_dev(
             self, id: AuthenticationConfiguration.Id
         ) -> AuthenticationConfiguration:
             return self.__authentication_configurations[id]
-
-        async def load_common_configuration(
-            self, id: CommonConfiguration.Id
-        ) -> CommonConfiguration:
-            return self.__common_configurations[id]
 
         async def load_machine_configuration(
             self, id: MachineConfiguration.Id
@@ -201,10 +190,8 @@ def io_driver_tak_dev(
             authentication_configuration_tak_credentials,
             authentication_configuration_tak_dev,
         ],
-        common_configurations=[
-            common_configuration_tak_dev_1,
-        ],
         machine_configurations=[
+            common_configuration_tak_dev_1,
             machine_configuration_tak_dev_1,
         ],
     )

@@ -20,7 +20,7 @@ from .authentication_configuration import (
     AuthenticationContext,
 )
 from .backend_driver import AsyncHTTPBackendDriver, BackendDriver
-from .configuration import CommonConfiguration, MachineConfiguration
+from .configuration import MachineConfiguration
 from .error import Error
 
 
@@ -36,14 +36,6 @@ class IODriver(abc.ABC):
     async def load_authentication_configuration(
         self, id: AuthenticationConfiguration.Id
     ) -> AuthenticationConfiguration:
-        """
-        The actual load method, to be implemented by derived classes.
-        """
-
-    @abc.abstractmethod
-    async def load_common_configuration(
-        self, id: CommonConfiguration.Id
-    ) -> CommonConfiguration:
         """
         The actual load method, to be implemented by derived classes.
         """
@@ -284,11 +276,6 @@ class IOManager:
                 async_load_configuration=(
                     io_driver.load_authentication_configuration
                 ),
-            ),
-            common_configurations=common_configuration_cache_factory(
-                entry_description="common configuration",
-                expiration_delay=cache_expiration_delay,
-                async_load_entry=io_driver.load_common_configuration,
             ),
             machine_configurations=machine_configuration_cache_factory(
                 entry_description="machine configuration",

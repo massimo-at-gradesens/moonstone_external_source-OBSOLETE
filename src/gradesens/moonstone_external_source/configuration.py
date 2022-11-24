@@ -33,48 +33,6 @@ from .http_settings import (
 from .settings import Settings
 
 
-class _CommonConfigurationIdsSettings(ConfigurationIdsSettings):
-    """
-    Mixin to provide the optional setting
-    :attr:`._common_configuration_ids` to reference to zero or more
-    :class:`CommonConfiguration`s.
-
-    These configuration settings are used by
-    :class:`_MeasurementSettings`s, :class:`MachineConfiguration`s :class:`
-    and :class:`AuthorizationConfiguration`s.
-    """
-
-    def __init__(
-        self,
-        other: Optional["_CommonConfigurationIdsSettings"] = None,
-        /,
-        *,
-        common_configuration_ids: Optional[
-            Union[
-                Iterable["CommonConfiguration.Id"],
-                "CommonConfiguration.Id",
-            ]
-        ] = None,
-        **kwargs: Settings.InputType,
-    ):
-        if other is not None:
-            assert common_configuration_ids is None
-            assert not kwargs
-            super().__init__(other)
-            return
-
-        super().__init__(
-            common_configuration_ids=common_configuration_ids,
-            _configuration_ids_field="common_configuration_ids",
-            _configuration_ids_get=(
-                lambda client_session, configuration_id: (
-                    client_session.common_configurations.get(configuration_id)
-                )
-            ),
-            **kwargs,
-        )
-
-
 class _MeasurementRequestSettings(HTTPRequestSettings):
     """
     Configuration settings for measurement request.
@@ -189,7 +147,8 @@ class _MeasurementResultSettings(HTTPResultSettings):
 
 class _MeasurementSettings(
     HTTPTransactionSettings,
-    _CommonConfigurationIdsSettings,
+    ConfigurationIdsConfiguration,
+    ConfigurationIdsSettings,
     request_type=_MeasurementRequestSettings,
     result_type=_MeasurementResultSettings,
 ):
@@ -200,41 +159,24 @@ class _MeasurementSettings(
     :class:`MeasurementConfiguration`s and :class:`MachineConfiguration`s.
     """
 
+    Id = str
+
     def __init__(
         self,
         other: Optional["_MeasurementSettings"] = None,
         /,
-        **kwargs: Settings.InputType,
-    ):
-        if other is not None:
-            assert not kwargs
-            super().__init__(other)
-            return
-
-        super().__init__(**kwargs)
-
-
-class MeasurementConfiguration(
-    _MeasurementSettings,
-    ConfigurationIdsConfiguration,
-):
-    """
-    Configuration for a single measurement (e.g. temperature, RPM, etc.).
-    """
-
-    Id = str
-    InterpolatedSettings = HTTPTransactionSettings.InterpolatedSettings
-
-    def __init__(
-        self,
-        other: Optional["MeasurementConfiguration"] = None,
-        /,
-        *,
         id: Optional[Id] = None,
+        common_configuration_ids: Optional[
+            Union[
+                Iterable["_MeasurementSettings.Id"],
+                "_MeasurementSettings.Id",
+            ]
+        ] = None,
         **kwargs: Settings.InputType,
     ):
         if other is not None:
             assert id is None
+            assert common_configuration_ids is None
             assert not kwargs
             super().__init__(other)
             return
@@ -245,12 +187,40 @@ class MeasurementConfiguration(
             )
         super().__init__(
             id=id,
+            common_configuration_ids=common_configuration_ids,
+            _configuration_ids_field="common_configuration_ids",
+            _configuration_ids_get=(
+                lambda client_session, configuration_id: (
+                    client_session.machine_configurations.get(configuration_id)
+                )
+            ),
             **kwargs,
         )
 
+
+class MeasurementConfiguration(_MeasurementSettings):
+    """
+    Configuration for a single measurement (e.g. temperature, RPM, etc.).
+    """
+
+    InterpolatedSettings = HTTPTransactionSettings.InterpolatedSettings
+
+    def __init__(
+        self,
+        other: Optional["MeasurementConfiguration"] = None,
+        /,
+        **kwargs: Settings.InputType,
+    ):
+        if other is not None:
+            assert not kwargs
+            super().__init__(other)
+            return
+
+        super().__init__(**kwargs)
+
     # Use a blank instance of _MeasurementSettings to infer the list of
     # interpolation result keys.
-    __INTERPOLATION_KEYS = set(_MeasurementSettings().public_keys())
+    __INTERPOLATION_KEYS = set(_MeasurementSettings(id="dummy").public_keys())
 
     def interpolation_keys(self) -> Iterable[str]:
         """
@@ -335,21 +305,28 @@ class MeasurementConfiguration(
             raise TimeError(f"{description} is not timezone-aware: {time}")
 
 
-class _MachineConfigurationSettings(
-    _MeasurementSettings,
-    ConfigurationIdsConfiguration,
-):
+class MachineConfiguration(_MeasurementSettings):
     """
-    Configuration settings for one machine, containing a machine-specific
-    number of :class:`MeasurementConfiguration`s.
+    Configuration for one machine, containing a machine-specific number of
+    :class:`MeasurementConfiguration`s.
 
-    These configuration settings are used by :class:`CommonConfiguration`s and
-    :class:`MachineConfiguration`s.
+    A :class:`MachineConfiguration` instance may refer to other
+    :class:`MachineConfiguration` instances through the
+    ``machine_configuration_ids`` constructor parameter.
+    See :meth:`.get_aggregated_settings` method for details about how the
+    settings from the different :class:`CommonConfiguration` instances,
+    including this one, are merged together.
+
+    The actual contents, including the list of keys, are strictly customer-
+    and API-specific, and are not under the responsibility of this class.
     """
+
+    SettingsType = Dict[str, "MeasurementConfiguration.SettingsType"]
+    MeasurementIdsType = Optional[Iterable[MeasurementConfiguration.Id]]
 
     def __init__(
         self,
-        other: Optional["_MachineConfigurationSettings"] = None,
+        other: Optional["MeasurementConfiguration"] = None,
         /,
         *,
         measurements: Optional[Sequence[Settings.InputType]] = None,
@@ -381,77 +358,11 @@ class _MachineConfigurationSettings(
             except Error as err:
                 err.index = ["measurements", measurement_id] + err.index
                 raise
-        super().__init__(measurements=measurement_dict, **kwargs)
 
-
-class CommonConfiguration(
-    _MachineConfigurationSettings,
-):
-    """
-    An :class:`CommonConfiguration` is nothing more than a ``[key, value]``
-    dictionary of configuration data, optionally referenced by
-    :class:`MeasurementConfiguration` and :class:`MachineConfiguration`
-    instances to load configuration data from a common shared configuration
-    point.
-    A :class:`CommonConfiguration` instance may refer to other
-    :class:`CommonConfiguration` instances through the
-    ``common_configuration_ids`` constructor parameter.
-    See :meth:`.get_aggregated_settings` method for details about how the
-    settings from the different :class:`CommonConfiguration` instances,
-    including this one, are merged together.
-
-    The actual contents, including the list of keys, are strictly customer-
-    and API-specific, and are not under the responsibility of this class.
-    """
-
-    Id = str
-
-    def __init__(
-        self,
-        other: Optional["CommonConfiguration"] = None,
-        /,
-        *,
-        id: Optional[Id] = None,
-        **kwargs: Settings.InputType,
-    ):
-        if other is not None:
-            assert id is None
-            assert not kwargs
-            super().__init__(other)
-            return
-
-        if id is None:
-            raise ConfigurationError("Missing common configuration's 'id'")
-        super().__init__(id=id, **kwargs)
-
-
-class MachineConfiguration(_MachineConfigurationSettings):
-    """
-    Configuration for one machine, containing a machine-specific number of
-    :class:`MeasurementConfiguration`s.
-    """
-
-    Id = str
-    SettingsType = Dict[str, "MeasurementConfiguration.SettingsType"]
-    MeasurementIdsType = Optional[Iterable[MeasurementConfiguration.Id]]
-
-    def __init__(
-        self,
-        other: Optional["MeasurementConfiguration"] = None,
-        /,
-        *,
-        id: Optional[Id] = None,
-        **kwargs,
-    ):
-        if other is not None:
-            assert id is None
-            assert not kwargs
-            super().__init__(other)
-            return
-
-        if id is None:
-            raise ConfigurationError("Missing machine configuration'a 'id'")
-        super().__init__(id=id, **kwargs)
+        super().__init__(
+            measurements=measurement_dict,
+            **kwargs,
+        )
 
     async def get_interpolated_settings(
         self,

@@ -24,51 +24,6 @@ from .http_settings import HTTPTransactionSettings
 from .settings import Settings
 
 
-class _AuthenticationSettings(
-    HTTPTransactionSettings,
-    ConfigurationIdsSettings,
-):
-    """
-    Configuration settings for a authentication requests and result
-    processing.
-
-    These configuration settings are used by :class:`CommonConfiguration`s,
-    :class:`MeasurementConfiguration`s and :class:`MachineConfiguration`s.
-    """
-
-    def __init__(
-        self,
-        other: Optional["_AuthenticationSettings"] = None,
-        /,
-        *,
-        authentication_configuration_ids: Optional[
-            Union[
-                Iterable["AuthenticationConfiguration.Id"],
-                "AuthenticationConfiguration.Id",
-            ]
-        ] = None,
-        **kwargs: Settings.InputType,
-    ):
-        if other is not None:
-            assert authentication_configuration_ids is None
-            assert not kwargs
-            super().__init__(other)
-            return
-
-        super().__init__(
-            authentication_configuration_ids=authentication_configuration_ids,
-            _configuration_ids_field="authentication_configuration_ids",
-            _configuration_ids_get=(
-                lambda client_session, configuration_id: (
-                    (
-                        client_session.authentication_contexts
-                    ).authentication_configurations.get(configuration_id)
-                )
-            ),
-            **kwargs,
-        )
-
-
 class AuthenticationContext(Settings):
     """
     An :class:`AuthenticationContext` is nothing more than a ``[key, value]``
@@ -97,8 +52,9 @@ class AuthenticationContext(Settings):
 
 
 class AuthenticationConfiguration(
-    _AuthenticationSettings,
+    HTTPTransactionSettings,
     ConfigurationIdsConfiguration,
+    ConfigurationIdsSettings,
 ):
     """
     An :class:`AuthenticationConfiguration` provides the required configuration
@@ -107,7 +63,7 @@ class AuthenticationConfiguration(
     output data are instances of :class:`AuthenticationContext`s, which are
     used to grant access to specific resources to other API requests.
 
-    See :class:`CommonConfiguration` about hierarchical resolution of
+    See :class:`MachineConfiguration` about hierarchical resolution of
     :class:`Settings` from trees of :class`AuthenticationConfiguration`
     referencing each other via parameter ``authentication_configuration_ids``.
     """
@@ -120,17 +76,37 @@ class AuthenticationConfiguration(
         /,
         *,
         id: Optional[Id] = None,
+        authentication_configuration_ids: Optional[
+            Union[
+                Iterable["AuthenticationConfiguration.Id"],
+                "AuthenticationConfiguration.Id",
+            ]
+        ] = None,
         **kwargs: Settings.InputType,
     ):
         if other is not None:
             assert id is None
+            assert authentication_configuration_ids is None
             assert not kwargs
             super().__init__(other)
             return
 
         if id is None:
             raise ConfigurationError("Missing common configuration's 'id'")
-        super().__init__(id=id, **kwargs)
+
+        super().__init__(
+            id=id,
+            authentication_configuration_ids=authentication_configuration_ids,
+            _configuration_ids_field="authentication_configuration_ids",
+            _configuration_ids_get=(
+                lambda client_session, configuration_id: (
+                    (
+                        client_session.authentication_contexts
+                    ).authentication_configurations.get(configuration_id)
+                )
+            ),
+            **kwargs,
+        )
 
     async def authenticate(
         self,

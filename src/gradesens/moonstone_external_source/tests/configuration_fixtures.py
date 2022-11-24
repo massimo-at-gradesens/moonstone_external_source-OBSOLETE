@@ -5,7 +5,6 @@ import pytest
 from gradesens.moonstone_external_source import (
     AuthenticationConfiguration,
     AuthenticationContext,
-    CommonConfiguration,
     IODriver,
     IOManager,
     MachineConfiguration,
@@ -112,7 +111,7 @@ def common_configuration_1():
     device: "best device ever"
     """
     )
-    return CommonConfiguration(**params)
+    return MachineConfiguration(**params)
 
 
 @pytest.fixture
@@ -128,7 +127,7 @@ def common_configuration_2():
             hello: world
     """
     )
-    return CommonConfiguration(**params)
+    return MachineConfiguration(**params)
 
 
 @pytest.fixture
@@ -233,7 +232,7 @@ def common_configuration_with_result():
                         interpolate: "{out_field1}"
     """
     )
-    return CommonConfiguration(**params)
+    return MachineConfiguration(**params)
 
 
 @pytest.fixture
@@ -314,7 +313,7 @@ def common_configuration_nested_1():
             head: oval
     """
     )
-    return CommonConfiguration(**params)
+    return MachineConfiguration(**params)
 
 
 @pytest.fixture
@@ -337,7 +336,7 @@ def common_configuration_nested_2():
                     token: super secret
     """
     )
-    return CommonConfiguration(**params)
+    return MachineConfiguration(**params)
 
 
 @pytest.fixture
@@ -360,7 +359,7 @@ def common_configuration_nested_3():
         -   id: rpm
     """
     )
-    return CommonConfiguration(**params)
+    return MachineConfiguration(**params)
 
 
 @pytest.fixture
@@ -374,7 +373,7 @@ def common_configuration_nested_4_loop():
         - cc2-n
     """
     )
-    return CommonConfiguration(**params)
+    return MachineConfiguration(**params)
 
 
 @pytest.fixture
@@ -386,7 +385,7 @@ def common_configuration_nested_5_loop():
         - cc4-n
     """
     )
-    return CommonConfiguration(**params)
+    return MachineConfiguration(**params)
 
 
 @pytest.fixture
@@ -411,38 +410,33 @@ def io_driver_1(
             self,
             *args,
             authentication_configurations,
-            common_configurations,
             machine_configurations,
             **kwargs
         ):
             super().__init__(*args, **kwargs)
-            self.__authentication_configurations = {
-                item["id"]: item for item in authentication_configurations
-            }
+            self.__authentication_configurations = self.__configuration_dict(
+                authentication_configurations
+            )
 
-            self.__common_configurations = {
-                item["id"]: item for item in common_configurations
-            }
-
-            self.__machine_configurations = {
-                item["id"]: item for item in machine_configurations
-            }
+            self.__machine_configurations = self.__configuration_dict(
+                machine_configurations
+            )
 
             self.authentication_configuration_load_count = 0
             self.common_configuration_load_count = 0
             self.machine_configuration_load_count = 0
+
+        @staticmethod
+        def __configuration_dict(values):
+            ids = list(map(lambda value: value["id"], values))
+            assert len(ids) == len(set(ids))
+            return {item["id"]: item for item in values}
 
         async def load_authentication_configuration(
             self, id: AuthenticationConfiguration.Id
         ) -> AuthenticationConfiguration:
             self.authentication_configuration_load_count += 1
             return self.__authentication_configurations[id]
-
-        async def load_common_configuration(
-            self, id: CommonConfiguration.Id
-        ) -> CommonConfiguration:
-            self.common_configuration_load_count += 1
-            return self.__common_configurations[id]
 
         async def load_machine_configuration(
             self, id: MachineConfiguration.Id
@@ -455,7 +449,7 @@ def io_driver_1(
             authentication_configuration_1,
             authentication_configuration_expired,
         ],
-        common_configurations=[
+        machine_configurations=[
             common_configuration_1,
             common_configuration_2,
             common_configuration_with_result,
@@ -464,8 +458,6 @@ def io_driver_1(
             common_configuration_nested_3,
             common_configuration_nested_4_loop,
             common_configuration_nested_5_loop,
-        ],
-        machine_configurations=[
             machine_configuration_1,
             machine_configuration_2,
             machine_configuration_with_time,
