@@ -202,6 +202,7 @@ def machine_configuration_with_time():
     measurements:
         -   id: temperature
             request:
+                time_margin: 2s
                 query_string:
                     start: "{request.start_time}"
                     end: "{request.end_time}"

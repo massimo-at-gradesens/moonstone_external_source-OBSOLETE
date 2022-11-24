@@ -258,8 +258,7 @@ class MeasurementConfiguration(_MeasurementSettings):
         self,
         client_session: "IOManager.ClientSession",
         machine_configuration: "MachineConfiguration",
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
+        timestamp: Optional[datetime] = None,
     ) -> Settings.InterpolatedType:
         # Create a temp CommonConfiguration instance to resolve the common
         # configuration settings from both self.machine_configuration
@@ -303,12 +302,16 @@ class MeasurementConfiguration(_MeasurementSettings):
                 )
             request_settings["authentication"] = authentication_context
 
-        for key in ("start_time", "end_time"):
-            value = locals()[key]
-            if value is None:
-                continue
-            self.__assert_aware_time(key, value)
-            settings["request"][key] = value
+        if timestamp is not None:
+            self.__assert_aware_time("timestamp", timestamp)
+            start_time_margin = settings["request"].get(
+                "start_time_margin", TimeDelta(0)
+            )
+            end_time_margin = settings["request"].get(
+                "end_time_margin", TimeDelta(0)
+            )
+            settings["request"]["start_time"] = timestamp - start_time_margin
+            settings["request"]["end_time"] = timestamp + end_time_margin
 
         return settings
 

@@ -48,18 +48,15 @@ class ExternalSource:
         timestamps: Iterable[datetime],
         machine_id: MachineConfiguration.Id,
     ) -> ResultsType:
-        machine_configuration = (
-            await self.client_session.machine_configurations.get(machine_id)
-        )
-        print(machine_configuration)
-
-        # for timestamp in timestamps:
+        # machine_configuration = (
+        #     await self.client_session.machine_configurations.get(machine_id)
+        # )
 
         for timestamp in timestamps:
-            # settings = await resolver.get_aggregated_settings(
-            #     start_time=timestamp - start_time_margin,
-            #     end_time=timestamp + end_time_margin,
-            # )
+            #     values = await machine_configuration.fetch_result(
+            #         start_time=timestamp - start_time_margin,
+            #         end_time=timestamp + end_time_margin,
+            #     )
 
             # Use an OrderedDict to guarantee order repeatability, so as to
             # guarantee that ids and results can be correctly zipped

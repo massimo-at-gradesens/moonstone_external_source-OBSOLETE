@@ -378,36 +378,19 @@ async def test_start_end_times(
         with pytest.raises(TimeError) as exc:
             await mach_conf_1.get_interpolated_settings(
                 client_session,
-                start_time=DateTime.now(),
+                timestamp=DateTime.now(),
             )
-        assert "start_time" in str(exc.value)
-
-        with pytest.raises(TimeError) as exc:
-            await mach_conf_1.get_interpolated_settings(
-                client_session,
-                end_time=DateTime.now(),
-            )
-        assert "end_time" in str(exc.value)
+        assert "timestamp" in str(exc.value)
 
         with pytest.raises(PatternError) as exc:
             await mach_conf_1.get_interpolated_settings(
                 client_session,
-            )
-        with pytest.raises(PatternError) as exc:
-            await mach_conf_1.get_interpolated_settings(
-                client_session,
-                start_time=DateTime.now(timezone.utc),
-            )
-        with pytest.raises(PatternError) as exc:
-            await mach_conf_1.get_interpolated_settings(
-                client_session,
-                end_time=DateTime.now(timezone.utc),
             )
 
         settings = (
             await mach_conf_1.get_interpolated_settings(
                 client_session,
-                start_time=DateTime(
+                timestamp=DateTime(
                     year=2022,
                     month=11,
                     day=14,
@@ -416,21 +399,12 @@ async def test_start_end_times(
                     second=17,
                     tzinfo=timezone.utc,
                 ),
-                end_time=DateTime(
-                    year=3022,
-                    month=9,
-                    day=2,
-                    hour=5,
-                    minute=27,
-                    second=3,
-                    tzinfo=timezone.utc,
-                ),
             )
         )["temperature"]
         query_string = settings["request"]["query_string"]
 
         assert isinstance(query_string["start"], str)
-        assert query_string["start"] == "2022-11-14T17:34:17+00:00"
+        assert query_string["start"] == "2022-11-14T17:34:15+00:00"
 
         assert isinstance(query_string["end"], str)
-        assert query_string["end"] == "3022-09-02T05:27:03+00:00"
+        assert query_string["end"] == "2022-11-14T17:34:19+00:00"

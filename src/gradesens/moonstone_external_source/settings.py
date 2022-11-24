@@ -149,9 +149,9 @@ class Settings(dict):
             return self[name]
         except KeyError:
             pass
-        # Simply call `super().__getattr__(name)` to raise the stock
+        # Simply call `super().__getattribute__(name)` to raise the stock
         # AttributeError message
-        super().__getattr__(name)
+        super().__getattribute__(name)
 
     def __setitem__(self, key: KeyType, value: InputValueType):
         super().__setitem__(key, self.__normalize_value(value, key=key))
@@ -357,7 +357,7 @@ class Settings(dict):
         )
 
         return self.InterpolatedSettings(
-            self.interpolated_items_from_dict(
+            self.__interpolated_items_from_dict(
                 settings,
                 context=interpolation_context,
             )
@@ -373,21 +373,23 @@ class Settings(dict):
         *args,
         **kwargs,
     ) -> InterpolatedType:
-        return dict(cls.interpolated_items_from_dict(source, *args, **kwargs))
+        return dict(
+            cls.__interpolated_items_from_dict(source, *args, **kwargs)
+        )
 
     def interpolated_items(
         self,
         context: InterpolationContext,
         settings: Optional[InterpolationSettings] = None,
     ) -> Iterable[InterpolatedItemsType]:
-        yield from self.interpolated_items_from_dict(
+        yield from self.__interpolated_items_from_dict(
             source=self,
             context=context,
             settings=settings,
         )
 
     @classmethod
-    def interpolated_items_from_dict(
+    def __interpolated_items_from_dict(
         cls,
         source: Dict[str, Any],
         context: InterpolationContext,
