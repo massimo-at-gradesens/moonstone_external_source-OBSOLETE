@@ -39,10 +39,10 @@ def test_time_parsing():
                 interpolate=False,
             ),
         },
-        "_common_configuration_ids": (),
+        "_machine_configuration_ids": (),
         "measurements": {
             "temperature": {
-                "_common_configuration_ids": (),
+                "_machine_configuration_ids": (),
                 "id": "temperature",
                 "request": {
                     "_authentication_configuration_id": None,

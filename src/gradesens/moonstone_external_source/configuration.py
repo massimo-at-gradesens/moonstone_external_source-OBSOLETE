@@ -155,7 +155,7 @@ class _MeasurementSettings(
     """
     Configuration settings for a single measurement.
 
-    These configuration settings are used by :class:`CommonConfiguration`s,
+    These configuration settings are used by
     :class:`MeasurementConfiguration`s and :class:`MachineConfiguration`s.
     """
 
@@ -166,7 +166,7 @@ class _MeasurementSettings(
         other: Optional["_MeasurementSettings"] = None,
         /,
         id: Optional[Id] = None,
-        common_configuration_ids: Optional[
+        machine_configuration_ids: Optional[
             Union[
                 Iterable["_MeasurementSettings.Id"],
                 "_MeasurementSettings.Id",
@@ -176,7 +176,7 @@ class _MeasurementSettings(
     ):
         if other is not None:
             assert id is None
-            assert common_configuration_ids is None
+            assert machine_configuration_ids is None
             assert not kwargs
             super().__init__(other)
             return
@@ -187,8 +187,8 @@ class _MeasurementSettings(
             )
         super().__init__(
             id=id,
-            common_configuration_ids=common_configuration_ids,
-            _configuration_ids_field="common_configuration_ids",
+            machine_configuration_ids=machine_configuration_ids,
+            _configuration_ids_field="machine_configuration_ids",
             _configuration_ids_get=(
                 lambda client_session, configuration_id: (
                     client_session.machine_configurations.get(configuration_id)
@@ -314,7 +314,7 @@ class MachineConfiguration(_MeasurementSettings):
     :class:`MachineConfiguration` instances through the
     ``machine_configuration_ids`` constructor parameter.
     See :meth:`.get_aggregated_settings` method for details about how the
-    settings from the different :class:`CommonConfiguration` instances,
+    settings from the different :class:`MachineConfiguration` instances,
     including this one, are merged together.
 
     The actual contents, including the list of keys, are strictly customer-
@@ -369,12 +369,12 @@ class MachineConfiguration(_MeasurementSettings):
         client_session: "IOManager.ClientSession",
         **kwargs,
     ) -> ("MachineConfiguration.SettingsType"):
-        if self.get("_common_configuration_ids"):
+        if self.get("_machine_configuration_ids"):
             settings = await self.get_aggregated_settings(
                 client_session=client_session
             )
             mach_conf = MachineConfiguration(settings)
-            mach_conf.pop("_common_configuration_ids", None)
+            mach_conf.pop("_machine_configuration_ids", None)
             result = await mach_conf.get_interpolated_settings(
                 client_session=client_session, **kwargs
             )

@@ -135,7 +135,7 @@ def machine_configuration_1():
     params = load_yaml(
         """
     id: mach1
-    common_configuration_ids: cc1
+    machine_configuration_ids: cc1
     finger_count: 5
     region: basel
     request:
@@ -145,7 +145,7 @@ def machine_configuration_1():
     measurements:
         -   id: temperature
             region: zurich
-            common_configuration_ids: cc2
+            machine_configuration_ids: cc2
             request:
                 query_string:
                     depth: "12"
@@ -161,7 +161,7 @@ def machine_configuration_1():
                     dune: worms
 
         -   id: power
-            common_configuration_ids: cc2
+            machine_configuration_ids: cc2
             request:
                 headers:
                     animal: cow
@@ -240,7 +240,7 @@ def machine_configuration_with_result():
     params = load_yaml(
         r"""
     id: mach_w_result
-    common_configuration_ids: cc_w_result
+    machine_configuration_ids: cc_w_result
     result:
         timestamp:
             <process:
@@ -344,7 +344,7 @@ def common_configuration_nested_3():
     params = load_yaml(
         """
     id: cc3-n
-    common_configuration_ids:
+    machine_configuration_ids:
         - cc1-n
         - cc2-n
 
@@ -367,7 +367,7 @@ def common_configuration_nested_4_loop():
     params = load_yaml(
         """
     id: cc4-n
-    common_configuration_ids:
+    machine_configuration_ids:
         - cc1-n
         - cc5-n
         - cc2-n
@@ -381,7 +381,7 @@ def common_configuration_nested_5_loop():
     params = load_yaml(
         """
     id: cc5-n
-    common_configuration_ids:
+    machine_configuration_ids:
         - cc4-n
     """
     )

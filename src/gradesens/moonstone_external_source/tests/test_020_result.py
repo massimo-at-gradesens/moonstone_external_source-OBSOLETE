@@ -17,7 +17,7 @@ async def test_machine_configuration_with_result(io_manager_1):
         )
     expected = {
         "id": "mach_w_result",
-        "_common_configuration_ids": ("cc_w_result",),
+        "_machine_configuration_ids": ("cc_w_result",),
         "request": {
             "_authentication_configuration_id": None,
             "url": None,
@@ -46,7 +46,7 @@ async def test_machine_configuration_with_result(io_manager_1):
         "measurements": {
             "temperature": {
                 "id": "temperature",
-                "_common_configuration_ids": (),
+                "_machine_configuration_ids": (),
                 "request": {
                     "_authentication_configuration_id": None,
                     "url": None,
@@ -79,7 +79,7 @@ async def test_machine_configuration_with_result(io_manager_1):
             },
             "rpm": {
                 "id": "rpm",
-                "_common_configuration_ids": (),
+                "_machine_configuration_ids": (),
                 "request": {
                     "_authentication_configuration_id": None,
                     "url": None,
@@ -140,7 +140,7 @@ async def test_machine_configuration_with_result(io_manager_1):
             },
             "humidity": {
                 "id": "humidity",
-                "_common_configuration_ids": (),
+                "_machine_configuration_ids": (),
                 "request": {
                     "_authentication_configuration_id": None,
                     "url": None,

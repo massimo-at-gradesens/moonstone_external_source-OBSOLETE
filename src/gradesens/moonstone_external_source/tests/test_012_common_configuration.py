@@ -15,7 +15,7 @@ async def test_common_configuration_nesting(
         settings = await comm_conf.get_aggregated_settings(client_session)
     expected = {
         "id": "cc1-n",
-        "_common_configuration_ids": (),
+        "_machine_configuration_ids": (),
         "zone": "area42",
         "request": {
             "_authentication_configuration_id": None,
@@ -43,7 +43,7 @@ async def test_common_configuration_nesting(
         settings = await comm_conf.get_aggregated_settings(client_session)
     expected = {
         "id": "cc2-n",
-        "_common_configuration_ids": (),
+        "_machine_configuration_ids": (),
         "request": {
             "_authentication_configuration_id": None,
             "url": None,
@@ -65,7 +65,7 @@ async def test_common_configuration_nesting(
         "measurements": {
             "temperature": {
                 "id": "temperature",
-                "_common_configuration_ids": (),
+                "_machine_configuration_ids": (),
                 "request": {
                     "_authentication_configuration_id": None,
                     "url": None,
@@ -91,7 +91,7 @@ async def test_common_configuration_nesting(
         settings = await comm_conf.get_aggregated_settings(client_session)
     expected = {
         "id": "cc3-n",
-        "_common_configuration_ids": (
+        "_machine_configuration_ids": (
             "cc1-n",
             "cc2-n",
         ),
@@ -119,7 +119,7 @@ async def test_common_configuration_nesting(
         "measurements": {
             "temperature": {
                 "id": "temperature",
-                "_common_configuration_ids": (),
+                "_machine_configuration_ids": (),
                 "request": {
                     "_authentication_configuration_id": None,
                     "url": None,
@@ -138,7 +138,7 @@ async def test_common_configuration_nesting(
             },
             "rpm": {
                 "id": "rpm",
-                "_common_configuration_ids": (),
+                "_machine_configuration_ids": (),
                 "request": {
                     "_authentication_configuration_id": None,
                     "url": None,

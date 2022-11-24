@@ -139,7 +139,7 @@ def machine_configuration_tak_dev_1():
     params = load_yaml(
         """
     id: tak-mach-1
-    common_configuration_ids: tak-common
+    machine_configuration_ids: tak-common
     """
     )
     return MachineConfiguration(**params)

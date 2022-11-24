@@ -19,7 +19,7 @@ def test_common_configuration(common_configuration_1):
     assert isinstance(common_configuration_1, MachineConfiguration)
     expected = {
         "id": "cc1",
-        "_common_configuration_ids": (),
+        "_machine_configuration_ids": (),
         "request": {
             "_authentication_configuration_id": "ac1",
             "url": (
@@ -100,7 +100,7 @@ def test_machine_configuration(machine_configuration_1):
 
     expected = {
         "id": "mach1",
-        "_common_configuration_ids": ("cc1",),
+        "_machine_configuration_ids": ("cc1",),
         "request": {
             "_authentication_configuration_id": None,
             "url": (
@@ -121,7 +121,7 @@ def test_machine_configuration(machine_configuration_1):
         "measurements": {
             "temperature": {
                 "id": "temperature",
-                "_common_configuration_ids": ("cc2",),
+                "_machine_configuration_ids": ("cc2",),
                 "region": "zurich",
                 "request": {
                     "_authentication_configuration_id": None,
@@ -141,7 +141,7 @@ def test_machine_configuration(machine_configuration_1):
             },
             "rpm": {
                 "id": "rpm",
-                "_common_configuration_ids": (),
+                "_machine_configuration_ids": (),
                 "request": {
                     "_authentication_configuration_id": None,
                     "url": (
@@ -163,7 +163,7 @@ def test_machine_configuration(machine_configuration_1):
             },
             "power": {
                 "id": "power",
-                "_common_configuration_ids": ("cc2",),
+                "_machine_configuration_ids": ("cc2",),
                 "request": {
                     "_authentication_configuration_id": None,
                     "url": None,
