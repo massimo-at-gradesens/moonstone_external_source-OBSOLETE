@@ -14,15 +14,7 @@ import asyncio
 import collections
 import itertools
 from datetime import datetime
-from typing import (
-    TYPE_CHECKING,
-    Dict,
-    Iterable,
-    Optional,
-    Sequence,
-    Set,
-    Union,
-)
+from typing import TYPE_CHECKING, Dict, Iterable, Optional, Sequence, Union
 
 if TYPE_CHECKING:
     from .io_manager import IOManager
@@ -81,19 +73,6 @@ class _CommonConfigurationIdsSettings(ConfigurationIdsSettings):
                 )
             ),
             **kwargs,
-        )
-
-    async def get_common_settings(
-        self,
-        client_session: "IOManager.ClientSession",
-        already_visited: Optional[Set["CommonConfiguration.Id"]] = None,
-    ) -> Settings:
-        """
-        See details in :meth:`CommonConfiguration.get_common_settings`
-        """
-        return await self.get_merged_settings(
-            client_session=client_session,
-            already_visited=already_visited,
         )
 
 
@@ -237,7 +216,7 @@ class MeasurementConfiguration(_MeasurementSettings):
     """
 
     Id = str
-    SettingsType = HTTPTransactionSettings.InterpolatedSettings
+    InterpolatedSettings = HTTPTransactionSettings.InterpolatedSettings
 
     def __init__(
         self,
@@ -262,20 +241,26 @@ class MeasurementConfiguration(_MeasurementSettings):
             **kwargs,
         )
 
-    __RESULT_KEYS = set(
-        filter(
-            lambda key: not key[0] == "_",
-            _MeasurementSettings().keys(),
-        )
-    )
+    # Use a blank instance of _MeasurementSettings to infer the list of
+    # interpolation result keys.
+    __INTERPOLATION_KEYS = set(_MeasurementSettings().public_keys())
 
-    async def get_settings(
+    def interpolation_keys(self) -> Iterable[str]:
+        """
+        Iterate over the keys to be retained for interpolation.
+
+        By default this method returns all public keys, but sub-classes can
+        further customize the set of interpolation output keys.
+        """
+        yield from self.__INTERPOLATION_KEYS
+
+    async def get_aggregated_settings(
         self,
         client_session: "IOManager.ClientSession",
         machine_configuration: "MachineConfiguration",
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
-    ) -> "MeasurementConfiguration.SettingsType":
+    ) -> Settings.InterpolatedType:
         # Create a temp CommonConfiguration instance to resolve the common
         # configuration settings from both self.machine_configuration
         # and self.measurement_configuration
@@ -291,7 +276,7 @@ class MeasurementConfiguration(_MeasurementSettings):
                 self["_common_configuration_ids"],
             ),
         )
-        settings = await temp_common_configuration.get_common_settings(
+        settings = await temp_common_configuration.get_aggregated_settings(
             client_session=client_session
         )
 
@@ -325,59 +310,20 @@ class MeasurementConfiguration(_MeasurementSettings):
             self.__assert_aware_time(key, value)
             settings["request"][key] = value
 
-        # Now settings contains the merging of AuthenticatioContext,
-        # the optional CommonConfiguration, the MachineConfiguration, and
-        # the MeasurementConfiguration.
-        # Furthermore, it contains both the relevant fields (i.e., URL,
-        # query string, headers), as well as values required to interpolate
-        # possible patterns. Therefore, use settings as the base parameters
-        # to interpolate the patterns in its own values.
-        # Anyway, only keep the scalar settings as interpolation
-        # parameters, and insert the machine and measurement ids
+        return settings
+
+    def get_interpolation_parameters(
+        self,
+        settings: "Settings",
+        machine_configuration: "MachineConfiguration",
+        **kwargs,
+    ) -> Dict[str, "Settings.ValueType"]:
         parameters = {
             "machine_id": machine_configuration["id"],
             "measurement_id": self["id"],
         }
-        parameters.update(
-            {
-                key: value
-                for key, value in settings.items()
-                if not key[0] == "_"
-            }
-        )
-
-        # As for settings, only keep the keys specified for
-        # _MeasurementSettings, as they are the only relevant fields to be
-        # presented to the backend driver.
-        settings = Settings(
-            Settings._RawInit(
-                {
-                    key: value
-                    for key, value in settings.items()
-                    if key in self.__RESULT_KEYS
-                }
-            )
-        )
-        interpolation_context = Settings.InterpolationContext(
-            parameters=parameters,
-            machine_configuration=machine_configuration,
-            measurement_configuration=self,
-        )
-        try:
-            result = HTTPTransactionSettings.InterpolatedSettings(
-                Settings.interpolated_items_from_dict(
-                    settings,
-                    context=interpolation_context,
-                )
-            )
-        except Error as err:
-            err.index = [
-                machine_configuration["id"],
-                "measurements",
-                self["id"],
-            ] + err.index
-            raise err from None
-        return result
+        parameters.update(super().get_interpolation_parameters(settings))
+        return parameters
 
     @staticmethod
     def __assert_aware_time(description, time):
@@ -441,9 +387,9 @@ class CommonConfiguration(
     A :class:`CommonConfiguration` instance may refer to other
     :class:`CommonConfiguration` instances through the
     ``common_configuration_ids`` constructor parameter.
-    See :meth:`.get_common_settings` method for details about how the settings
-    from the different :class:`CommonConfiguration` instances, including this
-    one, are merged together.
+    See :meth:`.get_aggregated_settings` method for details about how the
+    settings from the different :class:`CommonConfiguration` instances,
+    including this one, are merged together.
 
     The actual contents, including the list of keys, are strictly customer-
     and API-specific, and are not under the responsibility of this class.
@@ -468,34 +414,6 @@ class CommonConfiguration(
         if id is None:
             raise ConfigurationError("Missing common configuration's 'id'")
         super().__init__(id=id, **kwargs)
-
-    async def get_common_settings(
-        self,
-        client_session: "IOManager.ClientSession",
-        already_visited: Optional[Set["CommonConfiguration.Id"]] = None,
-    ) -> Settings:
-        """
-        Return a :class:`Settings` instance containing all the
-        (non-interpolated) settings specified by this
-        :class:`CommonConfiguration`.
-
-        The resulting :class:`Settings` are computed by merging, by means of
-        :attr:`Settings.update` method, the contents of all the (optional)
-        :class:`CommonConfiguration`s referenced by
-        ``common_configuration_ids`` constructor parameter, in the same order
-        in which they are listed in that same ``common_configuration_ids``
-        parameter, and finally merging the contents of this
-        :class:`CommonConfiguration`.
-        Therefore, the settings from the aforementioned sequence of
-        :class:`CommonConfiguration` contributors are applied in the increasing
-        order of precedence. E.g. the settings from last contributor - i.e.
-        from this :class:`CommonConfiguration` - have higher precedence over
-        same-name settings from other :class:`CommonConfiguration`s
-        """
-        return await self.get_merged_settings(
-            client_session=client_session,
-            already_visited=already_visited,
-        )
 
 
 class MachineConfiguration(_MachineConfigurationSettings):
@@ -530,16 +448,16 @@ class MachineConfiguration(_MachineConfigurationSettings):
                 "Missing machine configuration's 'measurements' field"
             )
 
-    async def get_settings(
+    async def get_interpolated_settings(
         self,
         client_session: "IOManager.ClientSession",
         **kwargs,
     ) -> ("MachineConfiguration.SettingsType"):
         tasks = collections.OrderedDict(
             **{
-                measurement_id: measurement_configuration.get_settings(
+                measurement_id: self.__fetch_measurement_result(
                     client_session=client_session,
-                    machine_configuration=self,
+                    measurement_configuration=measurement_configuration,
                     **kwargs,
                 )
                 for measurement_id, measurement_configuration in self[
@@ -552,3 +470,23 @@ class MachineConfiguration(_MachineConfigurationSettings):
             measurement_id: result
             for measurement_id, result in zip(tasks.keys(), results)
         }
+
+    async def __fetch_measurement_result(
+        self,
+        measurement_configuration: MeasurementConfiguration,
+        client_session: "IOManager.ClientSession",
+        **kwargs,
+    ):
+        try:
+            return await measurement_configuration.get_interpolated_settings(
+                client_session=client_session,
+                machine_configuration=self,
+                **kwargs,
+            )
+        except Error as err:
+            err.index = [
+                self["id"],
+                "measurements",
+                measurement_configuration["id"],
+            ] + err.index
+            raise err from None

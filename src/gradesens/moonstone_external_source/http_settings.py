@@ -179,7 +179,7 @@ class HTTPTransactionSettings(
             **kwargs,
         )
 
-    class InterpolatedSettings(dict):
+    class InterpolatedSettings(Settings.InterpolatedSettings):
         async def fetch_result(
             self,
             client_session: "IOManager.ClientSession",
@@ -239,7 +239,7 @@ class HTTPTransactionSettings(
         :meth:`.InterpolatedSettings.fetch_result` on them,
         """
 
-        settings = await self.get_settings(
+        settings = await self.get_interpolated_settings(
             client_session=client_session, **kwargs
         )
         return await settings.fetch_result(client_session=client_session)

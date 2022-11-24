@@ -13,7 +13,19 @@ import abc
 import collections
 import re
 from datetime import date, datetime, time, timedelta
-from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    Optional,
+    Tuple,
+    Union,
+)
+
+if TYPE_CHECKING:
+    from .io_manager import IOManager
 
 from .datetime import Date, DateTime, Time, TimeDelta
 from .error import (
@@ -133,7 +145,13 @@ class Settings(dict):
         super().__init__(**initializer)
 
     def __getattr__(self, name):
-        return self[name]
+        try:
+            return self[name]
+        except KeyError:
+            pass
+        # Simply call `super().__getattr__(name)` to raise the stock
+        # AttributeError message
+        super().__getattr__(name)
 
     def __setitem__(self, key: KeyType, value: InputValueType):
         super().__setitem__(key, self.__normalize_value(value, key=key))
@@ -225,11 +243,59 @@ class Settings(dict):
                 err.index.insert(0, key)
             raise
 
-    class InterpolationContext(dict):
+    def public_keys(self) -> Iterable[str]:
+        yield from map(lambda item: item[0], self.public_items())
+
+    def public_values(self) -> Iterable[str]:
+        yield from map(lambda item: item[1], self.public_items())
+
+    def public_items(self) -> Iterable[Tuple[str, ValueType]]:
+        for key, value in self.items():
+            if key[:1] != "_":
+                yield key, value
+
+    def interpolation_keys(self) -> Iterable[str]:
+        """
+        Iterate over the keys to be retained for interpolation.
+
+        By default this method returns all public keys, but sub-classes can
+        further customize the set of interpolation output keys.
+        """
+        yield from self.public_keys()
+
+    def get_interpolation_parameters(
+        self, settings: "Settings"
+    ) -> Dict[str, ValueType]:
+        """
+        Return the dictionary of parameters to use in settings interpolations.
+
+        By default this method returns a dictionary with all items returned by
+        :meth:`.public_items`, but sub-classes can further customize the set
+        of interpolation parameters.
+        """
+        return dict(settings.public_items())
+
+    async def get_aggregated_settings(
+        self, client_session: "IOManager.ClientSession"
+    ) -> "Settings":
+        """
+        Return all aggregated settings for this :class:`Settings` instance.
+
+        By default, this method return a copy of `self`, but sub-classes can
+        specialize it to take into account settings coming from configuration
+        trees.
+        """
+        return Settings(self)
+
+    class InterpolatedSettings(dict):
+        """
+        Result from :meth:`get_interpolated_settings`
+        """
+
+    class InterpolationContext:
         ParametersType = Dict[str, Any]
 
-        def __init__(self, parameters: ParametersType, **kwargs):
-            super().__init__(kwargs)
+        def __init__(self, parameters: ParametersType):
             self.parameters = parameters
 
     class InterpolationSettings:
@@ -257,6 +323,45 @@ class Settings(dict):
                 f"{key}={repr(getattr(self, key))}" for key in ("interpolate",)
             )
             return f"{type(self).__name__}({params})"
+
+    async def get_interpolated_settings(
+        self,
+        client_session: "IOManager.ClientSession",
+        **kwargs: Dict[str, Any],
+    ) -> "Settings.InterpolatedSettings":
+        """
+        Return the settings computed from a full interpolation of this
+        :class:`Settings` instance.
+
+        Depending on the settings, this operation may require IO operations to
+        retrieve referenced configurations and/or to retrieve authentication
+        context settings.
+        """
+        settings = await self.get_aggregated_settings(
+            client_session=client_session, **kwargs
+        )
+
+        parameters = self.get_interpolation_parameters(
+            settings=settings, **kwargs
+        )
+
+        interpolation_keys = set(self.interpolation_keys())
+        settings = {
+            key: value
+            for key, value in settings.items()
+            if key in interpolation_keys
+        }
+
+        interpolation_context = Settings.InterpolationContext(
+            parameters=parameters,
+        )
+
+        return self.InterpolatedSettings(
+            self.interpolated_items_from_dict(
+                settings,
+                context=interpolation_context,
+            )
+        )
 
     def interpolate(self, *args, **kwargs) -> InterpolatedType:
         return dict(self.interpolated_items(*args, **kwargs))

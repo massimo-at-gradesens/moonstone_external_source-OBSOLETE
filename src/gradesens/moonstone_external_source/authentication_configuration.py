@@ -132,30 +132,6 @@ class AuthenticationConfiguration(
             raise ConfigurationError("Missing common configuration's 'id'")
         super().__init__(id=id, **kwargs)
 
-    async def get_settings(
-        self, client_session: "IOManager.ClientSession"
-    ) -> Settings.InterpolatedType:
-        """
-        Return the resolved (aka interpolated) settings for this
-        :class:`AuthenticationConfiguration`
-        """
-        settings = await self.get_merged_settings(client_session)
-        settings = {
-            key: value for key, value in settings.items() if not key[0] == "_"
-        }
-        parameters = settings
-
-        interpolation_context = Settings.InterpolationContext(
-            parameters=parameters,
-        )
-
-        return self.InterpolatedSettings(
-            self.interpolated_items_from_dict(
-                settings,
-                context=interpolation_context,
-            )
-        )
-
     async def authenticate(
         self,
         client_session: "IOManager.ClientSession",

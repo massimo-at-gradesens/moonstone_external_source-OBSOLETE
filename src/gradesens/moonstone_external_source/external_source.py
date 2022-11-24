@@ -56,7 +56,7 @@ class ExternalSource:
         # for timestamp in timestamps:
 
         for timestamp in timestamps:
-            # settings = await resolver.get_settings(
+            # settings = await resolver.get_aggregated_settings(
             #     start_time=timestamp - start_time_margin,
             #     end_time=timestamp + end_time_margin,
             # )
@@ -93,7 +93,7 @@ class ExternalSource:
         response: BackendDriver.Response,
         start_time: datetime,
         end_time: datetime,
-        settings: MeasurementConfiguration.SettingsType,
+        settings: MeasurementConfiguration.InterpolatedSettings,
     ):
         content_type = response.headers["content-type"]
 
@@ -114,7 +114,7 @@ class ExternalSource:
     def process_single_result(
         self,
         raw_result,
-        settings: MeasurementConfiguration.SettingsType,
+        settings: MeasurementConfiguration.InterpolatedSettings,
     ):
         pass
 

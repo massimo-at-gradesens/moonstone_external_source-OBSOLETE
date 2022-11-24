@@ -63,7 +63,7 @@ class ConfigurationIdsSettings(
         self._configuration_ids_field = _configuration_ids_field
         self._configuration_ids_get = _configuration_ids_get
 
-    async def get_merged_settings(
+    async def _get_merged_settings(
         self,
         client_session: "IOManager.ClientSession",
         already_visited: Optional[
@@ -72,7 +72,7 @@ class ConfigurationIdsSettings(
     ) -> Settings:
         """
         See details in
-        :meth:`ConfigurationIdsConfiguration.get_merged_settings`
+        :meth:`ConfigurationIdsConfiguration._get_merged_settings`
         """
         configuration_ids = self[self._configuration_ids_field]
         if len(configuration_ids) == 0:
@@ -87,7 +87,7 @@ class ConfigurationIdsSettings(
         if already_visited is None:
             already_visited = set()
         tasks = [
-            configuration.get_merged_settings(
+            configuration._get_merged_settings(
                 client_session=client_session, already_visited=already_visited
             )
             for configuration in configurations
@@ -107,7 +107,7 @@ class ConfigurationIdsConfiguration(ConfigurationIdsSettings):
     type, plus the support to load and merge, hierarchically, all such
     configurations in a :class:`Settings` instance.
 
-    See :meth:`.get_merged_settings` method for details about how the settings
+    See :meth:`._get_merged_settings` method for details about how the settings
     from the different configurations, including this one, are merged together.
     """
 
@@ -131,7 +131,12 @@ class ConfigurationIdsConfiguration(ConfigurationIdsSettings):
             raise ConfigurationError("Missing common configuration's 'id'")
         super().__init__(id=id, **kwargs)
 
-    async def get_merged_settings(
+    async def get_aggregated_settings(
+        self, client_session: "IOManager.ClientSession"
+    ) -> Settings:
+        return await self._get_merged_settings(client_session)
+
+    async def _get_merged_settings(
         self,
         client_session: "IOManager.ClientSession",
         already_visited: Optional[
@@ -171,7 +176,7 @@ class ConfigurationIdsConfiguration(ConfigurationIdsSettings):
                 )
             already_visited.add(configuration_id)
 
-        result = await super().get_merged_settings(
+        result = await super()._get_merged_settings(
             client_session=client_session,
             already_visited=already_visited,
         )

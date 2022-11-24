@@ -179,7 +179,7 @@ async def test_machine_settings_with_result(io_manager_1):
         mach_conf = await client_session.machine_configurations.get(
             "mach_w_result"
         )
-        settings = await mach_conf.get_settings(client_session)
+        settings = await mach_conf.get_interpolated_settings(client_session)
     expected = {
         "temperature": {
             "request": {
@@ -298,7 +298,7 @@ async def test_machine_result(io_manager_1):
         mach_conf = await client_session.machine_configurations.get(
             "mach_w_result"
         )
-        settings = await mach_conf.get_settings(client_session)
+        settings = await mach_conf.get_interpolated_settings(client_session)
 
     result = settings["temperature"].process_result(
         dict(

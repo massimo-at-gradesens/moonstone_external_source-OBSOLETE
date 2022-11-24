@@ -195,7 +195,9 @@ async def test_interpolated_measurement_settings(
 ):
     assert isinstance(machine_configuration_1, MachineConfiguration)
     async with io_manager_1.client_session() as client_session:
-        settings = await machine_configuration_1.get_settings(client_session)
+        settings = await machine_configuration_1.get_interpolated_settings(
+            client_session
+        )
     assert isinstance(settings, dict)
     assert not isinstance(settings, Settings)
 
@@ -243,7 +245,9 @@ async def test_interpolated_measurement_all_settings(
 ):
     assert isinstance(machine_configuration_1, MachineConfiguration)
     async with io_manager_1.client_session() as client_session:
-        settings = await machine_configuration_1.get_settings(client_session)
+        settings = await machine_configuration_1.get_interpolated_settings(
+            client_session
+        )
     assert isinstance(settings, dict)
     assert not isinstance(settings, Settings)
 
@@ -341,7 +345,7 @@ async def test_complex_interpolated_measurement_all_settings(
     async with io_manager_1.client_session() as client_session:
         mach_conf_2 = await client_session.machine_configurations.get("mach2")
         assert isinstance(mach_conf_2, MachineConfiguration)
-        settings = await mach_conf_2.get_settings(client_session)
+        settings = await mach_conf_2.get_interpolated_settings(client_session)
     assert isinstance(settings, dict)
     assert not isinstance(settings, Settings)
 
@@ -372,36 +376,36 @@ async def test_start_end_times(
             "mach_w_time"
         )
         with pytest.raises(TimeError) as exc:
-            await mach_conf_1.get_settings(
+            await mach_conf_1.get_interpolated_settings(
                 client_session,
                 start_time=DateTime.now(),
             )
         assert "start_time" in str(exc.value)
 
         with pytest.raises(TimeError) as exc:
-            await mach_conf_1.get_settings(
+            await mach_conf_1.get_interpolated_settings(
                 client_session,
                 end_time=DateTime.now(),
             )
         assert "end_time" in str(exc.value)
 
         with pytest.raises(PatternError) as exc:
-            await mach_conf_1.get_settings(
+            await mach_conf_1.get_interpolated_settings(
                 client_session,
             )
         with pytest.raises(PatternError) as exc:
-            await mach_conf_1.get_settings(
+            await mach_conf_1.get_interpolated_settings(
                 client_session,
                 start_time=DateTime.now(timezone.utc),
             )
         with pytest.raises(PatternError) as exc:
-            await mach_conf_1.get_settings(
+            await mach_conf_1.get_interpolated_settings(
                 client_session,
                 end_time=DateTime.now(timezone.utc),
             )
 
         settings = (
-            await mach_conf_1.get_settings(
+            await mach_conf_1.get_interpolated_settings(
                 client_session,
                 start_time=DateTime(
                     year=2022,
