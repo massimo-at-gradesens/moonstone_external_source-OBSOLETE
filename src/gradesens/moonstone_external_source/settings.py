@@ -337,7 +337,7 @@ class Settings(dict):
         :class:`Settings` instance.
 
         Depending on the settings, this operation may require IO operations to
-        retrieve referenced configurations and/or to retrieve authentication
+        retrieve referenced configurations and/or to retrieve authorization
         context settings.
         """
         settings = await self.get_aggregated_settings(
@@ -896,7 +896,7 @@ class TypeProcessor(Processor):
 
     KEY = "type"
     FIELDS = {"target"}
-    OPTIONAL_FIELDS = {"radix"}
+    OPTIONAL_FIELDS = {"radix", "allow_none"}
     INPUT_VALUE_REQUIRED = True
 
     class Converter:
@@ -979,11 +979,13 @@ class TypeProcessor(Processor):
         *,
         target: Optional[str] = None,
         radix: Optional[int] = None,
+        allow_none: Optional[bool] = None,
         **kwargs,
     ):
         if other is not None:
             assert target is None
             assert radix is None
+            assert allow_none is None
             assert not kwargs
             super().__init__(other)
             return
@@ -1042,6 +1044,17 @@ class TypeProcessor(Processor):
                 with_radix=False,
             )
 
+        if allow_none is not None:
+            try:
+                allow_none = self.CONVERTERS["bool"](allow_none)
+            except Error as err:
+                raise ConfigurationError(
+                    f"Processor {self.KEY}:"
+                    " invalid value for 'allow_none' field:"
+                    f" {err}"
+                ) from None
+            kwargs["allow_none"] = allow_none
+
         super().__init__(converter=converter, **kwargs)
 
     def process(
@@ -1049,8 +1062,16 @@ class TypeProcessor(Processor):
         value: Any,
     ) -> Any:
         converter = self["converter"]
+        if value is None:
+            if self.get("allow_none", False):
+                return None
+            raise DataTypeError(
+                f"Processor {self.KEY}: received None value."
+                " To support None values,"
+                " set the optional 'allow_none' field to True"
+            )
         try:
-            return self["converter"](value)
+            return converter(value)
         except Exception as err:
             raise DataTypeError(
                 f"Processor {self.KEY}:"

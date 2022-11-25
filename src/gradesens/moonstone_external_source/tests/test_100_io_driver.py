@@ -39,35 +39,35 @@ async def test_io_manager_token_expiration(
 ):
     async with io_manager_1.client_session() as client_session:
         assert (
-            client_session.io_driver.authentication_configuration_load_count
+            client_session.io_driver.authorization_configuration_load_count
             == 0
         )
-        assert client_session.authentication_contexts.cache.load_count == 0
+        assert client_session.authorization_contexts.cache.load_count == 0
 
-        await client_session.authentication_contexts.get("ac1")
+        await client_session.authorization_contexts.get("ac1")
         assert (
-            client_session.io_driver.authentication_configuration_load_count
+            client_session.io_driver.authorization_configuration_load_count
             == 1
         )
-        assert client_session.authentication_contexts.cache.load_count == 1
+        assert client_session.authorization_contexts.cache.load_count == 1
 
-        await client_session.authentication_contexts.get("ac1")
+        await client_session.authorization_contexts.get("ac1")
         assert (
-            client_session.io_driver.authentication_configuration_load_count
+            client_session.io_driver.authorization_configuration_load_count
             == 1
         )
-        assert client_session.authentication_contexts.cache.load_count == 1
+        assert client_session.authorization_contexts.cache.load_count == 1
 
-        await client_session.authentication_contexts.get("ac-expired")
+        await client_session.authorization_contexts.get("ac-expired")
         assert (
-            client_session.io_driver.authentication_configuration_load_count
+            client_session.io_driver.authorization_configuration_load_count
             == 2
         )
-        assert client_session.authentication_contexts.cache.load_count == 2
+        assert client_session.authorization_contexts.cache.load_count == 2
 
-        await client_session.authentication_contexts.get("ac-expired")
+        await client_session.authorization_contexts.get("ac-expired")
         assert (
-            client_session.io_driver.authentication_configuration_load_count
+            client_session.io_driver.authorization_configuration_load_count
             == 2
         )
-        assert client_session.authentication_contexts.cache.load_count == 3
+        assert client_session.authorization_contexts.cache.load_count == 3

@@ -21,7 +21,7 @@ def test_common_configuration(common_configuration_1):
         "id": "cc1",
         "_machine_configuration_ids": (),
         "request": {
-            "_authentication_configuration_id": "ac1",
+            "_authorization_configuration_id": "ac1",
             "url": (
                 "https://gradesens.com/{zone}/{machine_id}"
                 "/{device}/{measurement_id}"
@@ -29,7 +29,7 @@ def test_common_configuration(common_configuration_1):
             "headers": {
                 "head": "oval",
                 "fingers": "count_{finger_count}",
-                "bearer": "{request.authentication.token}",
+                "bearer": "{request.authorization.token}",
                 "test_processors_sun": {
                     "<process": [
                         {
@@ -102,7 +102,7 @@ def test_machine_configuration(machine_configuration_1):
         "id": "mach1",
         "_machine_configuration_ids": ("cc1",),
         "request": {
-            "_authentication_configuration_id": None,
+            "_authorization_configuration_id": None,
             "url": (
                 "https://gradesens.com/{zone}/MACHINE/{machine_id}/{device}"
                 "/{measurement_id}"
@@ -124,7 +124,7 @@ def test_machine_configuration(machine_configuration_1):
                 "_machine_configuration_ids": ("cc2",),
                 "region": "zurich",
                 "request": {
-                    "_authentication_configuration_id": None,
+                    "_authorization_configuration_id": None,
                     "url": None,
                     "headers": {},
                     "query_string": {
@@ -143,7 +143,7 @@ def test_machine_configuration(machine_configuration_1):
                 "id": "rpm",
                 "_machine_configuration_ids": (),
                 "request": {
-                    "_authentication_configuration_id": None,
+                    "_authorization_configuration_id": None,
                     "url": (
                         "https://gradesens.com/{zone}/{machine_id}"
                         "/{device}/RPM/{measurement_id}"
@@ -165,7 +165,7 @@ def test_machine_configuration(machine_configuration_1):
                 "id": "power",
                 "_machine_configuration_ids": ("cc2",),
                 "request": {
-                    "_authentication_configuration_id": None,
+                    "_authorization_configuration_id": None,
                     "url": None,
                     "headers": {
                         "animal": "cow",
@@ -207,7 +207,7 @@ async def test_interpolated_measurement_settings(
     expected = {
         "id": "temperature",
         "request": {
-            "authentication": {
+            "authorization": {
                 "token": "I am a secret",
                 "expires_in": timedelta(seconds=100),
             },
@@ -255,7 +255,7 @@ async def test_interpolated_measurement_all_settings(
         "temperature": {
             "id": "temperature",
             "request": {
-                "authentication": {
+                "authorization": {
                     "token": "I am a secret",
                     "expires_in": timedelta(seconds=100),
                 },
@@ -284,7 +284,7 @@ async def test_interpolated_measurement_all_settings(
         "rpm": {
             "id": "rpm",
             "request": {
-                "authentication": {
+                "authorization": {
                     "token": "I am a secret",
                     "expires_in": timedelta(seconds=100),
                 },
@@ -311,7 +311,7 @@ async def test_interpolated_measurement_all_settings(
         "power": {
             "id": "power",
             "request": {
-                "authentication": {
+                "authorization": {
                     "token": "I am a secret",
                     "expires_in": timedelta(seconds=100),
                 },
@@ -379,14 +379,14 @@ async def test_start_end_times(
         mach_conf_1 = await client_session.machine_configurations.get(
             "mach_w_time"
         )
-        with pytest.raises(TimeError) as exc:
+        with pytest.raises(TimeError) as exc_info:
             await mach_conf_1.get_interpolated_settings(
                 client_session,
                 timestamp=DateTime.now(),
             )
-        assert "timestamp" in str(exc.value)
+        assert "timestamp" in str(exc_info.value)
 
-        with pytest.raises(PatternError) as exc:
+        with pytest.raises(PatternError) as exc_info:
             await mach_conf_1.get_interpolated_settings(
                 client_session,
             )

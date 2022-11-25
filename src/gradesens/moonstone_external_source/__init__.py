@@ -6,9 +6,9 @@ __copyright__ = "Copyright 2022, GradeSens AG"
 
 
 from .async_concurrent_pool import AsyncConcurrentPool
-from .authentication_configuration import (
-    AuthenticationConfiguration,
-    AuthenticationContext,
+from .authorization_configuration import (
+    AuthorizationConfiguration,
+    AuthorizationContext,
 )
 from .backend_driver import AsyncHTTPBackendDriver, BackendDriver
 from .configuration import MachineConfiguration, MeasurementConfiguration
@@ -24,7 +24,7 @@ from .error import (
     PatternError,
     TimeError,
 )
-from .external_source import ExternalSource
+from .external_source import ExternalSourceSession
 from .http_settings import (
     HTTPRequestSettings,
     HTTPResultSettings,
@@ -36,8 +36,8 @@ from .settings import Settings
 __all__ = [
     "AsyncConcurrentPool",
     #
-    "AuthenticationConfiguration",
-    "AuthenticationContext",
+    "AuthorizationConfiguration",
+    "AuthorizationContext",
     #
     "BackendDriver",
     "AsyncHTTPBackendDriver",
@@ -60,7 +60,7 @@ __all__ = [
     "PatternError",
     "TimeError",
     #
-    "ExternalSource",
+    "ExternalSourceSession",
     #
     "HTTPRequestSettings",
     "HTTPResultSettings",

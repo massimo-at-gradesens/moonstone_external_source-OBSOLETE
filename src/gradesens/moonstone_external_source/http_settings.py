@@ -9,7 +9,7 @@ __author__ = "Massimo Ravasi"
 __copyright__ = "Copyright 2022, GradeSens AG"
 
 
-from typing import TYPE_CHECKING, Any, Dict, Optional, Type, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type, Union
 
 if TYPE_CHECKING:
     from .io_manager import IOManager
@@ -23,7 +23,7 @@ class HTTPRequestSettings(Settings):
     Configuration settings for a generic HTTP request.
 
     These configuration settings are used by
-    :class:`_MeasurementSettings` and :class:`_AuthenticationSettings`
+    :class:`_MeasurementSettings` and :class:`_AuthorizationSettings`
     """
 
     def __init__(
@@ -213,12 +213,22 @@ class HTTPTransactionSettings(
 
         def process_result(
             self, raw_result: "HTTPResultSettings.RawResultType"
-        ) -> "HTTPResultSettings.ResultType":
+        ) -> Union[
+            "HTTPResultSettings.ResultType",
+            List["HTTPResultSettings.ResultType"],
+        ]:
             """
             Parse a request's raw result, i.e. an HTTP response, according to
             the rules in ``self["result"]``
             """
 
+            if isinstance(raw_result, (list, tuple)):
+                return list(map(self.__process_result_item, raw_result))
+            return self.__process_result_item(raw_result)
+
+        def __process_result_item(
+            self, raw_result: "HTTPResultSettings.RawResultType"
+        ) -> "HTTPResultSettings.ResultType":
             parameters = dict(self)
             parameters.update(raw_result)
             interpolation_context = Settings.InterpolationContext(

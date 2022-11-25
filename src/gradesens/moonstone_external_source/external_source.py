@@ -27,45 +27,50 @@ class ResultEntry:
         self.value = value
 
 
-class ResultRow:
+class ResultRow(list):
     def __init__(
         self,
         timestamp: datetime,
         values: List[ResultEntry],
     ):
         self.timestamp = timestamp
-        self.values = values
+        super().__init__(values)
 
 
-class Result:
+class Result(list):
     def __init__(
         self,
         timestamps_and_values: Iterable[Tuple[datetime, Dict[str, Any]]],
     ):
+        super().__init__()
+
         timestamps_and_values = list(timestamps_and_values)
 
         self.headers = None
-        self.rows = []
 
         headers_map = {}
 
-        if len(timestamps_and_values):
+        if len(timestamps_and_values) == 0:
             return
 
         self.headers = []
         _, values = timestamps_and_values[0]
         for key in values.keys():
+            if isinstance(key, (list, tuple)):
+                key = key[0]
             self.headers.append(key)
             headers_map[key] = len(headers_map)
 
         for timestamp, values in timestamps_and_values:
             value_list = [None] * len(self.headers)
             for key, value in values.items():
+                if isinstance(value, (list, tuple)):
+                    value = value[0]
                 value_list[headers_map[key]] = ResultEntry(**value)
-            self.rows.append(ResultRow(timestamp=timestamp, values=value_list))
+            self.append(ResultRow(timestamp=timestamp, values=value_list))
 
 
-class ExternalSource:
+class ExternalSourceSession:
     """
     Retrieve measurement data from one or more external sources via concurrent
     requests.
@@ -73,12 +78,26 @@ class ExternalSource:
     an ``AsyncConcurrentPool``
     """
 
-    async def async_get_data(
+    def __init__(
+        self,
+        client_session: "IOManager.ClientSession",
+    ):
+        self.client_session = client_session
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        await self.close()
+
+    async def close(self):
+        pass
+
+    async def get_data(
         self,
         *,
-        client_session: "IOManager.ClientSession",
-        timestamps: Iterable[datetime],
         machine_id: MachineConfiguration.Id,
+        timestamps: Iterable[datetime],
     ) -> Result:
         machine_configuration = (
             await self.client_session.machine_configurations.get(machine_id)
@@ -87,15 +106,18 @@ class ExternalSource:
         timestamps = list(timestamps)
 
         request_tasks = []
-        task_pool = client_session.task_pool
+        task_pool = self.client_session.task_pool
         for timestamp in timestamps:
             request_tasks.append(
                 task_pool.schedule(
-                    machine_configuration.fetch_result(timestamp=timestamp)
+                    machine_configuration.fetch_result(
+                        client_session=self.client_session,
+                        timestamp=timestamp,
+                    )
                 )
             )
 
-        results = await asyncio.gather(*request_tasks.values())
+        results = await asyncio.gather(*request_tasks)
 
         result = Result(zip(timestamps, results))
         return result

@@ -209,7 +209,20 @@ class AsyncHTTPBackendDriver(BackendDriver):
                         headers=response.headers,
                     )
 
-                raise HTTPError(
-                    f"HTTP request to {url!r} failed",
-                    status=status,
-                )
+            headers = "\n".join(
+                f"  {key!r}: {value!r}" for key, value in headers.items()
+            )
+            query_string = "\n".join(
+                f"  {key!r}: {value!r}" for key, value in query_string.items()
+            )
+            raise HTTPError(
+                f"HTTP request failed:\n"
+                f"URL: {url!r}\n"
+                "HEADERS:\n"
+                f"{headers}\n"
+                "QUERY_STRING:\n"
+                f"{query_string}\n"
+                "DATA:\n"
+                f"{data!r}\n",
+                status=status,
+            )

@@ -101,6 +101,18 @@ def test_datetime():
         fold=0,
     )
 
+    value = tested_type("2022-07-25T12:40:31Z")
+    assert value == reference_type(
+        year=2022,
+        month=7,
+        day=25,
+        hour=12,
+        minute=40,
+        second=31,
+        tzinfo=timezone.utc,
+    )
+    assert value == tested_type("2022-07-25T12:40:31+00:00")
+
 
 def test_time():
     tested_type = Time
@@ -169,6 +181,15 @@ def test_time():
     value = tested_type(value)
     assert isinstance(value, reference_type)
     assert value == reference
+
+    value = tested_type("12:40:31Z")
+    assert value == reference_type(
+        hour=12,
+        minute=40,
+        second=31,
+        tzinfo=timezone.utc,
+    )
+    assert value == tested_type("12:40:31+00:00")
 
 
 def test_date():

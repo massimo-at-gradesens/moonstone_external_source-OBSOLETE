@@ -1,10 +1,8 @@
 """
 GradeSens - External Source package - Configuration support
 
-This file provides the configuration data classes to handle machine,
-maeasurement and authorization configurations.
-These configurations contain all the parameters requested to query the
-external measurements on the target machines.
+This file provides the configuration data classes to handle hierarchical
+references to other configurations from within a configuration.
 """
 __author__ = "Massimo Ravasi"
 __copyright__ = "Copyright 2022, GradeSens AG"

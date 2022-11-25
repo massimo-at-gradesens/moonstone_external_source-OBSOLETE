@@ -1,8 +1,8 @@
 """
 GradeSens - External Source package - Configuration support
 
-This file provides the configuration data classes to handle machine,
-maeasurement and authorization configurations.
+This file provides the configuration data classes to handle  authorization
+configurations.
 These configurations contain all the parameters requested to query the
 external measurements on the target machines.
 """
@@ -24,22 +24,22 @@ from .http_settings import HTTPTransactionSettings
 from .settings import Settings
 
 
-class AuthenticationContext(Settings):
+class AuthorizationContext(Settings):
     """
-    An :class:`AuthenticationContext` is nothing more than a ``[key, value]``
-    dictionary of authentication data.
+    An :class:`AuthorizationContext` is nothing more than a ``[key, value]``
+    dictionary of authorization data.
 
     The actual contents, including the list of keys, are strictly customer-
     and API-specific, and are not under the responsibility of this class.
     Rather, they are defined by configuration data structures used to
-    initialize the objects of :class:`AuthenticationConfiguration`.
-    See also :meth`IOManager.authentication_configurations.get` and
-    :meth:`AuthenticationConfiguration.authenticate`
+    initialize the objects of :class:`AuthorizationConfiguration`.
+    See also :meth`IOManager.authorization_configurations.get` and
+    :meth:`AuthorizationConfiguration.authenticate`
     """
 
     def __init__(
         self,
-        other: Optional["AuthenticationContext"] = None,
+        other: Optional["AuthorizationContext"] = None,
         /,
         **kwargs: Settings.InputType,
     ):
@@ -51,35 +51,35 @@ class AuthenticationContext(Settings):
         super().__init__(**kwargs)
 
 
-class AuthenticationConfiguration(
+class AuthorizationConfiguration(
     HTTPTransactionSettings,
     ConfigurationReferenceTarget,
     ConfigurationReferences,
 ):
     """
-    An :class:`AuthenticationConfiguration` provides the required configuration
-    to issue HTTP authentication requests and produced parsed output data from
-    successful authentication responses. Successfully parsed authentication
-    output data are instances of :class:`AuthenticationContext`s, which are
+    An :class:`AuthorizationConfiguration` provides the required configuration
+    to issue HTTP authorization requests and produced parsed output data from
+    successful authorization responses. Successfully parsed authorization
+    output data are instances of :class:`AuthorizationContext`s, which are
     used to grant access to specific resources to other API requests.
 
     See :class:`MachineConfiguration` about hierarchical resolution of
-    :class:`Settings` from trees of :class`AuthenticationConfiguration`
-    referencing each other via parameter ``authentication_configuration_ids``.
+    :class:`Settings` from trees of :class`AuthorizationConfiguration`
+    referencing each other via parameter ``authorization_configuration_ids``.
     """
 
     Id = str
 
     def __init__(
         self,
-        other: Optional["AuthenticationConfiguration"] = None,
+        other: Optional["AuthorizationConfiguration"] = None,
         /,
         *,
         id: Optional[Id] = None,
-        authentication_configuration_ids: Optional[
+        authorization_configuration_ids: Optional[
             Union[
-                Iterable["AuthenticationConfiguration.Id"],
-                "AuthenticationConfiguration.Id",
+                Iterable["AuthorizationConfiguration.Id"],
+                "AuthorizationConfiguration.Id",
             ]
         ] = None,
         _partial: Optional[bool] = None,
@@ -87,7 +87,7 @@ class AuthenticationConfiguration(
     ):
         if other is not None:
             assert id is None
-            assert authentication_configuration_ids is None
+            assert authorization_configuration_ids is None
             assert _partial is None
             assert not kwargs
             super().__init__(other)
@@ -98,13 +98,13 @@ class AuthenticationConfiguration(
 
         super().__init__(
             id=id,
-            authentication_configuration_ids=authentication_configuration_ids,
-            _configuration_ids_field="authentication_configuration_ids",
+            authorization_configuration_ids=authorization_configuration_ids,
+            _configuration_ids_field="authorization_configuration_ids",
             _configuration_ids_get=(
                 lambda client_session, configuration_id: (
                     (
-                        client_session.authentication_contexts
-                    ).authentication_configurations.get(configuration_id)
+                        client_session.authorization_contexts
+                    ).authorization_configurations.get(configuration_id)
                 )
             ),
             _partial=_partial,
@@ -114,9 +114,9 @@ class AuthenticationConfiguration(
     async def authenticate(
         self,
         client_session: "IOManager.ClientSession",
-    ) -> AuthenticationContext:
+    ) -> AuthorizationContext:
         try:
             return await self.fetch_result(client_session=client_session)
         except Error as err:
-            err.index.insert(0, f"Authentication configuration {self['id']!r}")
+            err.index.insert(0, f"Authorization configuration {self['id']!r}")
             raise

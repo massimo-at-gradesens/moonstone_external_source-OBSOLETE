@@ -18,7 +18,7 @@ async def test_common_configuration_nesting(
         "_machine_configuration_ids": (),
         "zone": "area42",
         "request": {
-            "_authentication_configuration_id": None,
+            "_authorization_configuration_id": None,
             "url": "123",
             "headers": {
                 "head": "oval",
@@ -45,7 +45,7 @@ async def test_common_configuration_nesting(
         "id": "cc2-n",
         "_machine_configuration_ids": (),
         "request": {
-            "_authentication_configuration_id": None,
+            "_authorization_configuration_id": None,
             "url": None,
             "headers": {
                 "square": "four sides",
@@ -67,7 +67,7 @@ async def test_common_configuration_nesting(
                 "id": "temperature",
                 "_machine_configuration_ids": (),
                 "request": {
-                    "_authentication_configuration_id": None,
+                    "_authorization_configuration_id": None,
                     "url": None,
                     "headers": {
                         "bicycle": "two wheels",
@@ -97,7 +97,7 @@ async def test_common_configuration_nesting(
         ),
         "zone": "area42",
         "request": {
-            "_authentication_configuration_id": None,
+            "_authorization_configuration_id": None,
             "url": "123",
             "headers": {
                 "head": "oval",
@@ -121,7 +121,7 @@ async def test_common_configuration_nesting(
                 "id": "temperature",
                 "_machine_configuration_ids": (),
                 "request": {
-                    "_authentication_configuration_id": None,
+                    "_authorization_configuration_id": None,
                     "url": None,
                     "headers": {
                         "bicycle": "two wheels",
@@ -140,7 +140,7 @@ async def test_common_configuration_nesting(
                 "id": "rpm",
                 "_machine_configuration_ids": (),
                 "request": {
-                    "_authentication_configuration_id": None,
+                    "_authorization_configuration_id": None,
                     "url": None,
                     "headers": {},
                     "query_string": {},
@@ -164,11 +164,11 @@ async def test_common_configuration_nesting_loop_failure(
 ):
     async with io_manager_1.client_session() as client_session:
         comm_conf = await client_session.machine_configurations.get("cc4-n")
-        with pytest.raises(ConfigurationError) as exc:
+        with pytest.raises(ConfigurationError) as exc_info:
             await comm_conf.get_aggregated_settings(client_session)
-        assert "loop" in str(exc).lower()
+        assert "loop" in str(exc_info).lower()
 
         comm_conf = await client_session.machine_configurations.get("cc5-n")
-        with pytest.raises(ConfigurationError) as exc:
+        with pytest.raises(ConfigurationError) as exc_info:
             await comm_conf.get_aggregated_settings(client_session)
-        assert "loop" in str(exc).lower()
+        assert "loop" in str(exc_info).lower()

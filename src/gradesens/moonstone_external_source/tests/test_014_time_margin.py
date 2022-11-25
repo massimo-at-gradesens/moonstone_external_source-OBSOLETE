@@ -26,7 +26,7 @@ def test_time_parsing():
     expected = {
         "id": "time-margin-mach",
         "request": {
-            "_authentication_configuration_id": None,
+            "_authorization_configuration_id": None,
             "start_time_margin": timedelta(minutes=2),
             "end_time_margin": timedelta(minutes=2),
             "url": None,
@@ -45,7 +45,7 @@ def test_time_parsing():
                 "_machine_configuration_ids": (),
                 "id": "temperature",
                 "request": {
-                    "_authentication_configuration_id": None,
+                    "_authorization_configuration_id": None,
                     "url": None,
                     "headers": {},
                     "query_string": {},
@@ -183,6 +183,6 @@ def test_time_marging_error():
         MachineConfiguration(**mach_conf)
 
         mach_conf["request"][key] = timedelta(-1)
-        with pytest.raises(Error) as err:
+        with pytest.raises(Error) as exc_info:
             MachineConfiguration(**mach_conf)
-        assert f"{key!r}" in str(err.value)
+        assert f"{key!r}" in str(exc_info.value)

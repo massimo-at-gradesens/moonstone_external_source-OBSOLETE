@@ -15,9 +15,9 @@ from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, Optional, Union
 
 from .async_concurrent_pool import AsyncConcurrentPool
-from .authentication_configuration import (
-    AuthenticationConfiguration,
-    AuthenticationContext,
+from .authorization_configuration import (
+    AuthorizationConfiguration,
+    AuthorizationContext,
 )
 from .backend_driver import AsyncHTTPBackendDriver, BackendDriver
 from .configuration import MachineConfiguration
@@ -33,9 +33,9 @@ class IODriver(abc.ABC):
     """
 
     @abc.abstractmethod
-    async def load_authentication_configuration(
-        self, id: AuthenticationConfiguration.Id
-    ) -> AuthenticationConfiguration:
+    async def load_authorization_configuration(
+        self, id: AuthorizationConfiguration.Id
+    ) -> AuthorizationConfiguration:
         """
         The actual load method, to be implemented by derived classes.
         """
@@ -161,14 +161,14 @@ class Cache:
             return entry.value
 
 
-class AuthenticationContextCache(Cache):
+class AuthorizationContextCache(Cache):
     class Entry(Cache.Entry):
         @property
         def expired(self):
             if super().expired:
                 return True
 
-            # check for authentication expiration
+            # check for authorization expiration
             now = datetime.now()
             for key, is_delta in (
                 ("expires_in", True),
@@ -194,22 +194,22 @@ class AuthenticationContextCache(Cache):
         self,
         entry_description: str,
         expiration_delay: timedelta,
-        async_load_configuration: Callable[[Any], AuthenticationConfiguration],
+        async_load_configuration: Callable[[Any], AuthorizationConfiguration],
     ):
         super().__init__(
             entry_description=entry_description,
             expiration_delay=expiration_delay,
             async_load_entry=None,  # load func managed by self.ClientSession
         )
-        self.authentication_configurations = Cache(
+        self.authorization_configurations = Cache(
             async_load_entry=async_load_configuration,
-            entry_description="authentication configuration",
+            entry_description="authorization configuration",
             expiration_delay=expiration_delay,
         )
 
     def clear(self):
         super().clear()
-        self.authentication_configurations.clear()
+        self.authorization_configurations.clear()
 
     class ClientSession(Cache.ClientSession):
         """
@@ -231,20 +231,20 @@ class AuthenticationContextCache(Cache):
                 io_manager=io_manager,
                 async_load_entry=self.authenticate,
             )
-            self.authentication_configurations = (
-                cache.authentication_configurations.client_session(
+            self.authorization_configurations = (
+                cache.authorization_configurations.client_session(
                     self.io_manager
                 )
             )
 
         async def close(self):
-            await self.authentication_configurations.close()
+            await self.authorization_configurations.close()
             await super().close()
 
         async def authenticate(
-            self, id: AuthenticationConfiguration.Id
-        ) -> AuthenticationContext:
-            auth_conf = await self.authentication_configurations.get(id)
+            self, id: AuthorizationConfiguration.Id
+        ) -> AuthorizationContext:
+            auth_conf = await self.authorization_configurations.get(id)
             return await auth_conf.authenticate(client_session=self.io_manager)
 
 
@@ -260,7 +260,7 @@ class IOManager:
         io_driver: IODriver,
         *,
         cache_expiration_delay: timedelta = Cache.DEFAULT_EXPIRATION_DELAY,
-        authentication_context_cache_factory=AuthenticationContextCache,
+        authorization_context_cache_factory=AuthorizationContextCache,
         common_configuration_cache_factory=Cache,
         machine_configuration_cache_factory=Cache,
         backend_driver: Optional[BackendDriver] = None,
@@ -270,11 +270,11 @@ class IOManager:
         self.__backend_driver = backend_driver
 
         self.__caches = dict(
-            authentication_contexts=authentication_context_cache_factory(
-                entry_description="authentication context",
+            authorization_contexts=authorization_context_cache_factory(
+                entry_description="authorization context",
                 expiration_delay=cache_expiration_delay,
                 async_load_configuration=(
-                    io_driver.load_authentication_configuration
+                    io_driver.load_authorization_configuration
                 ),
             ),
             machine_configurations=machine_configuration_cache_factory(

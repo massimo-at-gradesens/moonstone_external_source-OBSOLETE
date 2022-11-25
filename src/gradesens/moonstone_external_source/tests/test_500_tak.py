@@ -1,20 +1,22 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 
 from gradesens.moonstone_external_source import (
-    AuthenticationConfiguration,
+    AuthorizationConfiguration,
+    DateTime,
+    ExternalSourceSession,
     IODriver,
     IOManager,
     MachineConfiguration,
+    Settings,
 )
 
 from .configuration_fixtures import load_yaml
-from .utils import to_basic_types
 
 
 @pytest.fixture
-def authentication_configuration_oauth2_password():
+def authorization_configuration_oauth2_password():
     return load_yaml(
         """
     id: common:oauth2:password
@@ -28,7 +30,8 @@ def authentication_configuration_oauth2_password():
             password: "{password}"
             grant_type: password
     result:
-        token: "{access_token}"
+        access_token: "{access_token}"
+        token_type: "{token_type}"
         expiration_at:
             <process:
                 - eval: "datetime.now() + timedelta(seconds=expires_in)"
@@ -37,7 +40,22 @@ def authentication_configuration_oauth2_password():
 
 
 @pytest.fixture
-def authentication_configuration_tak_client():
+def common_configuration_oauth2_bearer():
+    return load_yaml(
+        """
+    id: common:oauth2:bearer
+
+    request:
+        headers:
+            Authorization: "\\
+                {request.authorization.token_type} \\
+                {request.authorization.access_token}"
+    """
+    )
+
+
+@pytest.fixture
+def authorization_configuration_tak_client():
     return load_yaml(
         """
     id: "tak:dev:client"
@@ -49,7 +67,7 @@ def authentication_configuration_tak_client():
 
 
 @pytest.fixture
-def authentication_configuration_tak_credentials():
+def authorization_configuration_tak_credentials():
     return load_yaml(
         """
     id: "tak:dev:creds"
@@ -61,11 +79,11 @@ def authentication_configuration_tak_credentials():
 
 
 @pytest.fixture
-def authentication_configuration_tak_dev():
+def authorization_configuration_tak_dev():
     return load_yaml(
         """
     id: tak:dev
-    authentication_configuration_ids:
+    authorization_configuration_ids:
         - "common:oauth2:password"
         - "tak:dev:client"
         - "tak:dev:creds"
@@ -92,16 +110,26 @@ def authentication_configuration_tak_dev():
 def common_configuration_tak():
     return load_yaml(
         """
-    id: common:tak
+    id: tak:common
+    machine_configuration_ids:
+        - common:oauth2:bearer
+
+    customer:
+        machine_type_to_description:
+            WH: WFIHotLoop
+            WC: WFIHotLoop
+            RC: ROLoop
+            WW: WFIDistillator
 
     request:
         query_string:
-            start: {request.start_time}
-            end: {request.end_time}
+            start: "{request.start_time.z_utc_format(timespec='microseconds')}"
+            end: "{request.end_time.z_utc_format(timespec='microseconds')}"
             item:
                 "/System/Core/CHQNC-Relay/CHQNC\\
                 /Redundant items for vibration monitoring\\
-                /ROLoop({customer.utility_unit})\\
+                /{customer.machine_type_to_description[customer.machine_type]}\\
+                ({customer.utility_unit})\\
                 /{customer.machine_type}{customer.machine_id}\\
                 /{customer.utility_unit}\\
                 _{customer.machine_type}{customer.machine_id}\\
@@ -110,28 +138,28 @@ def common_configuration_tak():
             secp: iwa
 
         headers:
-            client_id: "{request.authentication.client_id}"
-            client_secret: "{request.authentication.client_secret}"
-            env: "{request.authentication.env}"
+            client_id: "{request.authorization.client_id}"
+            client_secret: "{request.authorization.client_secret}"
+            env: "{request.authorization.env}"
 
     result:
         timestamp: "{ts}"
 
     measurements:
-        run:
-            result:
-                value:
-                    <process:
-                        type:
-                            target: bool
-                            input_key: v
-        power:
-            result:
-                value:
-                    <process:
-                        type:
-                            target: float
-                            input_key: v
+        # run:
+        #     result:
+        #         value:
+        #             <process:
+        #                 type:
+        #                     target: bool
+        #                     input_key: v
+        # power:
+        #     result:
+        #         value:
+        #             <process:
+        #                 type:
+        #                     target: float
+        #                     input_key: v
         temperature:
             result:
                 value:
@@ -139,13 +167,14 @@ def common_configuration_tak():
                         type:
                             target: float
                             input_key: v
-        rpm:
-            result:
-                value:
-                    <process:
-                        type:
-                            target: float
-                            input_key: v
+                            allow_none: yes
+        # rpm:
+        #     result:
+        #         value:
+        #             <process:
+        #                 type:
+        #                     target: float
+        #                     input_key: v
     """
     )
 
@@ -154,7 +183,7 @@ def common_configuration_tak():
 def common_configuration_tak_raw():
     return load_yaml(
         """
-    id: common:tak:raw-request
+    id: tak:common:raw-request
 
     request:
         time_margin: 10s
@@ -168,10 +197,10 @@ def common_configuration_tak_raw():
 def common_configuration_tak_aggregate():
     return load_yaml(
         """
-    id: common:tak:aggregate-request
+    id: tak:common:aggregate-request
 
     request:
-        time_margin: 10s
+        time_margin: 1m
 
         url: "{customer.base_url}/aggResponse"
     """
@@ -182,10 +211,10 @@ def common_configuration_tak_aggregate():
 def common_configuration_tak_dev():
     return load_yaml(
         """
-    id: common:tak:dev
+    id: tak:dev:common
 
     machine_configuration_ids:
-        - common:tak
+        - tak:common
 
     customer:
         base_url:
@@ -193,7 +222,7 @@ def common_configuration_tak_dev():
             /execfunction/tak-clarityenergy/api"
 
     request:
-        authentication_configuration_id: tak:dev
+        authorization_configuration_id: tak:dev
     """
     )
 
@@ -202,11 +231,11 @@ def common_configuration_tak_dev():
 def common_configuration_tak_raw_dev():
     return load_yaml(
         """
-    id: common:tak:raw-request:dev
+    id: tak:dev:common:raw-request
 
     machine_configuration_ids:
-        - common:tak:dev
-        - common:tak:raw-request
+        - tak:dev:common
+        - tak:common:raw-request
     """
     )
 
@@ -215,21 +244,21 @@ def common_configuration_tak_raw_dev():
 def common_configuration_tak_aggregate_dev():
     return load_yaml(
         """
-    id: common:tak:aggregate-request:dev
+    id: tak:dev:common:aggregate-request
 
     machine_configuration_ids:
-        - common:tak:dev
-        - common:tak:aggregate-request
+        - tak:dev:common
+        - tak:common:aggregate-request
     """
     )
 
 
 @pytest.fixture
-def machine_configuration_tak_dev_1():
+def machine_configuration_tak_mach_1_dev():
     return load_yaml(
         """
-    id: tak-mach-1
-    machine_configuration_ids: common:tak:aggregate-request:dev
+    id: tak:dev:mach-1
+    machine_configuration_ids: tak:dev:common:aggregate-request
 
     customer:
         utility_unit: ZU4
@@ -243,10 +272,12 @@ def machine_configuration_tak_dev_1():
 
 @pytest.fixture
 def io_driver_tak_dev(
-    authentication_configuration_oauth2_password,
-    authentication_configuration_tak_client,
-    authentication_configuration_tak_credentials,
-    authentication_configuration_tak_dev,
+    authorization_configuration_oauth2_password,
+    authorization_configuration_tak_client,
+    authorization_configuration_tak_credentials,
+    authorization_configuration_tak_dev,
+    #
+    common_configuration_oauth2_bearer,
     #
     common_configuration_tak,
     common_configuration_tak_raw,
@@ -255,20 +286,20 @@ def io_driver_tak_dev(
     common_configuration_tak_raw_dev,
     common_configuration_tak_aggregate_dev,
     #
-    machine_configuration_tak_dev_1,
+    machine_configuration_tak_mach_1_dev,
 ):
     class TestIODriver(IODriver):
         def __init__(
             self,
             *args,
-            authentication_configurations,
+            authorization_configurations,
             machine_configurations,
             **kwargs
         ):
             super().__init__(*args, **kwargs)
-            self.__authentication_configurations = {
-                item["id"]: AuthenticationConfiguration(**item)
-                for item in authentication_configurations
+            self.__authorization_configurations = {
+                item["id"]: AuthorizationConfiguration(**item)
+                for item in authorization_configurations
             }
 
             self.__machine_configurations = {
@@ -276,10 +307,10 @@ def io_driver_tak_dev(
                 for item in machine_configurations
             }
 
-        async def load_authentication_configuration(
-            self, id: AuthenticationConfiguration.Id
-        ) -> AuthenticationConfiguration:
-            return self.__authentication_configurations[id]
+        async def load_authorization_configuration(
+            self, id: AuthorizationConfiguration.Id
+        ) -> AuthorizationConfiguration:
+            return self.__authorization_configurations[id]
 
         async def load_machine_configuration(
             self, id: MachineConfiguration.Id
@@ -287,13 +318,15 @@ def io_driver_tak_dev(
             return self.__machine_configurations[id]
 
     return TestIODriver(
-        authentication_configurations=[
-            authentication_configuration_oauth2_password,
-            authentication_configuration_tak_client,
-            authentication_configuration_tak_credentials,
-            authentication_configuration_tak_dev,
+        authorization_configurations=[
+            authorization_configuration_oauth2_password,
+            authorization_configuration_tak_client,
+            authorization_configuration_tak_credentials,
+            authorization_configuration_tak_dev,
         ],
         machine_configurations=[
+            common_configuration_oauth2_bearer,
+            #
             common_configuration_tak,
             common_configuration_tak_raw,
             common_configuration_tak_aggregate,
@@ -301,7 +334,7 @@ def io_driver_tak_dev(
             common_configuration_tak_raw_dev,
             common_configuration_tak_aggregate_dev,
             #
-            machine_configuration_tak_dev_1,
+            machine_configuration_tak_mach_1_dev,
         ],
     )
 
@@ -314,17 +347,18 @@ def io_manager_tak_dev(io_driver_tak_dev):
 
 
 @pytest.mark.asyncio
-async def test_authentication(
+async def test_authorization(
     io_manager_tak_dev,
-    authentication_configuration_tak_dev,
-    authentication_configuration_tak_client,
+    authorization_configuration_tak_dev,
+    authorization_configuration_tak_client,
 ):
     async with io_manager_tak_dev.client_session() as client_session:
-        auth_context = await client_session.authentication_contexts.get(
+        auth_context = await client_session.authorization_contexts.get(
             "tak:dev"
         )
     assert set(auth_context.keys()) == {
-        "token",
+        "access_token",
+        "token_type",
         "expiration_at",
         "env",
         "client_id",
@@ -334,22 +368,39 @@ async def test_authentication(
     assert isinstance(auth_context["expiration_at"], datetime)
     assert auth_context["expiration_at"] > datetime.now()
 
-    assert auth_context["env"] == authentication_configuration_tak_dev["env"]
+    assert auth_context["env"] == authorization_configuration_tak_dev["env"]
     assert (
         auth_context["client_id"]
-        == authentication_configuration_tak_client["client_id"]
+        == authorization_configuration_tak_client["client_id"]
     )
     assert (
         auth_context["client_secret"]
-        == authentication_configuration_tak_client["client_secret"]
+        == authorization_configuration_tak_client["client_secret"]
     )
 
     async with io_manager_tak_dev.client_session() as client_session:
-        mach = await client_session.machine_configurations.get("tak-mach-1")
-        mach_settings = await mach.get_interpolated_settings(
-            client_session=client_session
+        mach = await client_session.machine_configurations.get(
+            "tak:dev:mach-1"
         )
+        mach_settings = await mach.get_interpolated_settings(
+            client_session=client_session,
+            timestamp=datetime.now(timezone.utc),
+        )
+        assert isinstance(mach_settings, Settings.InterpolatedSettings)
+        # import json
+        # from .utils import to_basic_types
+        # print(json.dumps(to_basic_types(mach_settings), indent=2))
 
-        import json
 
-        print(json.dumps(to_basic_types(mach_settings), indent=2))
+@pytest.mark.asyncio
+async def test_extenal_source(io_manager_tak_dev):
+    async with io_manager_tak_dev.client_session() as client_session:
+        async with ExternalSourceSession(client_session) as es_session:
+            result = await es_session.get_data(
+                machine_id="tak:dev:mach-1",
+                timestamps=[
+                    DateTime("2022-07-25T00:01:00+00:00"),
+                ],
+            )
+            for item in result:
+                print(item.timestamp, list(item))

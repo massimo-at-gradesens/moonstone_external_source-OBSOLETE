@@ -3,69 +3,69 @@ from datetime import timedelta
 import pytest
 
 from gradesens.moonstone_external_source import (
-    AuthenticationConfiguration,
-    AuthenticationContext,
+    AuthorizationConfiguration,
+    AuthorizationContext,
     IODriver,
     IOManager,
     MachineConfiguration,
 )
 from gradesens.moonstone_external_source.io_manager import (
-    AuthenticationContextCache,
+    AuthorizationContextCache,
 )
 
 from .utils import load_yaml
 
 
 @pytest.fixture
-def authentication_context_1():
-    return AuthenticationContext(
+def authorization_context_1():
+    return AuthorizationContext(
         token="I am a secret",
         expires_in=timedelta(seconds=100),
     )
 
 
 @pytest.fixture
-def authentication_configuration_1(authentication_context_1):
+def authorization_configuration_1(authorization_context_1):
     params = load_yaml(
         """
     id: ac1
     """
     )
 
-    class CustomAuthenticationConfiguration(AuthenticationConfiguration):
+    class CustomAuthorizationConfiguration(AuthorizationConfiguration):
         async def authenticate(
             self,
             client_session: IOManager.ClientSession,
-        ) -> AuthenticationContext:
-            return authentication_context_1
+        ) -> AuthorizationContext:
+            return authorization_context_1
 
-    return CustomAuthenticationConfiguration(**params)
+    return CustomAuthorizationConfiguration(**params)
 
 
 @pytest.fixture
-def authentication_context_expired():
-    return AuthenticationContext(
+def authorization_context_expired():
+    return AuthorizationContext(
         token="I am another secret",
         expires_in=timedelta(seconds=-1),
     )
 
 
 @pytest.fixture
-def authentication_configuration_expired(authentication_context_expired):
+def authorization_configuration_expired(authorization_context_expired):
     params = load_yaml(
         """
     id: ac-expired
     """
     )
 
-    class CustomAuthenticationConfiguration(AuthenticationConfiguration):
+    class CustomAuthorizationConfiguration(AuthorizationConfiguration):
         async def authenticate(
             self,
             client_session: IOManager.ClientSession,
-        ) -> AuthenticationContext:
-            return authentication_context_expired
+        ) -> AuthorizationContext:
+            return authorization_context_expired
 
-    return CustomAuthenticationConfiguration(**params)
+    return CustomAuthorizationConfiguration(**params)
 
 
 @pytest.fixture
@@ -77,7 +77,7 @@ def common_configuration_1():
     a_timestamp: "2022-11-12"
     hex_42: "2a"
     request:
-        authentication_configuration_id: ac1
+        authorization_configuration_id: ac1
         url:
             "https://gradesens.com/{zone}/{machine_id}/\
             {device}/{measurement_id}"
@@ -86,7 +86,7 @@ def common_configuration_1():
         headers:
             head: oval
             fingers: "count_{finger_count}"
-            bearer: "{request.authentication.token}"
+            bearer: "{request.authorization.token}"
             test_processors_sun:
                 <process:
                     - eval:
@@ -390,8 +390,8 @@ def common_configuration_nested_5_loop():
 
 @pytest.fixture
 def io_driver_1(
-    authentication_configuration_1,
-    authentication_configuration_expired,
+    authorization_configuration_1,
+    authorization_configuration_expired,
     common_configuration_1,
     common_configuration_2,
     common_configuration_with_result,
@@ -409,20 +409,20 @@ def io_driver_1(
         def __init__(
             self,
             *args,
-            authentication_configurations,
+            authorization_configurations,
             machine_configurations,
             **kwargs
         ):
             super().__init__(*args, **kwargs)
-            self.__authentication_configurations = self.__configuration_dict(
-                authentication_configurations
+            self.__authorization_configurations = self.__configuration_dict(
+                authorization_configurations
             )
 
             self.__machine_configurations = self.__configuration_dict(
                 machine_configurations
             )
 
-            self.authentication_configuration_load_count = 0
+            self.authorization_configuration_load_count = 0
             self.common_configuration_load_count = 0
             self.machine_configuration_load_count = 0
 
@@ -432,11 +432,11 @@ def io_driver_1(
             assert len(ids) == len(set(ids))
             return {item["id"]: item for item in values}
 
-        async def load_authentication_configuration(
-            self, id: AuthenticationConfiguration.Id
-        ) -> AuthenticationConfiguration:
-            self.authentication_configuration_load_count += 1
-            return self.__authentication_configurations[id]
+        async def load_authorization_configuration(
+            self, id: AuthorizationConfiguration.Id
+        ) -> AuthorizationConfiguration:
+            self.authorization_configuration_load_count += 1
+            return self.__authorization_configurations[id]
 
         async def load_machine_configuration(
             self, id: MachineConfiguration.Id
@@ -445,9 +445,9 @@ def io_driver_1(
             return self.__machine_configurations[id]
 
     return TestIODriver(
-        authentication_configurations=[
-            authentication_configuration_1,
-            authentication_configuration_expired,
+        authorization_configurations=[
+            authorization_configuration_1,
+            authorization_configuration_expired,
         ],
         machine_configurations=[
             common_configuration_1,
@@ -468,15 +468,15 @@ def io_driver_1(
 
 @pytest.fixture
 def io_manager_1(io_driver_1):
-    class TestAuthenticationContextCache(AuthenticationContextCache):
+    class TestAuthorizationContextCache(AuthorizationContextCache):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.load_count = 0
 
-        class ClientSession(AuthenticationContextCache.ClientSession):
+        class ClientSession(AuthorizationContextCache.ClientSession):
             async def authenticate(
-                self, id: AuthenticationConfiguration.Id
-            ) -> AuthenticationContext:
+                self, id: AuthorizationConfiguration.Id
+            ) -> AuthorizationContext:
                 self.cache.load_count += 1
                 return await super().authenticate(id)
 
@@ -504,5 +504,5 @@ def io_manager_1(io_driver_1):
 
     return TestIOManager(
         io_driver_1,
-        authentication_context_cache_factory=TestAuthenticationContextCache,
+        authorization_context_cache_factory=TestAuthorizationContextCache,
     )

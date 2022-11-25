@@ -1,8 +1,8 @@
 """
 GradeSens - External Source package - Configuration support
 
-This file provides the configuration data classes to handle machine,
-maeasurement and authorization configurations.
+This file provides the configuration data classes to handle machine and
+maeasurement configurations.
 These configurations contain all the parameters requested to query the
 external measurements on the target machines.
 """
@@ -11,14 +11,13 @@ __copyright__ = "Copyright 2022, GradeSens AG"
 
 
 import asyncio
-import collections
 from datetime import datetime
 from typing import TYPE_CHECKING, Dict, Iterable, Optional, Union
 
 if TYPE_CHECKING:
     from .io_manager import IOManager
 
-from .authentication_configuration import AuthenticationConfiguration
+from .authorization_configuration import AuthorizationConfiguration
 from .configuration_references import (
     ConfigurationReferences,
     ConfigurationReferenceTarget,
@@ -45,8 +44,8 @@ class _MeasurementRequestSettings(HTTPRequestSettings):
         other: Optional["_MeasurementRequestSettings"] = None,
         /,
         *,
-        authentication_configuration_id: Optional[
-            AuthenticationConfiguration.Id
+        authorization_configuration_id: Optional[
+            AuthorizationConfiguration.Id
         ] = None,
         start_time: Optional[TimeDelta.InputType] = None,
         end_time: Optional[TimeDelta.InputType] = None,
@@ -56,7 +55,7 @@ class _MeasurementRequestSettings(HTTPRequestSettings):
         **kwargs: Settings.InputType,
     ):
         if other is not None:
-            assert authentication_configuration_id is None
+            assert authorization_configuration_id is None
             assert start_time is None
             assert end_time is None
             assert time_margin is None
@@ -105,12 +104,12 @@ class _MeasurementRequestSettings(HTTPRequestSettings):
             if value is not None:
                 kwargs[key] = value
 
-        if "_authentication_configuration_id" in kwargs:
-            assert authentication_configuration_id is None
+        if "_authorization_configuration_id" in kwargs:
+            assert authorization_configuration_id is None
         else:
             kwargs[
-                "_authentication_configuration_id"
-            ] = authentication_configuration_id
+                "_authorization_configuration_id"
+            ] = authorization_configuration_id
         super().__init__(
             **kwargs,
         )
@@ -256,24 +255,24 @@ class MeasurementConfiguration(_MeasurementSettings):
         settings.update(self)
 
         request_settings = settings["request"]
-        authentication_configuration_id = request_settings[
-            "_authentication_configuration_id"
+        authorization_configuration_id = request_settings[
+            "_authorization_configuration_id"
         ]
-        if authentication_configuration_id is not None:
-            authentication_context = (
-                await client_session.authentication_contexts.get(
-                    authentication_configuration_id
+        if authorization_configuration_id is not None:
+            authorization_context = (
+                await client_session.authorization_contexts.get(
+                    authorization_configuration_id
                 )
             )
             try:
-                authentication_settings = request_settings["authentication"]
+                authorization_settings = request_settings["authorization"]
             except KeyError:
-                authentication_settings = authentication_context
+                authorization_settings = authorization_context
             else:
-                authentication_context.update(
-                    Settings._RawInit(authentication_settings)
+                authorization_context.update(
+                    Settings._RawInit(authorization_settings)
                 )
-            request_settings["authentication"] = authentication_context
+            request_settings["authorization"] = authorization_context
 
         if timestamp is not None:
             self.__assert_aware_time("timestamp", timestamp)
@@ -409,31 +408,30 @@ class MachineConfiguration(
             )
             return result
 
-        measurements = self["measurements"]
+        measurements = list(self["measurements"].values())
         if len(measurements) == 0:
             raise ConfigurationError(
                 f"Machine {self.id!r}: No measurements specified"
             )
 
-        tasks = collections.OrderedDict(
+        tasks = [
+            self.__get_measurement_interpolated_settings(
+                client_session=client_session,
+                measurement_configuration=measurement,
+                **kwargs,
+            )
+            for measurement in measurements
+        ]
+
+        results = await asyncio.gather(*tasks)
+        return self.InterpolatedSettings(
             **{
-                measurement_id: self.__fetch_measurement_result(
-                    client_session=client_session,
-                    measurement_configuration=measurement_configuration,
-                    **kwargs,
-                )
-                for measurement_id, measurement_configuration in (
-                    measurements.items()
-                )
+                measurement.id: result
+                for measurement, result in zip(measurements, results)
             }
         )
-        results = await asyncio.gather(*tasks.values())
-        return {
-            measurement_id: result
-            for measurement_id, result in zip(tasks.keys(), results)
-        }
 
-    async def __fetch_measurement_result(
+    async def __get_measurement_interpolated_settings(
         self,
         measurement_configuration: MeasurementConfiguration,
         client_session: "IOManager.ClientSession",
@@ -452,3 +450,22 @@ class MachineConfiguration(
                 measurement_configuration["id"],
             ] + err.index
             raise err from None
+
+    async def fetch_result(
+        self, client_session: "IOManager.ClientSession", **kwargs
+    ) -> "HTTPResultSettings.ResultType":
+        settings = await self.get_interpolated_settings(
+            client_session=client_session, keep_all=True, **kwargs
+        )
+        tasks = []
+        measurements = list(settings.values())
+        for measurement in measurements:
+            tasks.append(
+                measurement.fetch_result(client_session=client_session)
+            )
+        results = await asyncio.gather(*tasks)
+
+        return {
+            measurement["id"]: result
+            for measurement, result in zip(measurements, results)
+        }

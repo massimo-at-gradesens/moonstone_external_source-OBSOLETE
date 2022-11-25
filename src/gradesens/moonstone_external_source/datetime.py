@@ -7,7 +7,7 @@ __author__ = "Massimo Ravasi"
 __copyright__ = "Copyright 2022, GradeSens AG"
 
 
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Union
 
 from pytimeparse import parse as parse_seconds
@@ -64,11 +64,17 @@ class DateTime(datetime):
     def combine(cls, *args, **kwargs) -> "DateTime":
         return DateTime(datetime.combine(*args, **kwargs))
 
+    def z_utc_format(self, *args, **kwargs) -> "str":
+        tmp = self.astimezone(timezone.utc)
+        return tmp.replace(tzinfo=None).isoformat(*args, **kwargs) + "Z"
+
     @classmethod
     def __convert(cls, value):
         if isinstance(value, datetime):
             return value
         if isinstance(value, str):
+            if value[-1:].lower() == "z":
+                value = value[:-1] + "+00:00"
             return datetime.fromisoformat(value)
         if isinstance(value, float):
             return datetime.fromtimestamp(value)
@@ -172,6 +178,8 @@ class Time(time):
         if isinstance(value, time):
             return value
         if isinstance(value, str):
+            if value[-1:].lower() == "z":
+                value = value[:-1] + "+00:00"
             return time.fromisoformat(value)
         if isinstance(value, float):
             second, decimal = divmod(value, 1)
