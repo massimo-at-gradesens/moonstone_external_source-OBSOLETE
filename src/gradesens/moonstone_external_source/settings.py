@@ -919,6 +919,43 @@ class TypeProcessor(Processor):
         def __repr__(self):
             return f"{type(self).__name__}[{self.name}]"
 
+    class BoolConverter(Converter):
+        def __init__(self):
+            super().__init__(name="bool", convert_func=self.__convert)
+
+        __MAP = collections.OrderedDict(
+            (
+                ("true", True),
+                ("t", True),
+                ("yes", True),
+                ("y", True),
+                ("on", True),
+                ("+", True),
+                ("1", True),
+                ("false", False),
+                ("f", False),
+                ("no", False),
+                ("n", False),
+                ("off", False),
+                ("-", False),
+                ("0", False),
+            )
+        )
+
+        @classmethod
+        def __convert(cls, value):
+            if isinstance(value, str):
+                value2 = value.strip()
+                try:
+                    return cls.__MAP[value2.lower()]
+                except KeyError:
+                    raise DataTypeError(
+                        f"Invalid boolean literal {value2!r}."
+                        " Accepted literals (case-insensitive):"
+                        f" {', '.join(map(repr, cls.__MAP))}"
+                    )
+            return bool(value)
+
     CONVERTERS = collections.OrderedDict(
         tuple(
             (converter.name, converter)
@@ -926,7 +963,7 @@ class TypeProcessor(Processor):
                 Converter(str),
                 Converter(int, with_radix=True),
                 Converter(float),
-                Converter(bool),
+                BoolConverter(),
                 Converter(DateTime, "datetime"),
                 Converter(Date, "date"),
                 Converter(Time, "time"),

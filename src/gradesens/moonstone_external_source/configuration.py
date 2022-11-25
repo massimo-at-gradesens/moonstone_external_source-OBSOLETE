@@ -357,7 +357,8 @@ class MachineConfiguration(
         elif not isinstance(measurements, dict):
             raise ConfigurationError(
                 "'dict' expected for 'measurements' field,"
-                f" instead of {type(measurements).__name__}: {measurements!r}"
+                f" instead of {type(measurements).__name__!r}:"
+                f" {measurements!r}"
             )
             # this is coming from some "clone" copy operation
         measurement_dict = {}
