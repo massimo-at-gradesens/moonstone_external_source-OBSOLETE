@@ -239,6 +239,6 @@ class HTTPTransactionSettings(
         """
 
         settings = await self.get_interpolated_settings(
-            client_session=client_session, **kwargs
+            client_session=client_session, keep_all=True, **kwargs
         )
         return await settings.fetch_result(client_session=client_session)

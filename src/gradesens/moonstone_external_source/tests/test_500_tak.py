@@ -16,7 +16,7 @@ from .configuration_fixtures import load_yaml
 
 @pytest.fixture
 def authentication_configuration_oauth2_password():
-    params = load_yaml(
+    return load_yaml(
         """
     id: oauth2:password
 
@@ -35,12 +35,11 @@ def authentication_configuration_oauth2_password():
                 - eval: "datetime.now() + timedelta(seconds=expires_in)"
     """
     )
-    return AuthenticationConfiguration(**params)
 
 
 @pytest.fixture
 def authentication_configuration_tak_client():
-    params = load_yaml(
+    return load_yaml(
         """
     id: "tak-dev:client"
 
@@ -48,12 +47,11 @@ def authentication_configuration_tak_client():
     client_secret: c50Be97912A5447eA2678295316a1eF4
     """
     )
-    return AuthenticationConfiguration(**params)
 
 
 @pytest.fixture
 def authentication_configuration_tak_credentials():
-    params = load_yaml(
+    return load_yaml(
         """
     id: "tak-dev:creds"
 
@@ -61,12 +59,11 @@ def authentication_configuration_tak_credentials():
     password: nDOTIa1faQmQHNBsu9KZ
     """
     )
-    return AuthenticationConfiguration(**params)
 
 
 @pytest.fixture
 def authentication_configuration_tak_dev():
-    params = load_yaml(
+    return load_yaml(
         """
     id: tak-dev
     authentication_configuration_ids:
@@ -86,14 +83,15 @@ def authentication_configuration_tak_dev():
             authority: ad
     result:
         env: "{env}"
+        client_id: "{client_id}"
+        client_secret: "{client_secret}"
     """
     )
-    return AuthenticationConfiguration(**params)
 
 
 @pytest.fixture
-def common_configuration_tak_dev_1():
-    params = load_yaml(
+def common_configuration_tak():
+    return load_yaml(
         """
     id: tak-common
 
@@ -131,18 +129,16 @@ def common_configuration_tak_dev_1():
                             input_key: v
     """
     )
-    return MachineConfiguration(**params)
 
 
 @pytest.fixture
 def machine_configuration_tak_dev_1():
-    params = load_yaml(
+    return load_yaml(
         """
     id: tak-mach-1
     machine_configuration_ids: tak-common
     """
     )
-    return MachineConfiguration(**params)
 
 
 @pytest.fixture
@@ -152,7 +148,7 @@ def io_driver_tak_dev(
     authentication_configuration_tak_credentials,
     authentication_configuration_tak_dev,
     #
-    common_configuration_tak_dev_1,
+    common_configuration_tak,
     #
     machine_configuration_tak_dev_1,
 ):
@@ -166,11 +162,13 @@ def io_driver_tak_dev(
         ):
             super().__init__(*args, **kwargs)
             self.__authentication_configurations = {
-                item["id"]: item for item in authentication_configurations
+                item["id"]: AuthenticationConfiguration(**item)
+                for item in authentication_configurations
             }
 
             self.__machine_configurations = {
-                item["id"]: item for item in machine_configurations
+                item["id"]: MachineConfiguration(**item)
+                for item in machine_configurations
             }
 
         async def load_authentication_configuration(
@@ -191,7 +189,7 @@ def io_driver_tak_dev(
             authentication_configuration_tak_dev,
         ],
         machine_configurations=[
-            common_configuration_tak_dev_1,
+            common_configuration_tak,
             machine_configuration_tak_dev_1,
         ],
     )
@@ -205,7 +203,11 @@ def io_manager_tak_dev(io_driver_tak_dev):
 
 
 @pytest.mark.asyncio
-async def test_authentication(io_manager_tak_dev):
+async def test_authentication(
+    io_manager_tak_dev,
+    authentication_configuration_tak_dev,
+    authentication_configuration_tak_client,
+):
     async with io_manager_tak_dev.client_session() as client_session:
         auth_context = await client_session.authentication_contexts.get(
             "tak-dev"
@@ -214,20 +216,29 @@ async def test_authentication(io_manager_tak_dev):
         "token",
         "expiration_at",
         "env",
+        "client_id",
+        "client_secret",
     }
 
     assert isinstance(auth_context["expiration_at"], datetime)
     assert auth_context["expiration_at"] > datetime.now()
 
-    assert auth_context["env"] == "dev"
+    assert auth_context["env"] == authentication_configuration_tak_dev["env"]
+    assert (
+        auth_context["client_id"]
+        == authentication_configuration_tak_client["client_id"]
+    )
+    assert (
+        auth_context["client_secret"]
+        == authentication_configuration_tak_client["client_secret"]
+    )
 
-    async with io_manager_tak_dev.client_session() as client_session:
-        _ = await client_session.machine_configurations.get("tak-mach-1")
-        # mach = await mach.get_interpolated_settings(
-        #    client_session=client_session
-        # )
-
-        # import json
-
-
-#        print(json.dumps(to_basic_types(mach), indent=2))
+    # async with io_manager_tak_dev.client_session() as client_session:
+    #     mach = await client_session.machine_configurations.get("tak-mach-1")
+    #     mach_seetings = await mach.get_interpolated_settings(
+    #        client_session=client_session
+    #     )
+    #
+    #     import json
+    #
+    #     print(json.dumps(to_basic_types(mach_settings), indent=2))

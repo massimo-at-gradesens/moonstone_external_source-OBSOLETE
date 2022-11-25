@@ -329,6 +329,7 @@ class Settings(dict):
     async def get_interpolated_settings(
         self,
         client_session: "IOManager.ClientSession",
+        keep_all: bool = False,
         **kwargs: Dict[str, Any],
     ) -> "Settings.InterpolatedSettings":
         """
@@ -347,11 +348,19 @@ class Settings(dict):
             settings=settings, **kwargs
         )
 
-        interpolation_keys = set(self.interpolation_keys())
+        if keep_all:
+
+            def key_filter(key):
+                return not key.startswith("_")
+
+        else:
+            interpolation_keys = set(self.interpolation_keys())
+
+            def key_filter(key):
+                return key in interpolation_keys
+
         settings = {
-            key: value
-            for key, value in settings.items()
-            if key in interpolation_keys
+            key: value for key, value in settings.items() if key_filter(key)
         }
 
         interpolation_context = Settings.InterpolationContext(
