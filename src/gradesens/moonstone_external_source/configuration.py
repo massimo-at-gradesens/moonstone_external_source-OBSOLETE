@@ -13,7 +13,7 @@ __copyright__ = "Copyright 2022, GradeSens AG"
 import asyncio
 import collections
 from datetime import datetime
-from typing import TYPE_CHECKING, Dict, Iterable, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Dict, Iterable, Optional, Union
 
 if TYPE_CHECKING:
     from .io_manager import IOManager
@@ -337,7 +337,7 @@ class MachineConfiguration(
         /,
         *,
         id: Optional[Id] = None,
-        measurements: Optional[Sequence[Settings.InputType]] = None,
+        measurements: Optional[Settings.InputValueType] = None,
         _partial: Optional[bool] = None,
         **kwargs,
     ):
@@ -353,19 +353,31 @@ class MachineConfiguration(
             raise ConfigurationError("Missing machine configuration's 'id'")
 
         if measurements is None:
-            measurements = []
-        elif isinstance(measurements, dict):
+            measurements = {}
+        elif not isinstance(measurements, dict):
+            raise ConfigurationError(
+                "'dict' expected for 'measurements' field,"
+                f" instead of {type(measurements).__name__}: {measurements!r}"
+            )
             # this is coming from some "clone" copy operation
-            measurements = list(measurements.values())
         measurement_dict = {}
-        for index, measurement in enumerate(measurements):
-            measurement_id = measurement["id"]
-            if measurement_id in measurement_dict:
-                raise ConfigurationError(
-                    f"Duplicate measurement {measurement_id!r}",
-                    index="measurements",
-                )
+        for measurement_id, measurement in measurements.items():
+            if measurement is None:
+                measurement = {}
             try:
+                try:
+                    measurement_id2 = measurement["id"]
+                    if measurement_id2 is None:
+                        raise KeyError
+                except KeyError:
+                    measurement["id"] = measurement_id
+                else:
+                    if measurement_id != measurement_id2:
+                        raise ConfigurationError(
+                            "Mismatching measurement IDs:"
+                            f" {measurement_id!r} from key vs"
+                            f" {measurement_id2!r} from value"
+                        )
                 measurement_dict[measurement_id] = MeasurementConfiguration(
                     **measurement
                 )

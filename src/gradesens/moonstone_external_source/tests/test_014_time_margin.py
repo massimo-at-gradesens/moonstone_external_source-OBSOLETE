@@ -19,7 +19,7 @@ def test_time_parsing():
     request:
         time_margin: 2m
     measurements:
-        - id: temperature
+        temperature:
     """
         )
     )
@@ -73,7 +73,7 @@ def test_time_parsing():
         start_time_margin: "17:21"
 
     measurements:
-        - id: temperature
+        temperature:
     """
         )
     )
@@ -96,7 +96,7 @@ def test_time_parsing():
         end_time_margin: 13 hours
 
     measurements:
-        - id: temperature
+        temperature:
     """
         )
     )
@@ -115,7 +115,7 @@ def test_time_parsing():
         end_time_margin: 13 hours
 
     measurements:
-        - id: temperature
+        temperature:
     """
         )
     )
@@ -132,7 +132,7 @@ def test_time_parsing():
         end_time_margin: 13 hours
 
     measurements:
-        - id: temperature
+        temperature:
     """
         )
     )
@@ -149,7 +149,7 @@ def test_time_parsing():
         start_time_margin: 33 days
 
     measurements:
-        - id: temperature
+        temperature:
     """
         )
     )
@@ -167,7 +167,7 @@ def test_time_marging_error():
             start_time_margin: 1
             end_time_margin: 1
         measurements:
-            - id: temperature
+            temperature:
         """
     )
 

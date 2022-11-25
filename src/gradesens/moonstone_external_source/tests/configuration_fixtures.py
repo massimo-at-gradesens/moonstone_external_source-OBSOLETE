@@ -143,7 +143,7 @@ def machine_configuration_1():
             "https://gradesens.com/{zone}/MACHINE/{machine_id}\\
             /{device}/{measurement_id}"
     measurements:
-        -   id: temperature
+        temperature:
             region: zurich
             machine_configuration_ids: cc2
             request:
@@ -151,7 +151,7 @@ def machine_configuration_1():
                     depth: "12"
                     width: P_{param}_xx
 
-        -   id: rpm
+        rpm:
             region: Wallis
             request:
                 url:
@@ -160,7 +160,7 @@ def machine_configuration_1():
                 query_string:
                     dune: worms
 
-        -   id: power
+        power:
             machine_configuration_ids: cc2
             request:
                 headers:
@@ -182,7 +182,7 @@ def machine_configuration_2():
         one: tw0
         three: FouR
     measurements:
-        -   id: temperature
+        temperature:
             request:
                 url: "this is a 4: {mapping[another_key.lower()]}"
                 query_string:
@@ -199,7 +199,7 @@ def machine_configuration_with_time():
         """
     id: mach_w_time
     measurements:
-        -   id: temperature
+        temperature:
             request:
                 time_margin: 2s
                 query_string:
@@ -216,7 +216,7 @@ def common_configuration_with_result():
         r"""
     id: cc_w_result
     measurements:
-        -   id: temperature
+        temperature:
             result:
                 value:
                     <process:
@@ -225,7 +225,7 @@ def common_configuration_with_result():
                             pattern: "^(.*)$"
                             replacement: ">>\\1<<"
                         - type: float
-        -   id: rpm
+        rpm:
             result:
                 timestamp:
                     <process:
@@ -252,7 +252,7 @@ def machine_configuration_with_result():
         value: "{get}{the}{raw}"
     out_field2: 2022-11-19
     measurements:
-        -   id: temperature
+        temperature:
             result:
                 value:
                     <process:
@@ -262,7 +262,7 @@ def machine_configuration_with_result():
                 timestamp:
                     <process:
                         interpolate: "{temp_ts_raw}"
-        -   id: rpm
+        rpm:
             result:
                 value:
                     <process:
@@ -284,7 +284,7 @@ def machine_configuration_with_result():
                             pattern: "^(?P<d>.*)-(?P<y>.*)-(?P<m>.*)$"
                             replacement: "\\g<y>-\\g<m>-\\g<d>"
                         - type: date
-        -   id: humidity
+        humidity:
             result:
                 timestamp:
                     <process:
@@ -329,7 +329,7 @@ def common_configuration_nested_2():
             square: four sides
             circle: round
     measurements:
-        -   id: temperature
+        temperature:
             request:
                 headers:
                     bicycle: two wheels
@@ -352,11 +352,11 @@ def common_configuration_nested_3():
         headers:
             circle: really ROUND
     measurements:
-        -   id: temperature
+        temperature:
             request:
                 headers:
                     token: password
-        -   id: rpm
+        rpm:
     """
     )
     return MachineConfiguration(**params)

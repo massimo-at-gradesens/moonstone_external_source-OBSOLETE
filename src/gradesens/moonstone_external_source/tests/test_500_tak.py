@@ -118,12 +118,13 @@ def common_configuration_tak():
         timestamp: "{ts}"
 
     measurements:
-        -   id: result
-            value:
-                <process:
-                    -   type:
-                            target: bool
-                            input_key: v
+        temperature:
+            result:
+                value:
+                    <process:
+                        -   type:
+                                target: bool
+                                input_key: v
     """
     )
 
