@@ -15,9 +15,9 @@ from typing import TYPE_CHECKING, Iterable, Optional, Union
 if TYPE_CHECKING:
     from .io_manager import IOManager
 
-from .configuration_ids_configuration import (
-    ConfigurationIdsConfiguration,
-    ConfigurationIdsSettings,
+from .configuration_references import (
+    ConfigurationReferences,
+    ConfigurationReferenceTarget,
 )
 from .error import ConfigurationError, Error
 from .http_settings import HTTPTransactionSettings
@@ -53,8 +53,8 @@ class AuthenticationContext(Settings):
 
 class AuthenticationConfiguration(
     HTTPTransactionSettings,
-    ConfigurationIdsConfiguration,
-    ConfigurationIdsSettings,
+    ConfigurationReferenceTarget,
+    ConfigurationReferences,
 ):
     """
     An :class:`AuthenticationConfiguration` provides the required configuration
@@ -82,16 +82,18 @@ class AuthenticationConfiguration(
                 "AuthenticationConfiguration.Id",
             ]
         ] = None,
+        _partial: Optional[bool] = None,
         **kwargs: Settings.InputType,
     ):
         if other is not None:
             assert id is None
             assert authentication_configuration_ids is None
+            assert _partial is None
             assert not kwargs
             super().__init__(other)
             return
 
-        if id is None:
+        if id is None and not _partial:
             raise ConfigurationError("Missing common configuration's 'id'")
 
         super().__init__(
@@ -105,6 +107,7 @@ class AuthenticationConfiguration(
                     ).authentication_configurations.get(configuration_id)
                 )
             ),
+            _partial=_partial,
             **kwargs,
         )
 

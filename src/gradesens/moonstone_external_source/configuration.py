@@ -19,9 +19,9 @@ if TYPE_CHECKING:
     from .io_manager import IOManager
 
 from .authentication_configuration import AuthenticationConfiguration
-from .configuration_ids_configuration import (
-    ConfigurationIdsConfiguration,
-    ConfigurationIdsSettings,
+from .configuration_references import (
+    ConfigurationReferences,
+    ConfigurationReferenceTarget,
 )
 from .datetime import TimeDelta
 from .error import ConfigurationError, Error, TimeError
@@ -147,8 +147,7 @@ class _MeasurementResultSettings(HTTPResultSettings):
 
 class _MeasurementSettings(
     HTTPTransactionSettings,
-    ConfigurationIdsConfiguration,
-    ConfigurationIdsSettings,
+    ConfigurationReferences,
     request_type=_MeasurementRequestSettings,
     result_type=_MeasurementResultSettings,
 ):
@@ -159,13 +158,10 @@ class _MeasurementSettings(
     :class:`MeasurementConfiguration`s and :class:`MachineConfiguration`s.
     """
 
-    Id = str
-
     def __init__(
         self,
         other: Optional["_MeasurementSettings"] = None,
         /,
-        id: Optional[Id] = None,
         machine_configuration_ids: Optional[
             Union[
                 Iterable["_MeasurementSettings.Id"],
@@ -175,18 +171,12 @@ class _MeasurementSettings(
         **kwargs: Settings.InputType,
     ):
         if other is not None:
-            assert id is None
             assert machine_configuration_ids is None
             assert not kwargs
             super().__init__(other)
             return
 
-        if id is None:
-            raise ConfigurationError(
-                "Missing measurement configuration's 'id'"
-            )
         super().__init__(
-            id=id,
             machine_configuration_ids=machine_configuration_ids,
             _configuration_ids_field="machine_configuration_ids",
             _configuration_ids_get=(
@@ -203,20 +193,33 @@ class MeasurementConfiguration(_MeasurementSettings):
     Configuration for a single measurement (e.g. temperature, RPM, etc.).
     """
 
+    Id = str
     InterpolatedSettings = HTTPTransactionSettings.InterpolatedSettings
 
     def __init__(
         self,
         other: Optional["MeasurementConfiguration"] = None,
         /,
+        *,
+        id: Optional[Id] = None,
+        _partial: Optional[bool] = None,
         **kwargs: Settings.InputType,
     ):
         if other is not None:
+            assert id is None
             assert not kwargs
             super().__init__(other)
             return
 
-        super().__init__(**kwargs)
+        if id is None and not _partial:
+            raise ConfigurationError(
+                "Missing measurement configuration's 'id'"
+            )
+        super().__init__(
+            id=id,
+            _partial=_partial,
+            **kwargs,
+        )
 
     # Use a blank instance of _MeasurementSettings to infer the list of
     # interpolation result keys.
@@ -305,7 +308,10 @@ class MeasurementConfiguration(_MeasurementSettings):
             raise TimeError(f"{description} is not timezone-aware: {time}")
 
 
-class MachineConfiguration(_MeasurementSettings):
+class MachineConfiguration(
+    _MeasurementSettings,
+    ConfigurationReferenceTarget,
+):
     """
     Configuration for one machine, containing a machine-specific number of
     :class:`MeasurementConfiguration`s.
@@ -321,22 +327,30 @@ class MachineConfiguration(_MeasurementSettings):
     and API-specific, and are not under the responsibility of this class.
     """
 
+    Id = str
+
     SettingsType = Dict[str, "MeasurementConfiguration.SettingsType"]
-    MeasurementIdsType = Optional[Iterable[MeasurementConfiguration.Id]]
 
     def __init__(
         self,
         other: Optional["MeasurementConfiguration"] = None,
         /,
         *,
+        id: Optional[Id] = None,
         measurements: Optional[Sequence[Settings.InputType]] = None,
+        _partial: Optional[bool] = None,
         **kwargs,
     ):
         if other is not None:
+            assert id is None
             assert measurements is None
+            assert _partial is None
             assert not kwargs
             super().__init__(other)
             return
+
+        if id is None and not _partial:
+            raise ConfigurationError("Missing machine configuration's 'id'")
 
         if measurements is None:
             measurements = []
@@ -360,7 +374,9 @@ class MachineConfiguration(_MeasurementSettings):
                 raise
 
         super().__init__(
+            id=id,
             measurements=measurement_dict,
+            _partial=_partial,
             **kwargs,
         )
 

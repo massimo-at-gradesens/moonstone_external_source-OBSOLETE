@@ -20,7 +20,7 @@ from .error import ConfigurationError
 from .settings import Settings
 
 
-class ConfigurationIdsSettings(
+class ConfigurationReferences(
     Settings,
 ):
     """
@@ -30,7 +30,7 @@ class ConfigurationIdsSettings(
 
     def __init__(
         self,
-        other: Optional["ConfigurationIdsSettings"] = None,
+        other: Optional["ConfigurationReferences"] = None,
         /,
         *,
         _configuration_ids_field: str = None,
@@ -75,16 +75,31 @@ class ConfigurationIdsSettings(
         self._configuration_ids_field = saved_configuration_ids_field
         self._configuration_ids_get = _configuration_ids_get
 
+    async def get_aggregated_settings(
+        self, client_session: "IOManager.ClientSession"
+    ) -> Settings:
+        result = await self._get_merged_settings(client_session)
+        return type(self)(
+            **result,
+            # This operation is merging other possibly-partial configurations
+            # and the result may not contain all the mandatory fields, as only
+            # the final object built on top of this merged configuration is
+            # required to have all the mandatory fields.
+            # Therefore, disable the checks on mandatory fields for the
+            # construction of this (possibly-partial) object.
+            _partial=True,
+        )
+
     async def _get_merged_settings(
         self,
         client_session: "IOManager.ClientSession",
         already_visited: Optional[
-            Set["ConfigurationIdsConfiguration.Id"]
+            Set["ConfigurationReferenceTarget.Id"]
         ] = None,
     ) -> Settings:
         """
         See details in
-        :meth:`ConfigurationIdsConfiguration._get_merged_settings`
+        :meth:`ConfigurationReferenceTarget._get_merged_settings`
         """
         configuration_ids = self[self._configuration_ids_field]
         if len(configuration_ids) == 0:
@@ -113,7 +128,7 @@ class ConfigurationIdsSettings(
         return result
 
 
-class ConfigurationIdsConfiguration(ConfigurationIdsSettings):
+class ConfigurationReferenceTarget(ConfigurationReferences):
     """
     An configuration containing references to other instances of its same
     type, plus the support to load and merge, hierarchically, all such
@@ -127,7 +142,7 @@ class ConfigurationIdsConfiguration(ConfigurationIdsSettings):
 
     def __init__(
         self,
-        other: Optional["ConfigurationIdsConfiguration"] = None,
+        other: Optional["ConfigurationReferenceTarget"] = None,
         /,
         *,
         id: Optional[Id] = None,
@@ -146,33 +161,34 @@ class ConfigurationIdsConfiguration(ConfigurationIdsSettings):
     async def get_aggregated_settings(
         self, client_session: "IOManager.ClientSession"
     ) -> Settings:
-        return await self._get_merged_settings(client_session)
+        result = await self._get_merged_settings(client_session)
+        return type(self)(**result)
 
     async def _get_merged_settings(
         self,
         client_session: "IOManager.ClientSession",
         already_visited: Optional[
-            Set["ConfigurationIdsConfiguration.Id"]
+            Set["ConfigurationReferenceTarget.Id"]
         ] = None,
     ) -> Settings:
         """
         Return a :class:`Settings` instance containing all the
         (non-interpolated) settings specified by this
-        :class:`ConfigurationIdsConfiguration`.
+        :class:`ConfigurationReferenceTarget`.
 
         The resulting :class:`Settings` are computed by merging, by means of
         :attr:`Settings.update` method, the contents of all the (optional)
-        :class:`ConfigurationIdsConfiguration`s referenced by
-        :class:`ConfigurationIdsSettings`, in the same order in which they are
+        :class:`ConfigurationReferenceTarget`s referenced by
+        :class:`ConfigurationReferences`, in the same order in which they are
         listed at object construction, and finally merging the contents of this
-        :class:`ConfigurationIdsConfiguration`.
+        :class:`ConfigurationReferenceTarget`.
 
         Therefore, the settings from the aforementioned sequence of
-        :class:`ConfigurationIdsConfiguration` contributors are applied in
+        :class:`ConfigurationReferenceTarget` contributors are applied in
         increasing order of precedence. E.g. the settings from last contributor
-        - i.e. from this :class:`ConfigurationIdsConfiguration` - have higher
+        - i.e. from this :class:`ConfigurationReferenceTarget` - have higher
         precedence over same-name settings from all the other
-        :class:`ConfigurationIdsConfiguration`s
+        :class:`ConfigurationReferenceTarget`s
         """
 
         configuration_id = self["id"]
@@ -193,5 +209,4 @@ class ConfigurationIdsConfiguration(ConfigurationIdsSettings):
             already_visited=already_visited,
         )
         result.update(self)
-        result = type(self)(**result)
         return result

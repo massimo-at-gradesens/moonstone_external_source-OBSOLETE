@@ -103,10 +103,12 @@ class Settings(dict):
         _interpolation_settings: Optional[
             "Settings.InterpolationSettings"
         ] = None,
+        _partial: Optional[bool] = None,
         **kwargs: InputType,
     ):
         if other is not None:
             assert _interpolation_settings is None
+            assert _partial is None
             assert not kwargs
             initializer = other
             has_processors = Processors.KEY in kwargs
