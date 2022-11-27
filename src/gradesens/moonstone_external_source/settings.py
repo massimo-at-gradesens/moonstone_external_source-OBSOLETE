@@ -523,16 +523,22 @@ class ProcessorMeta(type(abc.ABC)):
 
         key = kwargs["KEY"]
 
-        result_fields = kwargs.setdefault("FIELDS", set())
-        result_optional_fields = kwargs.setdefault("OPTIONAL_FIELDS", set())
-        result_fields |= cls.__BASE_CLASS._COMMON_FIELDS
-        result_optional_fields |= cls.__BASE_CLASS._COMMON_OPTIONAL_FIELDS
+        fields = kwargs.get("FIELDS", ())
+        optional_fields = kwargs.get("OPTIONAL_FIELDS", ())
+        fields += cls.__BASE_CLASS._COMMON_FIELDS
+        optional_fields += cls.__BASE_CLASS._COMMON_OPTIONAL_FIELDS
 
         if kwargs.get("INPUT_VALUE_REQUIRED", Processor.INPUT_VALUE_REQUIRED):
-            result_optional_fields |= {Processor._INPUT_KEY_FIELD}
+            optional_fields += (Processor._INPUT_KEY_FIELD,)
 
-        fields = result_fields | result_optional_fields
-        for field in fields:
+        kwargs["FIELDS"] = fields
+        kwargs["OPTIONAL_FIELDS"] = optional_fields
+
+        if len(fields) > 0:
+            kwargs["KEY_FIELD"] = fields[0]
+
+        configuration_fields = fields + optional_fields + (key,)
+        for field in configuration_fields:
             try:
                 processor_key_set = cls.__BASE_CLASS._FIELD_TO_PROCESSOR_KEYS[
                     field
@@ -582,15 +588,15 @@ class Processor(Settings, metaclass=ProcessorMeta):
     _INPUT_KEY_FIELD = "input_key"
     _OUTPUT_KEY_FIELD = "output_key"
 
-    _COMMON_FIELDS = set()
-    _COMMON_OPTIONAL_FIELDS = {
-        _OUTPUT_KEY_FIELD,
-    }
+    _COMMON_FIELDS = ()
+    _COMMON_OPTIONAL_FIELDS = (_OUTPUT_KEY_FIELD,)
 
     KEY = None
 
-    FIELDS = set()
-    OPTIONAL_FIELDS = set()
+    KEY_FIELD = None
+
+    FIELDS = ()
+    OPTIONAL_FIELDS = ()
 
     INPUT_VALUE_REQUIRED = False
     DEFAULT_OUTPUT_KEY = "_"
@@ -659,44 +665,86 @@ class Processor(Settings, metaclass=ProcessorMeta):
                 f" instead of {type(configuration).__name__!r}"
                 f": {configuration!r}"
             )
-        if len(configuration) != 1:
-            raise ConfigurationError(
-                "A dictionary with a single entry expected"
-                f" for a processor, where the entry's key identifies"
-                " the target processor,"
-                f" instead of {len(configuration)} entries"
-                f": {configuration!r}"
-            )
-        processor_key, processor_value = configuration.popitem()
 
-        if not isinstance(processor_key, str):
-            raise ConfigurationError(
-                "Invalid processor value of type"
-                " 'str' instead of"
-                f" {type(processor_key).__name__} as expected:"
-                f" {processor_key!r}"
-            )
-        try:
+        if (
+            len(configuration) == 1
+            and list(configuration.keys())[0] in cls._KEY_TO_PROCESSOR
+        ):
+            processor_key, processor_value = configuration.popitem()
             processor = cls._KEY_TO_PROCESSOR[processor_key]
-        except KeyError:
-            raise ConfigurationError(
-                f"Invalid processor value {processor_key!r}."
-                " Valid values:"
-                f" {', '.join(map(repr, cls._KEY_TO_PROCESSOR))}"
-            ) from None
 
-        if not isinstance(processor_value, dict):
-            if len(processor.FIELDS) > 1:
-                raise ConfigurationError(
-                    f"Processor {processor_key!r}:"
-                    f" {len(processor.FIELDS)} mandatory fields expected:"
-                    f" {', '.join(map(repr, sorted(processor.FIELDS)))}."
-                    f" A dictionary must be used for this processor,"
-                    f" instead of {processor_value!r}"
+            if not isinstance(processor_value, dict):
+                if processor.KEY_FIELD is None:
+                    raise ConfigurationError(
+                        f"Processor {processor_key!r}:"
+                        f" A dictionary must be used for this processor,"
+                        f" instead of {processor_value!r}"
+                    )
+                processor_value = {processor.KEY_FIELD: processor_value}
+        else:
+            processor_keys = set(cls._KEY_TO_PROCESSOR.keys())
+            processor_key_matches = {}
+            for field in configuration:
+                try:
+                    field_targets = cls._FIELD_TO_PROCESSOR_KEYS[field]
+                except KeyError:
+                    raise ConfigurationError(
+                        f"Field {field!r} does not belong to any processor"
+                    ) from None
+                processor_key_matches[field] = field_targets
+                processor_keys &= field_targets
+
+            if len(processor_keys) == 0:
+                fields = list(configuration.keys())
+                partial_matches = "\n".join(
+                    f"{field!r}:"
+                    f" {', '.join(map(repr, processor_key_matches[field]))}"
+                    for field in fields
                 )
-            processor_value = {list(processor.FIELDS)[0]: processor_value}
+                raise ConfigurationError(
+                    "Processor field set does not match any processor:"
+                    f" {', '.join(map(repr, fields))}."
+                    " Partial matches:\n"
+                    f"{partial_matches}"
+                )
 
-        valid_fields = processor.FIELDS | processor.OPTIONAL_FIELDS
+            if len(processor_keys) > 1:
+                raise ConfigurationError(
+                    "Ambiguous processor field set:"
+                    f" {', '.join(map(repr, configuration.keys()))}."
+                    " Multiple processors matched:"
+                    f" {', '.join(map(repr, processor_keys))}"
+                )
+
+            processor_key = processor_keys.pop()
+            processor = cls._KEY_TO_PROCESSOR[processor_key]
+            processor_value = dict(configuration)
+            try:
+                processor_key_value = processor_value.pop(processor_key)
+                if processor_key_value is None:
+                    raise KeyError
+            except KeyError:
+                pass
+            else:
+                if processor.KEY_FIELD is None:
+                    raise ConfigurationError(
+                        f"Processor {processor_key!r} must be empty"
+                    )
+
+                try:
+                    key_field_value = processor_value[processor.KEY_FIELD]
+                except KeyError:
+                    processor_value[processor.KEY_FIELD] = processor_key_value
+                else:
+                    raise ConfigurationError(
+                        f"Processor {processor_key!r} must be empty"
+                        f" (instead of {processor_key_value!r})"
+                        f" when field {processor.KEY_FIELD!r}"
+                        f" ({key_field_value!r})"
+                        f" is explicitly specified"
+                    )
+
+        valid_fields = set(processor.FIELDS) | set(processor.OPTIONAL_FIELDS)
         wrong_fields = set(processor_value) - valid_fields
         if len(wrong_fields) > 0:
             raise ConfigurationError(
@@ -707,10 +755,10 @@ class Processor(Settings, metaclass=ProcessorMeta):
                 f" {', '.join(map(repr, sorted(valid_fields)))}."
             )
 
-        missing_fields = processor.FIELDS - set(processor_value)
+        missing_fields = set(processor.FIELDS) - set(processor_value)
         if len(missing_fields) > 0:
             raise ConfigurationError(
-                f"Processor {processor_key!r}: Missing mandatory fields: "
+                f"Processor {processor_key!r}: Missing mandatory fields:"
                 f" {', '.join(map(repr, sorted(missing_fields)))}."
             )
 
@@ -746,7 +794,7 @@ class InterpolateProcessor(Processor):
     """
 
     KEY = "interpolate"
-    FIELDS = {"string"}
+    FIELDS = ("string",)
 
     def __init__(
         self,
@@ -803,7 +851,7 @@ class EvalProcessor(Processor):
     """
 
     KEY = "eval"
-    FIELDS = {"expression"}
+    FIELDS = ("expression",)
 
     EXTRA_PARAMETERS = {
         "datetime": DateTime,
@@ -895,8 +943,11 @@ class TypeProcessor(Processor):
     """
 
     KEY = "type"
-    FIELDS = {"target"}
-    OPTIONAL_FIELDS = {"radix", "allow_none"}
+    FIELDS = ("target",)
+    OPTIONAL_FIELDS = (
+        "radix",
+        "allow_none",
+    )
     INPUT_VALUE_REQUIRED = True
 
     class Converter:
@@ -1093,8 +1144,11 @@ class RegexProcessor(Processor):
     """
 
     KEY = "regex"
-    FIELDS = {"pattern", "replacement"}
-    OPTIONAL_FIELDS = {"flags"}
+    FIELDS = (
+        "pattern",
+        "replacement",
+    )
+    OPTIONAL_FIELDS = ("flags",)
     INPUT_VALUE_REQUIRED = True
 
     def __init__(

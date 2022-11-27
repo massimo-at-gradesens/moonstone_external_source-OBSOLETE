@@ -20,9 +20,12 @@ class AsyncConcurrentPool:
     def __init__(self, concurrency):
         self.semaphore = asyncio.Semaphore(concurrency)
 
-    def schedule(self, task):
-        return self.__task_wrapper(task)
+    def schedule(self, coroutine):
+        return self.__coroutine_wrapper(coroutine)
 
-    async def __task_wrapper(self, task):
+    def schedule_task(self, coroutine):
+        return asyncio.create_task(self.schedule(coroutine))
+
+    async def __coroutine_wrapper(self, coroutine):
         async with self.semaphore:
-            return await task
+            return await coroutine

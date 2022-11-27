@@ -143,7 +143,10 @@ def common_configuration_tak():
             env: "{request.authorization.env}"
 
     result:
-        timestamp: "{ts}"
+        timestamp:
+            <process:
+                type: datetime
+                input_key: ts
 
     measurements:
         # run:
@@ -151,30 +154,30 @@ def common_configuration_tak():
         #         value:
         #             <process:
         #                 type:
-        #                     target: bool
         #                     input_key: v
+        #                     target: bool
         # power:
         #     result:
         #         value:
         #             <process:
         #                 type:
-        #                     target: float
         #                     input_key: v
+        #                     target: float
         temperature:
             result:
                 value:
                     <process:
                         type:
-                            target: float
                             input_key: v
+                            target: float
                             allow_none: yes
         # rpm:
         #     result:
         #         value:
         #             <process:
         #                 type:
-        #                     target: float
         #                     input_key: v
+        #                     target: float
     """
     )
 
@@ -402,5 +405,4 @@ async def test_extenal_source(io_manager_tak_dev):
                     DateTime("2022-07-25T00:01:00+00:00"),
                 ],
             )
-            for item in result:
-                print(item.timestamp, list(item))
+            print(result)

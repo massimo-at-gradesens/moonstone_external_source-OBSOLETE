@@ -26,6 +26,9 @@ class ResultEntry:
         self.timestamp = timestamp
         self.value = value
 
+    def __str__(self):
+        return f"{self.value}@{self.timestamp}"
+
 
 class ResultRow(list):
     def __init__(
@@ -35,6 +38,9 @@ class ResultRow(list):
     ):
         self.timestamp = timestamp
         super().__init__(values)
+
+    def __str__(self):
+        return ", ".join(map(str, [self.timestamp] + list(self)))
 
 
 class Result(list):
@@ -68,6 +74,11 @@ class Result(list):
                     value = value[0]
                 value_list[headers_map[key]] = ResultEntry(**value)
             self.append(ResultRow(timestamp=timestamp, values=value_list))
+
+    def __str__(self):
+        rows = "\n".join(map(str, self))
+        headers = ", ".join(map(str, ["@timestamp"] + self.headers))
+        return f"HEADERS: {headers}\n" "DATA:\n" + rows
 
 
 class ExternalSourceSession:

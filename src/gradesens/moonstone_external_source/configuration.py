@@ -457,12 +457,11 @@ class MachineConfiguration(
         settings = await self.get_interpolated_settings(
             client_session=client_session, keep_all=True, **kwargs
         )
-        tasks = []
         measurements = list(settings.values())
-        for measurement in measurements:
-            tasks.append(
-                measurement.fetch_result(client_session=client_session)
-            )
+        tasks = [
+            measurement.fetch_result(client_session=client_session)
+            for measurement in measurements
+        ]
         results = await asyncio.gather(*tasks)
 
         return {
