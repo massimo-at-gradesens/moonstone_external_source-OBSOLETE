@@ -382,9 +382,10 @@ async def test_start_end_times(
         with pytest.raises(TimeError) as exc_info:
             await mach_conf_1.get_interpolated_settings(
                 client_session,
-                timestamp=DateTime.now(),
+                start_time=DateTime.now(),
             )
-        assert "timestamp" in str(exc_info.value)
+        assert "'start_time'" in str(exc_info.value)
+        assert "aware" in str(exc_info.value)
 
         with pytest.raises(PatternError) as exc_info:
             await mach_conf_1.get_interpolated_settings(
@@ -394,13 +395,22 @@ async def test_start_end_times(
         settings = (
             await mach_conf_1.get_interpolated_settings(
                 client_session,
-                timestamp=DateTime(
+                start_time=DateTime(
                     year=2022,
                     month=11,
                     day=14,
                     hour=17,
                     minute=34,
                     second=17,
+                    tzinfo=timezone.utc,
+                ),
+                end_time=DateTime(
+                    year=2022,
+                    month=11,
+                    day=14,
+                    hour=17,
+                    minute=34,
+                    second=27,
                     tzinfo=timezone.utc,
                 ),
             )
@@ -411,4 +421,4 @@ async def test_start_end_times(
         assert query_string["start"] == "2022-11-14T17:34:15+00:00"
 
         assert isinstance(query_string["end"], str)
-        assert query_string["end"] == "2022-11-14T17:34:19+00:00"
+        assert query_string["end"] == "2022-11-14T17:34:29+00:00"

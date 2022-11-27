@@ -52,6 +52,7 @@ class _MeasurementRequestSettings(HTTPRequestSettings):
         time_margin: Optional[TimeDelta.InputType] = None,
         start_time_margin: Optional[TimeDelta.InputType] = None,
         end_time_margin: Optional[TimeDelta.InputType] = None,
+        merge_request_window: Optional[TimeDelta.InputType] = None,
         **kwargs: Settings.InputType,
     ):
         if other is not None:
@@ -76,11 +77,12 @@ class _MeasurementRequestSettings(HTTPRequestSettings):
                     " to represent the requested measurement time-stamp"
                 )
 
-        time_margins = {}
+        time_delta_fields = {}
         for key in (
             "time_margin",
             "start_time_margin",
             "end_time_margin",
+            "merge_request_window",
         ):
             value = locals()[key]
             if value is None:
@@ -89,18 +91,31 @@ class _MeasurementRequestSettings(HTTPRequestSettings):
                 parsed_value = TimeDelta(value)
                 if parsed_value.total_seconds() < 0:
                     raise ValueError(
-                        f"Time margin cannot be negative: {value!r}"
+                        f"Field {key!r} cannot be negative: {value!r}"
                     )
             except ValueError as err:
                 raise ConfigurationError(str(err), index=key) from None
-            time_margins[key] = parsed_value
+            time_delta_fields[key] = parsed_value
+
+        try:
+            time_margin_value = time_delta_fields["time_margin"]
+        except KeyError:
+            pass
+        else:
+            for key in (
+                "start_time_margin",
+                "end_time_margin",
+            ):
+                value = time_delta_fields.get(key)
+                if value is None:
+                    time_delta_fields[key] = time_margin_value
+
         for key in (
             "start_time_margin",
             "end_time_margin",
+            "merge_request_window",
         ):
-            value = time_margins.get(key)
-            if value is None:
-                value = time_margins.get("time_margin")
+            value = time_delta_fields.get(key)
             if value is not None:
                 kwargs[key] = value
 
@@ -237,7 +252,8 @@ class MeasurementConfiguration(_MeasurementSettings):
         self,
         client_session: "IOManager.ClientSession",
         machine_configuration: "MachineConfiguration",
-        timestamp: Optional[datetime] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
     ) -> Settings.InterpolatedType:
         settings = type(self)(
             **{
@@ -274,16 +290,18 @@ class MeasurementConfiguration(_MeasurementSettings):
                 )
             request_settings["authorization"] = authorization_context
 
-        if timestamp is not None:
-            self.__assert_aware_time("timestamp", timestamp)
+        if start_time is not None:
+            self.__assert_aware_time("start_time", start_time)
             start_time_margin = settings["request"].get(
                 "start_time_margin", TimeDelta(0)
             )
+            settings["request"]["start_time"] = start_time - start_time_margin
+        if end_time is not None:
+            self.__assert_aware_time("end_time", end_time)
             end_time_margin = settings["request"].get(
                 "end_time_margin", TimeDelta(0)
             )
-            settings["request"]["start_time"] = timestamp - start_time_margin
-            settings["request"]["end_time"] = timestamp + end_time_margin
+            settings["request"]["end_time"] = end_time + end_time_margin
 
         assert isinstance(settings, type(self))
         return settings
@@ -302,9 +320,9 @@ class MeasurementConfiguration(_MeasurementSettings):
         return parameters
 
     @staticmethod
-    def __assert_aware_time(description, time):
+    def __assert_aware_time(field_name, time):
         if time.tzinfo is None or time.tzinfo.utcoffset(time) is None:
-            raise TimeError(f"{description} is not timezone-aware: {time}")
+            raise TimeError(f"{field_name!r} is not timezone-aware: {time!r}")
 
 
 class MachineConfiguration(
@@ -451,20 +469,30 @@ class MachineConfiguration(
             ] + err.index
             raise err from None
 
-    async def fetch_result(
+    async def get_fetch_result_tasks(
         self, client_session: "IOManager.ClientSession", **kwargs
     ) -> "HTTPResultSettings.ResultType":
         settings = await self.get_interpolated_settings(
             client_session=client_session, keep_all=True, **kwargs
         )
-        measurements = list(settings.values())
+        return {
+            measurement["id"]: measurement.fetch_result(
+                client_session=client_session
+            )
+            for measurement in settings.values()
+        }
+
+    async def fetch_result(
+        self, client_session: "IOManager.ClientSession", **kwargs
+    ) -> "HTTPResultSettings.ResultType":
+        fetch_result_tasks = await self.get_fetch_result_tasks(
+            client_session=client_session,
+            **kwargs,
+        )
+        measurement_ids = list(fetch_result_tasks)
         tasks = [
-            measurement.fetch_result(client_session=client_session)
-            for measurement in measurements
+            fetch_result_tasks[measurement_id]
+            for measurement_id in measurement_ids
         ]
         results = await asyncio.gather(*tasks)
-
-        return {
-            measurement["id"]: result
-            for measurement, result in zip(measurements, results)
-        }
+        return dict(zip(measurement_ids, results))

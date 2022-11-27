@@ -123,7 +123,8 @@ class ExternalSourceSession:
                 task_pool.schedule(
                     machine_configuration.fetch_result(
                         client_session=self.client_session,
-                        timestamp=timestamp,
+                        start_time=timestamp,
+                        end_time=timestamp,
                     )
                 )
             )

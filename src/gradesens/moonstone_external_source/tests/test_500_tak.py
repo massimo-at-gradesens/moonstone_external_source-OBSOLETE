@@ -145,39 +145,38 @@ def common_configuration_tak():
     result:
         timestamp:
             <process:
-                type: datetime
-                input_key: ts
+                -   type: datetime
+                    input_key: ts
 
     measurements:
-        # run:
-        #     result:
-        #         value:
-        #             <process:
-        #                 type:
-        #                     input_key: v
-        #                     target: bool
-        # power:
-        #     result:
-        #         value:
-        #             <process:
-        #                 type:
-        #                     input_key: v
-        #                     target: float
+        run:
+            result:
+                value:
+                    <process:
+                        -   type: bool
+                            input_key: v
+                            allow_none: yes
+        power:
+            result:
+                value:
+                    <process:
+                        -   type: float
+                            input_key: v
+                            allow_none: yes
         temperature:
             result:
                 value:
                     <process:
-                        type:
+                        -   type: float
                             input_key: v
-                            target: float
                             allow_none: yes
-        # rpm:
-        #     result:
-        #         value:
-        #             <process:
-        #                 type:
-        #                     input_key: v
-        #                     target: float
+        rpm:
+            result:
+                value:
+                    <process:
+                        -   type: float
+                            input_key: v
+                            allow_none: yes
     """
     )
 
@@ -190,6 +189,7 @@ def common_configuration_tak_raw():
 
     request:
         time_margin: 10s
+        merge_request_window: 1h
 
         url: "{customer.base_url}/readrawhistory"
     """
@@ -204,6 +204,7 @@ def common_configuration_tak_aggregate():
 
     request:
         time_margin: 1m
+        merge_request_window: 4h
 
         url: "{customer.base_url}/aggResponse"
     """
@@ -387,7 +388,8 @@ async def test_authorization(
         )
         mach_settings = await mach.get_interpolated_settings(
             client_session=client_session,
-            timestamp=datetime.now(timezone.utc),
+            start_time=datetime.now(timezone.utc),
+            end_time=datetime.now(timezone.utc),
         )
         assert isinstance(mach_settings, Settings.InterpolatedSettings)
         # import json
