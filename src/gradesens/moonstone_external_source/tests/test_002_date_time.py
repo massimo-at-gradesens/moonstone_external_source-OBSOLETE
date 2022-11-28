@@ -646,6 +646,22 @@ def test_date_operations(
         assert t == ref_type(**value1_kwargs) - timedelta(**td_kwargs)
 
 
+def test_time_operations(
+    random_time_kwargs_factory,
+):
+    tested_type = Time
+    ref_type = time
+
+    assert isinstance(tested_type.min, tested_type)
+    assert tested_type.min == ref_type.min
+
+    assert isinstance(tested_type.max, tested_type)
+    assert tested_type.max == ref_type.max
+
+    assert isinstance(tested_type.resolution, TimeDelta)
+    assert tested_type.resolution == ref_type.resolution
+
+
 def test_timezone_operations():
     assert isinstance(TimeZone.utc, TimeZone)
     assert TimeZone.utc == timezone.utc

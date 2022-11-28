@@ -7,13 +7,15 @@ __copyright__ = "Copyright 2022, GradeSens AG"
 import bisect
 
 
-def iter_windows(values, window_size):
+def iter_sub_ranges(values, range_value_span):
     values = sorted(values)
     n_values = len(values)
     start_index = 0
     while start_index < n_values:
-        window_end = values[start_index] + window_size
-        end_index = bisect.bisect_right(values, window_end, lo=start_index)
+        range_end_value = values[start_index] + range_value_span
+        end_index = bisect.bisect_right(
+            values, range_end_value, lo=start_index
+        )
         yield values[start_index:end_index]
         start_index = end_index
 
