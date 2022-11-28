@@ -12,7 +12,7 @@ from .authorization_configuration import (
 )
 from .backend_driver import AsyncHTTPBackendDriver, BackendDriver
 from .configuration import MachineConfiguration, MeasurementConfiguration
-from .datetime import Date, DateTime, Time, TimeDelta
+from .datetime import Date, DateTime, Time, TimeDelta, TimeZone
 from .error import (
     BackendError,
     ConfigurationError,
@@ -49,6 +49,7 @@ __all__ = [
     "Date",
     "Time",
     "TimeDelta",
+    "TimeZone",
     #
     "BackendError",
     "ConfigurationError",

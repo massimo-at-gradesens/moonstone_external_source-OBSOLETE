@@ -16,3 +16,15 @@ def iter_windows(values, window_size):
         end_index = bisect.bisect_right(values, window_end, lo=start_index)
         yield values[start_index:end_index]
         start_index = end_index
+
+
+class classproperty:
+    """
+    Multi Python version-friendly RO class property
+    """
+
+    def __init__(self, method):
+        self.__method = method
+
+    def __get__(self, instance, owner):
+        return self.__method(owner)
