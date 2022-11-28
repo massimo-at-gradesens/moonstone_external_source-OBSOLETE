@@ -9,7 +9,6 @@ __author__ = "Massimo Ravasi"
 __copyright__ = "Copyright 2022, GradeSens AG"
 
 
-import asyncio
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Tuple
 
@@ -114,22 +113,10 @@ class ExternalSourceSession:
             await self.client_session.machine_configurations.get(machine_id)
         )
 
-        timestamps = list(timestamps)
+        results = await machine_configuration.fetch_result(
+            client_session=self.client_session,
+            timestamps=timestamps,
+        )
 
-        request_tasks = []
-        task_pool = self.client_session.task_pool
-        for timestamp in timestamps:
-            request_tasks.append(
-                task_pool.schedule(
-                    machine_configuration.fetch_result(
-                        client_session=self.client_session,
-                        start_time=timestamp,
-                        end_time=timestamp,
-                    )
-                )
-            )
-
-        results = await asyncio.gather(*request_tasks)
-
-        result = Result(zip(timestamps, results))
-        return result
+        # result = Result(zip(timestamps, results))
+        return results

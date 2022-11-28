@@ -10,6 +10,7 @@ from gradesens.moonstone_external_source import (
     IOManager,
     MachineConfiguration,
     Settings,
+    TimeDelta,
 )
 
 from .configuration_fixtures import load_yaml
@@ -157,6 +158,8 @@ def common_configuration_tak():
                             input_key: v
                             allow_none: yes
         power:
+            request:
+                merged_request_window: 30m
             result:
                 value:
                     <process:
@@ -164,6 +167,8 @@ def common_configuration_tak():
                             input_key: v
                             allow_none: yes
         temperature:
+            request:
+                merged_request_window: 17m
             result:
                 value:
                     <process:
@@ -189,7 +194,7 @@ def common_configuration_tak_raw():
 
     request:
         time_margin: 10s
-        merge_request_window: 1h
+        merged_request_window: 1h
 
         url: "{customer.base_url}/readrawhistory"
     """
@@ -204,7 +209,7 @@ def common_configuration_tak_aggregate():
 
     request:
         time_margin: 1m
-        merge_request_window: 4h
+        merged_request_window: 4h
 
         url: "{customer.base_url}/aggResponse"
     """
@@ -399,12 +404,16 @@ async def test_authorization(
 
 @pytest.mark.asyncio
 async def test_extenal_source(io_manager_tak_dev):
-    async with io_manager_tak_dev.client_session() as client_session:
+    timestamp0 = DateTime("2022-07-25T00:01:00+00:00")
+    timestamps = [
+        timestamp0 + TimeDelta(minutes=15 * index) for index in range(50)
+    ]
+    async with io_manager_tak_dev.client_session(
+        task_concurrency=10,
+    ) as client_session:
         async with ExternalSourceSession(client_session) as es_session:
             result = await es_session.get_data(
                 machine_id="tak:dev:mach-1",
-                timestamps=[
-                    DateTime("2022-07-25T00:01:00+00:00"),
-                ],
+                timestamps=timestamps,
             )
             print(result)

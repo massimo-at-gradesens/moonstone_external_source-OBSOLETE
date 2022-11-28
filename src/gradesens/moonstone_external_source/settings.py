@@ -329,6 +329,7 @@ class Settings(dict):
     async def get_interpolated_settings(
         self,
         client_session: "IOManager.ClientSession",
+        aggregated_settings: Optional["Settings.InterpolatedType"] = None,
         keep_all: bool = False,
         **kwargs: Dict[str, Any],
     ) -> "Settings.InterpolatedSettings":
@@ -340,12 +341,13 @@ class Settings(dict):
         retrieve referenced configurations and/or to retrieve authorization
         context settings.
         """
-        settings = await self.get_aggregated_settings(
-            client_session=client_session, **kwargs
-        )
+        if aggregated_settings is None:
+            aggregated_settings = await self.get_aggregated_settings(
+                client_session=client_session, **kwargs
+            )
 
         parameters = self.get_interpolation_parameters(
-            settings=settings, **kwargs
+            settings=aggregated_settings, **kwargs
         )
 
         if keep_all:
@@ -360,7 +362,9 @@ class Settings(dict):
                 return key in interpolation_keys
 
         settings = {
-            key: value for key, value in settings.items() if key_filter(key)
+            key: value
+            for key, value in aggregated_settings.items()
+            if key_filter(key)
         }
 
         interpolation_context = Settings.InterpolationContext(

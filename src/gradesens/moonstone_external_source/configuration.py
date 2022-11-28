@@ -11,8 +11,9 @@ __copyright__ = "Copyright 2022, GradeSens AG"
 
 
 import asyncio
+import itertools
 from datetime import datetime
-from typing import TYPE_CHECKING, Dict, Iterable, Optional, Union
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Union
 
 if TYPE_CHECKING:
     from .io_manager import IOManager
@@ -30,6 +31,7 @@ from .http_settings import (
     HTTPTransactionSettings,
 )
 from .settings import Settings
+from .utils import iter_sub_ranges
 
 
 class _MeasurementRequestSettings(HTTPRequestSettings):
@@ -52,7 +54,7 @@ class _MeasurementRequestSettings(HTTPRequestSettings):
         time_margin: Optional[TimeDelta.InputType] = None,
         start_time_margin: Optional[TimeDelta.InputType] = None,
         end_time_margin: Optional[TimeDelta.InputType] = None,
-        merge_request_window: Optional[TimeDelta.InputType] = None,
+        merged_request_window: Optional[TimeDelta.InputType] = None,
         **kwargs: Settings.InputType,
     ):
         if other is not None:
@@ -82,7 +84,7 @@ class _MeasurementRequestSettings(HTTPRequestSettings):
             "time_margin",
             "start_time_margin",
             "end_time_margin",
-            "merge_request_window",
+            "merged_request_window",
         ):
             value = locals()[key]
             if value is None:
@@ -113,7 +115,7 @@ class _MeasurementRequestSettings(HTTPRequestSettings):
         for key in (
             "start_time_margin",
             "end_time_margin",
-            "merge_request_window",
+            "merged_request_window",
         ):
             value = time_delta_fields.get(key)
             if value is not None:
@@ -209,6 +211,7 @@ class MeasurementConfiguration(_MeasurementSettings):
 
     Id = str
     InterpolatedSettings = HTTPTransactionSettings.InterpolatedSettings
+    SettingsType = InterpolatedSettings
 
     def __init__(
         self,
@@ -252,8 +255,7 @@ class MeasurementConfiguration(_MeasurementSettings):
         self,
         client_session: "IOManager.ClientSession",
         machine_configuration: "MachineConfiguration",
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
+        **kwargs,
     ) -> Settings.InterpolatedType:
         settings = type(self)(
             **{
@@ -290,6 +292,22 @@ class MeasurementConfiguration(_MeasurementSettings):
                 )
             request_settings["authorization"] = authorization_context
 
+        assert isinstance(settings, type(self))
+        return settings
+
+    def get_interpolation_parameters(
+        self,
+        settings: "Settings",
+        machine_configuration: "MachineConfiguration",
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        **kwargs,
+    ) -> Dict[str, "Settings.ValueType"]:
+        parameters = {
+            "machine_id": machine_configuration["id"],
+            "measurement_id": self["id"],
+        }
+
         if start_time is not None:
             self.__assert_aware_time("start_time", start_time)
             start_time_margin = settings["request"].get(
@@ -303,19 +321,6 @@ class MeasurementConfiguration(_MeasurementSettings):
             )
             settings["request"]["end_time"] = end_time + end_time_margin
 
-        assert isinstance(settings, type(self))
-        return settings
-
-    def get_interpolation_parameters(
-        self,
-        settings: "Settings",
-        machine_configuration: "MachineConfiguration",
-        **kwargs,
-    ) -> Dict[str, "Settings.ValueType"]:
-        parameters = {
-            "machine_id": machine_configuration["id"],
-            "measurement_id": self["id"],
-        }
         parameters.update(super().get_interpolation_parameters(settings))
         return parameters
 
@@ -346,11 +351,11 @@ class MachineConfiguration(
 
     Id = str
 
-    SettingsType = Dict[str, "MeasurementConfiguration.SettingsType"]
+    SettingsType = Dict[str, MeasurementConfiguration.SettingsType]
 
     def __init__(
         self,
-        other: Optional["MeasurementConfiguration"] = None,
+        other: Optional[MeasurementConfiguration] = None,
         /,
         *,
         id: Optional[Id] = None,
@@ -414,14 +419,14 @@ class MachineConfiguration(
         self,
         client_session: "IOManager.ClientSession",
         **kwargs,
-    ) -> ("MachineConfiguration.SettingsType"):
+    ) -> "MachineConfiguration.SettingsType":
         if self.get("_machine_configuration_ids"):
             settings = await self.get_aggregated_settings(
                 client_session=client_session
             )
-            mach_conf = MachineConfiguration(settings)
-            mach_conf.pop("_machine_configuration_ids", None)
-            result = await mach_conf.get_interpolated_settings(
+            machine_configuration = MachineConfiguration(settings)
+            machine_configuration.pop("_machine_configuration_ids", None)
+            result = await machine_configuration.get_interpolated_settings(
                 client_session=client_session, **kwargs
             )
             return result
@@ -433,7 +438,7 @@ class MachineConfiguration(
             )
 
         tasks = [
-            self.__get_measurement_interpolated_settings(
+            self._get_measurement_interpolated_settings(
                 client_session=client_session,
                 measurement_configuration=measurement,
                 **kwargs,
@@ -449,7 +454,7 @@ class MachineConfiguration(
             }
         )
 
-    async def __get_measurement_interpolated_settings(
+    async def _get_measurement_interpolated_settings(
         self,
         measurement_configuration: MeasurementConfiguration,
         client_session: "IOManager.ClientSession",
@@ -469,30 +474,184 @@ class MachineConfiguration(
             ] + err.index
             raise err from None
 
-    async def get_fetch_result_tasks(
-        self, client_session: "IOManager.ClientSession", **kwargs
-    ) -> "HTTPResultSettings.ResultType":
-        settings = await self.get_interpolated_settings(
-            client_session=client_session, keep_all=True, **kwargs
-        )
-        return {
-            measurement["id"]: measurement.fetch_result(
-                client_session=client_session
+    class __MeasurementFetchResult:
+        class RequestWindow:
+            def __init__(self):
+                self.count = None
+                self.start_time = None
+                self.end_time = None
+                self.task = None
+
+            @classmethod
+            async def create(
+                cls,
+                measurement_id: MeasurementConfiguration.Id,
+                timestamps: Iterable[datetime],
+                machine_configuration: "MachineConfiguration",
+                measurement_aggregated_settings: Settings.InterpolatedType,
+                client_session: "IOManager.ClientSession",
+            ):
+                result = cls()
+                result.count = len(timestamps)
+                result.start_time = timestamps[0]
+                result.end_time = timestamps[-1]
+
+                measurement_configuration = machine_configuration[
+                    "measurements"
+                ][measurement_id]
+                measurement_settings = await (
+                    machine_configuration
+                )._get_measurement_interpolated_settings(
+                    client_session=client_session,
+                    measurement_configuration=measurement_configuration,
+                    aggregated_settings=measurement_aggregated_settings,
+                    start_time=result.start_time,
+                    end_time=result.end_time,
+                )
+                result.task = measurement_settings.fetch_result(
+                    client_session=client_session,
+                )
+                return result
+
+            def __lt__(self, other):
+                return self.start_time < other.start_time
+
+            def __str__(self):
+                return (
+                    f"count={self.count},"
+                    f" [{self.start_time}..{self.end_time}]"
+                )
+
+        def __init__(self):
+            self.measurement_id = None
+            self.merged_request_window = None
+            self.request_windows = None
+            self.request_window_iterator = None
+            self.current_window_results = None
+            self.current_window_count = 0
+
+            # for debugging purposes
+            self.processed_count = 0
+
+        @classmethod
+        async def create(
+            cls,
+            measurement_id: MeasurementConfiguration.Id,
+            machine_configuration: "MachineConfiguration",
+            timestamps: List[datetime],
+            client_session: "IOManager.ClientSession",
+        ):
+            result = cls()
+            result.measurement_id = measurement_id
+            measurement = machine_configuration["measurements"][measurement_id]
+            measurement_aggregated_settings = await (
+                measurement.get_aggregated_settings(
+                    client_session=client_session,
+                    machine_configuration=machine_configuration,
+                )
             )
-            for measurement in settings.values()
-        }
+            result.merged_request_window = measurement_aggregated_settings[
+                "request"
+            ].get("merged_request_window", TimeDelta(0))
+            request_windows_tasks = list(
+                map(
+                    lambda timestamps_sub_range: result.RequestWindow.create(
+                        timestamps=timestamps_sub_range,
+                        measurement_id=measurement_id,
+                        machine_configuration=machine_configuration,
+                        measurement_aggregated_settings=(
+                            measurement_aggregated_settings
+                        ),
+                        client_session=client_session,
+                    ),
+                    iter_sub_ranges(timestamps, result.merged_request_window),
+                )
+            )
+            result.request_windows = await asyncio.gather(
+                *request_windows_tasks
+            )
+            result.request_window_iterator = iter(result.request_windows)
+
+            return result
 
     async def fetch_result(
-        self, client_session: "IOManager.ClientSession", **kwargs
+        self,
+        client_session: "IOManager.ClientSession",
+        timestamps: Iterable[datetime],
+        **kwargs,
     ) -> "HTTPResultSettings.ResultType":
-        fetch_result_tasks = await self.get_fetch_result_tasks(
-            client_session=client_session,
-            **kwargs,
+        aggregated_settings = await self.get_aggregated_settings(
+            client_session=client_session
         )
-        measurement_ids = list(fetch_result_tasks)
-        tasks = [
-            fetch_result_tasks[measurement_id]
-            for measurement_id in measurement_ids
+        machine_configuration = MachineConfiguration(aggregated_settings)
+        machine_configuration.pop("_machine_configuration_ids", None)
+        # result = await machine_configuration.get_interpolated_settings(
+        #    client_session=client_session, **kwargs
+        # )
+
+        timestamps = sorted(timestamps)
+        measurement_fetch_results = [
+            await self.__MeasurementFetchResult.create(
+                measurement_id=measurement_id,
+                timestamps=timestamps,
+                client_session=client_session,
+                machine_configuration=machine_configuration,
+            )
+            for measurement_id in machine_configuration["measurements"].keys()
         ]
-        results = await asyncio.gather(*tasks)
-        return dict(zip(measurement_ids, results))
+
+        # schedule tasks in start_time timestamp order, to ensure no deadlock
+        # occurs if urgent tasks are blocked in an AsyncConcurrentPool by
+        # not-yet-awaited later tasks
+        all_request_windows = sorted(
+            itertools.chain(
+                *map(
+                    lambda item: item.request_windows,
+                    measurement_fetch_results,
+                )
+            )
+        )
+        for request_window in all_request_windows:
+            request_window.task = client_session.task_scheduler(
+                request_window.task
+            )
+
+        awaited_task_count = 0
+        for value_index in range(len(timestamps)):
+            exausted_windows = list(
+                filter(
+                    lambda mfr: mfr.current_window_count <= 0,
+                    measurement_fetch_results,
+                )
+            )
+            if len(exausted_windows) > 0:
+                request_tasks = []
+                for exausted_window in exausted_windows:
+                    request_window = next(
+                        exausted_window.request_window_iterator
+                    )
+                    exausted_window.current_window_count = request_window.count
+                    exausted_window.processed_count += request_window.count
+                    request_tasks.append(request_window.task)
+                results = await asyncio.gather(*request_tasks)
+                awaited_task_count += len(request_tasks)
+                for exausted_window, result in zip(exausted_windows, results):
+                    exausted_window.current_window_results = result
+
+            for mfr in measurement_fetch_results:
+                mfr.current_window_count -= 1
+
+        # for debugging purposes
+        for mfr in measurement_fetch_results:
+            try:
+                next(mfr.request_window_iterator)
+            except StopIteration:
+                pass
+            else:
+                raise Exception(
+                    f"Window iterator for {mfr.measurement_id!r} did not stop"
+                )
+            assert mfr.processed_count == len(timestamps)
+        assert awaited_task_count == len(all_request_windows)
+
+        return None

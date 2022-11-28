@@ -338,7 +338,10 @@ class IOManager:
             self,
             caches: Dict[str, Cache],
             backend: BackendDriver.ClientSession,
-            task_pool: Optional[Union[AsyncConcurrentPool, int]] = 10,
+            task_concurrency: Optional[int] = None,
+            task_scheduler: Optional[
+                Union[AsyncConcurrentPool, Callable]
+            ] = None,
         ):
             self.__sub_client_sessions = []
 
@@ -350,12 +353,23 @@ class IOManager:
                 self.__sub_client_sessions.append(cache_client_session)
                 setattr(self, cache_name, cache_client_session)
 
-            if task_pool is None:
-                task_pool = 1
-            if isinstance(task_pool, int):
-                task_pool = max(1, task_pool)
-                task_pool = AsyncConcurrentPool(task_pool)
-            self.task_pool = task_pool
+            if task_concurrency is not None:
+                if task_scheduler is not None:
+                    raise Error(
+                        "'task_concurrency' and 'task_scheduler"
+                        " are mutually exclusive:"
+                        " they cannot be specified together"
+                    )
+                task_concurrency = max(1, task_concurrency)
+            elif task_scheduler is None:
+                task_concurrency = 1
+
+            if task_concurrency is not None:
+                assert task_scheduler is None
+                task_scheduler = AsyncConcurrentPool(task_concurrency)
+            if isinstance(task_scheduler, AsyncConcurrentPool):
+                task_scheduler = task_scheduler.schedule_task
+            self.task_scheduler = task_scheduler
 
         async def __aenter__(self):
             return self
