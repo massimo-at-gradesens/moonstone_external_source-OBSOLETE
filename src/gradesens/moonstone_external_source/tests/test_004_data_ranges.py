@@ -138,35 +138,54 @@ def test_find_nearest():
     value0 = 2.0
     factor = 3.0
     n_values = 10
-    values = [value0 + factor * index for index in range(n_values)]
 
-    for ref_pos, extra_value in (
-        (0, -factor * 100),
-        (n_values - 1, factor * 100),
-    ):
-        ref_value = values[ref_pos]
-        pos = find_nearest(values, ref_value + extra_value)
-        assert pos == ref_pos
-        pos = find_nearest(values, ref_value - factor * 0.1)
-        assert pos == ref_pos
-        pos = find_nearest(values, ref_value)
-        assert pos == ref_pos
-        pos = find_nearest(values, ref_value + factor * 0.1)
-        assert pos == ref_pos
+    for test in ("literal", "object"):
+        values = [value0 + factor * index for index in range(n_values)]
+        if test == "literal":
 
-    ref_pos = 4
-    ref_value = values[ref_pos]
-    n_tests = 5
-    for offset in range(-n_tests, n_tests):
-        pos = find_nearest(values, ref_value + factor * 0.5 * offset / n_tests)
-        assert pos == ref_pos, f"{offset} / {n_tests}"
-    pos = find_nearest(values, ref_value + factor * 0.5)
-    assert pos == ref_pos + 1
-    pos = find_nearest(values, ref_value - factor * 0.51)
-    assert pos == ref_pos - 1
+            def key(value):
+                return value
 
-    pos = find_nearest(values, ref_value, lo=ref_pos + 2)
-    assert pos == ref_pos + 2
+            kwargs = {}
+        else:
+            values = [dict(literal=value) for value in values]
 
-    pos = find_nearest(values, values[-1] * 2.0, hi=n_values - 3)
-    assert pos == n_values - 4
+            def key(value):
+                return value["literal"]
+
+            kwargs = dict(key=key)
+
+        for ref_pos, extra_value in (
+            (0, -factor * 100),
+            (n_values - 1, factor * 100),
+        ):
+            ref_value = key(values[ref_pos])
+            pos = find_nearest(values, ref_value + extra_value, **kwargs)
+            assert pos == ref_pos
+            pos = find_nearest(values, ref_value - factor * 0.1, **kwargs)
+            assert pos == ref_pos
+            pos = find_nearest(values, ref_value, **kwargs)
+            assert pos == ref_pos
+            pos = find_nearest(values, ref_value + factor * 0.1, **kwargs)
+            assert pos == ref_pos
+
+        ref_pos = 4
+        ref_value = key(values[ref_pos])
+        n_tests = 5
+        for offset in range(-n_tests, n_tests):
+            pos = find_nearest(
+                values, ref_value + factor * 0.5 * offset / n_tests, **kwargs
+            )
+            assert pos == ref_pos, f"{offset} / {n_tests}"
+        pos = find_nearest(values, ref_value + factor * 0.5, **kwargs)
+        assert pos == ref_pos + 1
+        pos = find_nearest(values, ref_value - factor * 0.51, **kwargs)
+        assert pos == ref_pos - 1
+
+        pos = find_nearest(values, ref_value, lo=ref_pos + 2, **kwargs)
+        assert pos == ref_pos + 2
+
+        pos = find_nearest(
+            values, key(values[-1]) * 2.0, hi=n_values - 3, **kwargs
+        )
+        assert pos == n_values - 4

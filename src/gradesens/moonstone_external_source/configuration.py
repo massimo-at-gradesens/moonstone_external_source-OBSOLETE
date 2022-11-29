@@ -13,7 +13,7 @@ __copyright__ = "Copyright 2022, GradeSens AG"
 import asyncio
 import itertools
 from datetime import datetime
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Union
 
 if TYPE_CHECKING:
     from .io_manager import IOManager
@@ -31,7 +31,7 @@ from .http_settings import (
     HTTPTransactionSettings,
 )
 from .settings import Settings
-from .utils import iter_sub_ranges
+from .utils import find_nearest, iter_sub_ranges
 
 
 class _MeasurementRequestSettings(HTTPRequestSettings):
@@ -535,6 +535,7 @@ class MachineConfiguration(
             self.request_window_iterator = None
             self.current_window_results = None
             self.current_window_count = 0
+            self.last_result_pos = 0
 
             # for debugging purposes
             self.processed_count = 0
@@ -580,6 +581,99 @@ class MachineConfiguration(
 
             return result
 
+    class ResultEntry:
+        """
+        A single entry in a :class:`MachineConfiguration.ResultRow`
+        """
+
+        def __init__(
+            self,
+            timestamp: datetime,
+            value: Any,
+        ):
+            self.timestamp = timestamp
+            self.value = value
+
+        def str(self, reference_timestamp=None):
+            time_info = (
+                self.timestamp
+                if reference_timestamp is None
+                else self.timestamp - reference_timestamp
+            )
+            return f"{self.value}@{time_info}"
+
+        def __str__(self):
+            return self.str()
+
+    class ResultsRow(list):
+        """
+        A single row in a :class:`MachineConfiguration.Results` frame.
+        """
+
+        def __init__(
+            self,
+            timestamp: datetime,
+            values: List[Dict[str, Any]],
+        ):
+            self.timestamp = timestamp
+            super().__init__(
+                MachineConfiguration.ResultEntry(**value) for value in values
+            )
+
+        def str(self, with_time_errors=False):
+            item_str_kwargs = {}
+            if with_time_errors:
+                item_str_kwargs["reference_timestamp"] = self.timestamp
+            return ", ".join(
+                map(
+                    str,
+                    [self.timestamp]
+                    + list(
+                        map(lambda item: item.str(**item_str_kwargs), self)
+                    ),
+                )
+            )
+
+        def __str__(self):
+            return self.str()
+
+    class Results(list):
+        """
+        A full result frame, comprising headers and a list of
+        :class:`MachineMeasurement.ResultsRow`s
+        """
+
+        def __init__(
+            self, measurement_ids: Iterable[MeasurementConfiguration.Id]
+        ):
+            super().__init__()
+            self.measurement_ids = list(measurement_ids)
+
+        def append(
+            self,
+            timestamp: datetime,
+            values=Dict[MeasurementConfiguration.Id, Dict[str, Any]],
+        ):
+            super().append(
+                MachineConfiguration.ResultsRow(
+                    timestamp=timestamp,
+                    values=values,
+                )
+            )
+
+        def str(self, with_time_errors=False):
+            result = repr(self.measurement_ids) + "\n"
+            result += "\n".join(
+                map(
+                    lambda item: item.str(with_time_errors=with_time_errors),
+                    self,
+                )
+            )
+            return result
+
+        def __str__(self):
+            return self.str()
+
     async def fetch_result(
         self,
         client_session: "IOManager.ClientSession",
@@ -618,12 +712,17 @@ class MachineConfiguration(
             )
         )
 
+        results = self.Results(
+            measurement_ids=[
+                mfr.measurement_id for mfr in measurement_fetch_results
+            ]
+        )
         try:
             for request_window in all_request_windows:
                 request_window.create_task(client_session=client_session)
 
             awaited_task_count = 0
-            for value_index in range(len(timestamps)):
+            for timestamp in timestamps:
                 exausted_windows = list(
                     filter(
                         lambda mfr: mfr.current_window_count <= 0,
@@ -639,11 +738,12 @@ class MachineConfiguration(
                         exausted_window.current_window_count = (
                             request_window.count
                         )
+                        exausted_window.last_result_pos = 0
                         exausted_window.processed_count += request_window.count
                         request_tasks.append(request_window.task)
                     request_task_gather = asyncio.gather(*request_tasks)
                     try:
-                        results = await request_task_gather
+                        request_results = await request_task_gather
                     except BaseException as excp:
                         request_task_gather.cancel()
                         try:
@@ -652,13 +752,28 @@ class MachineConfiguration(
                             pass
                         raise excp
                     awaited_task_count += len(request_tasks)
-                    for exausted_window, result in zip(
-                        exausted_windows, results
+                    for exausted_window, request_result in zip(
+                        exausted_windows, request_results
                     ):
-                        exausted_window.current_window_results = result
+                        if request_result is None:
+                            request_result = []
+                        elif not isinstance(request_result, list):
+                            request_result = [request_result]
+                        exausted_window.current_window_results = request_result
 
+                timestamp_results = []
                 for mfr in measurement_fetch_results:
+                    mfr.last_result_pos = find_nearest(
+                        mfr.current_window_results,
+                        timestamp,
+                        lo=mfr.last_result_pos,
+                        key=lambda result: result["timestamp"],
+                    )
+                    timestamp_results.append(
+                        mfr.current_window_results[mfr.last_result_pos]
+                    )
                     mfr.current_window_count -= 1
+                results.append(timestamp=timestamp, values=timestamp_results)
         except BaseException as excp:
             unawaited_tasks = []
             for mfr in measurement_fetch_results:
@@ -701,4 +816,4 @@ class MachineConfiguration(
                 assert mfr.processed_count == len(timestamps)
             assert awaited_task_count == len(all_request_windows)
 
-        return None
+        return results

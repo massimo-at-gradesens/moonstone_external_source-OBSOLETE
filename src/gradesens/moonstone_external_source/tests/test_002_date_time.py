@@ -422,11 +422,11 @@ def random_datetime_kwargs_factory(random_timedelta_kwargs_factory):
 @pytest.fixture
 def random_date_kwargs_factory(random_datetime_kwargs_factory):
     def factory():
-        datetime_value = datetime(**random_datetime_kwargs_factory())
+        datetime_kwargs = random_datetime_kwargs_factory()
         return dict(
-            year=datetime_value.year,
-            month=datetime_value.month,
-            day=datetime_value.day,
+            year=datetime_kwargs["year"],
+            month=datetime_kwargs["month"],
+            day=datetime_kwargs["day"],
         )
 
     return factory
@@ -435,14 +435,14 @@ def random_date_kwargs_factory(random_datetime_kwargs_factory):
 @pytest.fixture
 def random_time_kwargs_factory(random_datetime_kwargs_factory):
     def factory():
-        datetime_value = datetime(**random_datetime_kwargs_factory())
+        datetime_kwargs = random_datetime_kwargs_factory()
         return dict(
-            hour=datetime_value.hour,
-            minute=datetime_value.minute,
-            second=datetime_value.second,
-            microsecond=datetime_value.microsecond,
-            tzinfo=timezone(timedelta(hour=random.randint(-23, 23))),
-            fold=random.randint(0, 1),
+            hour=datetime_kwargs["hour"],
+            minute=datetime_kwargs["minute"],
+            second=datetime_kwargs["second"],
+            microsecond=datetime_kwargs["microsecond"],
+            tzinfo=datetime_kwargs["tzinfo"],
+            fold=datetime_kwargs["fold"],
         )
 
     return factory
@@ -551,6 +551,30 @@ def test_timedelta_operations(random_timedelta_kwargs_factory):
     assert t is not t2
     assert t2 == ref_type(**value1_kwargs)
 
+    for test_func in (
+        lambda a, b: a == b,
+        lambda a, b: a != b,
+        lambda a, b: a > b,
+        lambda a, b: a >= b,
+        lambda a, b: a < b,
+        lambda a, b: a <= b,
+    ):
+        for type1, type2 in (
+            (tested_type, tested_type),
+            (tested_type, ref_type),
+            (ref_type, tested_type),
+        ):
+            assert test_func(
+                type1(**value1_kwargs), type2(**value2_kwargs)
+            ) == test_func(
+                ref_type(**value1_kwargs), ref_type(**value2_kwargs)
+            )
+            assert test_func(
+                type1(**value2_kwargs), type2(**value1_kwargs)
+            ) == test_func(
+                ref_type(**value2_kwargs), ref_type(**value1_kwargs)
+            )
+
 
 def test_datetime_operations(
     random_timedelta_kwargs_factory,
@@ -597,6 +621,30 @@ def test_datetime_operations(
         t = type1(**value1_kwargs) - td_type(**td_kwargs)
         assert isinstance(t, tested_type)
         assert t == ref_type(**value1_kwargs) - timedelta(**td_kwargs)
+
+    for test_func in (
+        lambda a, b: a == b,
+        lambda a, b: a != b,
+        lambda a, b: a > b,
+        lambda a, b: a >= b,
+        lambda a, b: a < b,
+        lambda a, b: a <= b,
+    ):
+        for type1, type2 in (
+            (tested_type, tested_type),
+            (tested_type, ref_type),
+            (ref_type, tested_type),
+        ):
+            assert test_func(
+                type1(**value1_kwargs), type2(**value2_kwargs)
+            ) == test_func(
+                ref_type(**value1_kwargs), ref_type(**value2_kwargs)
+            )
+            assert test_func(
+                type1(**value2_kwargs), type2(**value1_kwargs)
+            ) == test_func(
+                ref_type(**value2_kwargs), ref_type(**value1_kwargs)
+            )
 
 
 def test_date_operations(
@@ -645,6 +693,30 @@ def test_date_operations(
         assert isinstance(t, tested_type)
         assert t == ref_type(**value1_kwargs) - timedelta(**td_kwargs)
 
+    for test_func in (
+        lambda a, b: a == b,
+        lambda a, b: a != b,
+        lambda a, b: a > b,
+        lambda a, b: a >= b,
+        lambda a, b: a < b,
+        lambda a, b: a <= b,
+    ):
+        for type1, type2 in (
+            (tested_type, tested_type),
+            (tested_type, ref_type),
+            (ref_type, tested_type),
+        ):
+            assert test_func(
+                type1(**value1_kwargs), type2(**value2_kwargs)
+            ) == test_func(
+                ref_type(**value1_kwargs), ref_type(**value2_kwargs)
+            )
+            assert test_func(
+                type1(**value2_kwargs), type2(**value1_kwargs)
+            ) == test_func(
+                ref_type(**value2_kwargs), ref_type(**value1_kwargs)
+            )
+
 
 def test_time_operations(
     random_time_kwargs_factory,
@@ -660,6 +732,33 @@ def test_time_operations(
 
     assert isinstance(tested_type.resolution, TimeDelta)
     assert tested_type.resolution == ref_type.resolution
+
+    value1_kwargs = random_time_kwargs_factory()
+    value2_kwargs = random_time_kwargs_factory()
+
+    for test_func in (
+        lambda a, b: a == b,
+        lambda a, b: a != b,
+        lambda a, b: a > b,
+        lambda a, b: a >= b,
+        lambda a, b: a < b,
+        lambda a, b: a <= b,
+    ):
+        for type1, type2 in (
+            (tested_type, tested_type),
+            (tested_type, ref_type),
+            (ref_type, tested_type),
+        ):
+            assert test_func(
+                type1(**value1_kwargs), type2(**value2_kwargs)
+            ) == test_func(
+                ref_type(**value1_kwargs), ref_type(**value2_kwargs)
+            )
+            assert test_func(
+                type1(**value2_kwargs), type2(**value1_kwargs)
+            ) == test_func(
+                ref_type(**value2_kwargs), ref_type(**value1_kwargs)
+            )
 
 
 def test_timezone_operations():

@@ -5,6 +5,7 @@ __author__ = "Massimo Ravasi"
 __copyright__ = "Copyright 2022, GradeSens AG"
 
 import bisect
+import sys
 
 
 def iter_sub_ranges(values, value_range_span):
@@ -26,7 +27,7 @@ def iter_sub_ranges(values, value_range_span):
         start_index = end_index
 
 
-def find_nearest(a, x, lo=0, hi=None, **kwargs):
+def find_nearest(a, x, lo=0, hi=None, *, key=None):
     """
     This function is similar to python's `bisect_right
     <https://docs.python.org/3/library/bisect.html#bisect.bisect_right>`_ and
@@ -37,14 +38,41 @@ def find_nearest(a, x, lo=0, hi=None, **kwargs):
     """
     if hi is None:
         hi = len(a)
-    pos = bisect.bisect_right(a, x, lo=lo, hi=hi, **kwargs)
+
+    bisect_kwargs = {}
+    if key is None:
+
+        def key(value):
+            return value
+
+    elif sys.version_info >= (3, 10):
+        bisect_kwargs["key"] = key
+    else:
+        wrapper_key = key
+
+        class Wrapper:
+            def __init__(self, item):
+                self.item = item
+
+            def __lt__(self, other):
+                return wrapper_key(self.item) < other
+
+            def __gt__(self, other):
+                return wrapper_key(self.item) > other
+
+        def key(value):
+            return wrapper_key(value.item)
+
+        a = a[:lo] + list(map(Wrapper, a[lo:hi])) + a[hi:]
+
+    pos = bisect.bisect_right(a, x, lo, hi, **bisect_kwargs)
     if pos >= hi:
         return hi - 1
     if pos <= lo:
         return lo
     before = a[pos - 1]
     after = a[pos]
-    return pos if x - before >= after - x else pos - 1
+    return pos if x - key(before) >= key(after) - x else pos - 1
 
 
 class classproperty:

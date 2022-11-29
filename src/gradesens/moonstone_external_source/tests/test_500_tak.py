@@ -404,7 +404,7 @@ async def test_authorization(
 
 @pytest.mark.asyncio
 async def test_extenal_source(io_manager_tak_dev):
-    timestamp0 = DateTime("2022-07-25T00:01:00+00:00")
+    timestamp0 = DateTime("2022-07-25T00:01:31+00:00")
     timestamps = [
         timestamp0 + TimeDelta(minutes=15 * index) for index in range(50)
     ]
@@ -416,4 +416,4 @@ async def test_extenal_source(io_manager_tak_dev):
                 machine_id="tak:dev:mach-1",
                 timestamps=timestamps,
             )
-            print(result)
+            print(result.str(with_time_errors=True))
