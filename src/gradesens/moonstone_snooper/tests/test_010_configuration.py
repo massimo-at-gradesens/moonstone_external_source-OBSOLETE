@@ -2,7 +2,7 @@ from datetime import timedelta, timezone
 
 import pytest
 
-from gradesens.moonstone_external_source import (
+from gradesens.moonstone_snooper import (
     DateTime,
     MachineConfiguration,
     MeasurementConfiguration,

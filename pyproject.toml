@@ -1,9 +1,9 @@
 [tool.poetry]
-name = "moonstone-external-source"
+name = "moonstone-snooper"
 version = "0.0.1"
 license = "Proprietary"
 description = """
-GradeSens - External Source package\
+GradeSens - Moonstone Snooper package\
 """
 authors = ["GradeSens AG <info@gradesens.com>"]
 maintainers = ["Massimo Ravasi <massimo@gradesens.com>"]

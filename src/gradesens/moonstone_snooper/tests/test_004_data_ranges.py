@@ -3,10 +3,7 @@ import random
 
 import pytest
 
-from gradesens.moonstone_external_source.utils import (
-    find_nearest,
-    iter_sub_ranges,
-)
+from gradesens.moonstone_snooper.utils import find_nearest, iter_sub_ranges
 
 
 def test_iter_sub_ranges():

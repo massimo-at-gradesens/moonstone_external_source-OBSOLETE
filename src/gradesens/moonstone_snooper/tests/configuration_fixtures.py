@@ -2,16 +2,14 @@ from datetime import timedelta
 
 import pytest
 
-from gradesens.moonstone_external_source import (
+from gradesens.moonstone_snooper import (
     AuthorizationConfiguration,
     AuthorizationContext,
     IODriver,
     IOManager,
     MachineConfiguration,
 )
-from gradesens.moonstone_external_source.io_manager import (
-    AuthorizationContextCache,
-)
+from gradesens.moonstone_snooper.io_manager import AuthorizationContextCache
 
 from .utils import load_yaml
 

@@ -1,5 +1,5 @@
 """
-GradeSens - External Source package - Configuration support
+GradeSens - Moonstone Snooper package - Configuration support
 
 This file provides the configuration data classes to handle hierarchical
 references to other configurations from within a configuration.

@@ -1,13 +1,13 @@
 ::
 
   ****************************************************
-  GradeSens - Moonstone External Source python package
+  GradeSens - Moonstone Snooper python package
 
   Copyright 2022, GradeSens AG
   ****************************************************
 
-Moontone External Source
-========================
+Moontone Snooper
+================
 Moonstone package to retrieve measurement data from external sources.
 
 

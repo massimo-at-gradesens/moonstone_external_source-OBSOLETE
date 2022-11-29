@@ -1,10 +1,8 @@
 """
-GradeSens - External Source package - Configuration support
+GradeSens - Moonstone Snooper package - Configuration support
 
-This file provides the configuration data classes to handle  authorization
+This file provides the configuration data classes to handle authorization
 configurations.
-These configurations contain all the parameters requested to query the
-external measurements on the target machines.
 """
 __author__ = "Massimo Ravasi"
 __copyright__ = "Copyright 2022, GradeSens AG"

@@ -1,5 +1,5 @@
 """
-GradeSens - External Source package - Datetime support tools
+GradeSens - Moonstone Snooper package - Datetime support tools
 
 This module provides extensions to stock module :module:`datetime`.
 """

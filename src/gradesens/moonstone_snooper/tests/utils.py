@@ -2,10 +2,7 @@ import textwrap
 
 import yaml
 
-from gradesens.moonstone_external_source.settings import (
-    Processors,
-    TypeProcessor,
-)
+from gradesens.moonstone_snooper.settings import Processors, TypeProcessor
 
 
 def path_prefix(key_path, suffix=" "):

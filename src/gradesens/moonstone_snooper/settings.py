@@ -1,5 +1,5 @@
 """
-GradeSens - External Source package - Configuration support
+GradeSens - Moonstone Snooper package - Configuration support
 
 This module provides the generic configuration settings use throughout this
 whole package. All feature-specific settings are implemented as classes

@@ -1,5 +1,5 @@
 """
-GradeSens - External Source package
+GradeSens - Moonstone Snooper package
 """
 __author__ = "Massimo Ravasi"
 __copyright__ = "Copyright 2022, GradeSens AG"
@@ -24,7 +24,6 @@ from .error import (
     PatternError,
     TimeError,
 )
-from .external_source import ExternalSourceSession
 from .http_settings import (
     HTTPRequestSettings,
     HTTPResultSettings,
@@ -32,6 +31,7 @@ from .http_settings import (
 )
 from .io_manager import IODriver, IOManager
 from .settings import Settings
+from .snooper import SnooperSession
 
 __all__ = [
     "AsyncConcurrentPool",
@@ -61,7 +61,7 @@ __all__ = [
     "PatternError",
     "TimeError",
     #
-    "ExternalSourceSession",
+    "SnooperSession",
     #
     "HTTPRequestSettings",
     "HTTPResultSettings",

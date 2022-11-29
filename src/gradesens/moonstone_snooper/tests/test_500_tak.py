@@ -2,14 +2,14 @@ from datetime import datetime, timezone
 
 import pytest
 
-from gradesens.moonstone_external_source import (
+from gradesens.moonstone_snooper import (
     AuthorizationConfiguration,
     DateTime,
-    ExternalSourceSession,
     IODriver,
     IOManager,
     MachineConfiguration,
     Settings,
+    SnooperSession,
     TimeDelta,
 )
 
@@ -411,8 +411,8 @@ async def test_extenal_source(io_manager_tak_dev):
     async with io_manager_tak_dev.client_session(
         task_concurrency=10,
     ) as client_session:
-        async with ExternalSourceSession(client_session) as es_session:
-            result = await es_session.get_data(
+        async with SnooperSession(client_session) as snooper_session:
+            result = await snooper_session.get_data(
                 machine_id="tak:dev:mach-1",
                 timestamps=timestamps,
             )

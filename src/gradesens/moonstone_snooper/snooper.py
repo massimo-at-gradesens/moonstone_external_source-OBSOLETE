@@ -1,9 +1,9 @@
 """
-GradeSens - External Source package - External sources
+GradeSens - Moonstone Snooper package - Main module
 
-The external sources are the main entry point of the External Source package.
-They provide access to the actual core functionality of the package:
-customizable support to retrieve measurement data from external sources.
+This module provides class :class:`SnooperSession`, which is the main entry
+point of the Moonstone Snooper package, along with :class:`IOManager` that is
+required to create a :class:`SnooperSession`.
 """
 __author__ = "Massimo Ravasi"
 __copyright__ = "Copyright 2022, GradeSens AG"
@@ -16,12 +16,10 @@ from .configuration import MachineConfiguration
 from .io_manager import IOManager
 
 
-class ExternalSourceSession:
+class SnooperSession:
     """
     Retrieve measurement data from one or more external sources via concurrent
     requests.
-    The total number of concurrent requests active at the same is limited via
-    an ``AsyncConcurrentPool``
     """
 
     def __init__(

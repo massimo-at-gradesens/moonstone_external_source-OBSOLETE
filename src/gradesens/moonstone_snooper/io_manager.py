@@ -1,5 +1,5 @@
 """
-GradeSens - External Source package - IO driver
+GradeSens - Moonstone Snooper package - IO driver
 
 Abstract class specifying the interface for IO operations, e.g. to retrieve
 configuration data structures from a DB.

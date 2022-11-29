@@ -1,5 +1,5 @@
 """
-GradeSens - External Source package - Configuration support
+GradeSens - Moonstone Snooper package - Configuration support
 
 This module provides the configuration data classes to handle generic HTTP
 transactions and parse their responses into higher abstraction results,

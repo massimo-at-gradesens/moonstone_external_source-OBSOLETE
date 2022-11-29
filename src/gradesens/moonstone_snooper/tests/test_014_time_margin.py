@@ -2,11 +2,7 @@ from datetime import timedelta
 
 import pytest
 
-from gradesens.moonstone_external_source import (
-    Error,
-    MachineConfiguration,
-    Settings,
-)
+from gradesens.moonstone_snooper import Error, MachineConfiguration, Settings
 
 from .utils import assert_eq, load_yaml
 

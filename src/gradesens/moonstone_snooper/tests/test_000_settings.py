@@ -1,4 +1,4 @@
-from gradesens.moonstone_external_source import Settings
+from gradesens.moonstone_snooper import Settings
 
 from .utils import assert_eq
 

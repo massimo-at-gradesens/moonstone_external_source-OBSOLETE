@@ -1,5 +1,5 @@
 """
-GradeSens - External Source package - Package-specific exceptions
+GradeSens - Moonstone Snooper package - Package-specific exceptions
 """
 __author__ = "Massimo Ravasi"
 __copyright__ = "Copyright 2022, GradeSens AG"
