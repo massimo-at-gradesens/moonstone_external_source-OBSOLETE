@@ -96,7 +96,12 @@ class _MeasurementRequestSettings(HTTPRequestSettings):
                         f"Field {key!r} cannot be negative: {value!r}"
                     )
             except ValueError as err:
-                raise ConfigurationError(str(err), index=key) from None
+                raise ConfigurationError(
+                    f"{err}."
+                    " A literal value is expected, and string interpolation"
+                    " is not supported for this field",
+                    index=key,
+                ) from None
             time_delta_fields[key] = parsed_value
 
         try:
@@ -617,7 +622,10 @@ class MachineConfiguration(
         ):
             self.timestamp = timestamp
             super().__init__(
-                MachineConfiguration.ResultEntry(**value) for value in values
+                None
+                if value is None
+                else MachineConfiguration.ResultEntry(**value)
+                for value in values
             )
 
         def str(self, with_time_errors=False):
@@ -629,7 +637,14 @@ class MachineConfiguration(
                     str,
                     [self.timestamp]
                     + list(
-                        map(lambda item: item.str(**item_str_kwargs), self)
+                        map(
+                            lambda item: (
+                                str(None)
+                                if item is None
+                                else item.str(**item_str_kwargs)
+                            ),
+                            self,
+                        )
                     ),
                 )
             )
@@ -769,9 +784,15 @@ class MachineConfiguration(
                         lo=mfr.last_result_pos,
                         key=lambda result: result["timestamp"],
                     )
-                    timestamp_results.append(
-                        mfr.current_window_results[mfr.last_result_pos]
-                    )
+                    try:
+                        result = mfr.current_window_results[
+                            mfr.last_result_pos
+                        ]
+                    except IndexError:
+                        assert len(mfr.current_window_results) == 0
+                        assert mfr.last_result_pos == 0
+                        result = None
+                    timestamp_results.append(result)
                     mfr.current_window_count -= 1
                 results.append(timestamp=timestamp, values=timestamp_results)
         except BaseException as excp:

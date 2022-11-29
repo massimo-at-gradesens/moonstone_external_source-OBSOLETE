@@ -189,3 +189,6 @@ def test_find_nearest():
             values, key(values[-1]) * 2.0, hi=n_values - 3, **kwargs
         )
         assert pos == n_values - 4
+
+        pos = find_nearest([], key(values[0]), **kwargs)
+        assert pos == 0

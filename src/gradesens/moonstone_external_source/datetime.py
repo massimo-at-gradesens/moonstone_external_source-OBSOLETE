@@ -499,6 +499,11 @@ class TimeDelta(timedelta):
     def __abs__(self) -> "TimeDelta":
         return TimeDelta(super().__abs__())
 
+    def __str__(self):
+        if self >= timedelta(0):
+            return super().__str__()
+        return f"-{-self}"
+
 
 class TimeZone(tzinfo):
     """

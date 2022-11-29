@@ -66,10 +66,10 @@ def find_nearest(a, x, lo=0, hi=None, *, key=None):
         a = a[:lo] + list(map(Wrapper, a[lo:hi])) + a[hi:]
 
     pos = bisect.bisect_right(a, x, lo, hi, **bisect_kwargs)
-    if pos >= hi:
-        return hi - 1
     if pos <= lo:
         return lo
+    if pos >= hi:
+        return hi - 1
     before = a[pos - 1]
     after = a[pos]
     return pos if x - key(before) >= key(after) - x else pos - 1
