@@ -1,6 +1,6 @@
 import pytest
 
-from gradesens.moonstone_snooper import ConfigurationError, Settings
+from gradesens.moonstone.snooper import ConfigurationError, Settings
 
 from .utils import assert_eq
 

@@ -3,7 +3,7 @@ from datetime import date
 
 import pytest
 
-from gradesens.moonstone_snooper import Settings
+from gradesens.moonstone.snooper import Settings
 
 from .utils import assert_eq, expand_processors
 

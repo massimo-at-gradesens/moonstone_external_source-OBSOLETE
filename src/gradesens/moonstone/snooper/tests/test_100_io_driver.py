@@ -1,6 +1,6 @@
 import pytest
 
-from gradesens.moonstone_snooper import MachineConfiguration
+from gradesens.moonstone.snooper import MachineConfiguration
 
 
 @pytest.mark.usefixtures("io_manager_1")

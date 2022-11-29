@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from gradesens.moonstone_snooper import (
+from gradesens.moonstone.snooper import (
     AuthorizationConfiguration,
     DateTime,
     IODriver,

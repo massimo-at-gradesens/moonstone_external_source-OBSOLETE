@@ -1,11 +1,11 @@
 import pytest
 
-from gradesens.moonstone_snooper import (
+from gradesens.moonstone.snooper import (
     ConfigurationError,
     DataTypeError,
     Settings,
 )
-from gradesens.moonstone_snooper.settings import (
+from gradesens.moonstone.snooper.settings import (
     Processors,
     RegexProcessor,
     TypeProcessor,

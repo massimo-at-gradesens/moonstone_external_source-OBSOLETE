@@ -3,7 +3,7 @@ from datetime import date, datetime, time, timedelta, timezone
 
 import pytest
 
-from gradesens.moonstone_snooper import (
+from gradesens.moonstone.snooper import (
     Date,
     DateTime,
     Settings,
