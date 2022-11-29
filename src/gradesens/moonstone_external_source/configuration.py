@@ -480,6 +480,7 @@ class MachineConfiguration(
                 self.count = None
                 self.start_time = None
                 self.end_time = None
+                self.measurement_settings = None
                 self.task = None
 
             @classmethod
@@ -499,7 +500,7 @@ class MachineConfiguration(
                 measurement_configuration = machine_configuration[
                     "measurements"
                 ][measurement_id]
-                measurement_settings = await (
+                result.measurement_settings = await (
                     machine_configuration
                 )._get_measurement_interpolated_settings(
                     client_session=client_session,
@@ -508,10 +509,15 @@ class MachineConfiguration(
                     start_time=result.start_time,
                     end_time=result.end_time,
                 )
-                result.task = measurement_settings.fetch_result(
-                    client_session=client_session,
-                )
                 return result
+
+            def create_task(self, client_session: "IOManager.ClientSession"):
+                assert self.task is None
+                self.task = client_session.task_scheduler(
+                    self.measurement_settings.fetch_result(
+                        client_session=client_session,
+                    )
+                )
 
             def __lt__(self, other):
                 return self.start_time < other.start_time
@@ -611,47 +617,88 @@ class MachineConfiguration(
                 )
             )
         )
-        for request_window in all_request_windows:
-            request_window.task = client_session.task_scheduler(
-                request_window.task
-            )
 
-        awaited_task_count = 0
-        for value_index in range(len(timestamps)):
-            exausted_windows = list(
-                filter(
-                    lambda mfr: mfr.current_window_count <= 0,
-                    measurement_fetch_results,
-                )
-            )
-            if len(exausted_windows) > 0:
-                request_tasks = []
-                for exausted_window in exausted_windows:
-                    request_window = next(
-                        exausted_window.request_window_iterator
+        try:
+            for request_window in all_request_windows:
+                request_window.create_task(client_session=client_session)
+
+            awaited_task_count = 0
+            for value_index in range(len(timestamps)):
+                exausted_windows = list(
+                    filter(
+                        lambda mfr: mfr.current_window_count <= 0,
+                        measurement_fetch_results,
                     )
-                    exausted_window.current_window_count = request_window.count
-                    exausted_window.processed_count += request_window.count
-                    request_tasks.append(request_window.task)
-                results = await asyncio.gather(*request_tasks)
-                awaited_task_count += len(request_tasks)
-                for exausted_window, result in zip(exausted_windows, results):
-                    exausted_window.current_window_results = result
-
-            for mfr in measurement_fetch_results:
-                mfr.current_window_count -= 1
-
-        # for debugging purposes
-        for mfr in measurement_fetch_results:
-            try:
-                next(mfr.request_window_iterator)
-            except StopIteration:
-                pass
-            else:
-                raise Exception(
-                    f"Window iterator for {mfr.measurement_id!r} did not stop"
                 )
-            assert mfr.processed_count == len(timestamps)
-        assert awaited_task_count == len(all_request_windows)
+                if len(exausted_windows) > 0:
+                    request_tasks = []
+                    for exausted_window in exausted_windows:
+                        request_window = next(
+                            exausted_window.request_window_iterator
+                        )
+                        exausted_window.current_window_count = (
+                            request_window.count
+                        )
+                        exausted_window.processed_count += request_window.count
+                        request_tasks.append(request_window.task)
+                    request_task_gather = asyncio.gather(*request_tasks)
+                    try:
+                        results = await request_task_gather
+                    except BaseException as excp:
+                        request_task_gather.cancel()
+                        try:
+                            await request_task_gather
+                        except BaseException:
+                            pass
+                        raise excp
+                    awaited_task_count += len(request_tasks)
+                    for exausted_window, result in zip(
+                        exausted_windows, results
+                    ):
+                        exausted_window.current_window_results = result
+
+                for mfr in measurement_fetch_results:
+                    mfr.current_window_count -= 1
+        except BaseException as excp:
+            unawaited_tasks = []
+            for mfr in measurement_fetch_results:
+                for rw in mfr.request_window_iterator:
+                    task = rw.task
+                    if task is not None:
+                        unawaited_tasks.append(task)
+            if len(unawaited_tasks) > 0:
+                unawaited_tasks_gather = asyncio.gather(*unawaited_tasks)
+                unawaited_tasks_gather.cancel()
+                try:
+                    await unawaited_tasks_gather
+                except BaseException:
+                    pass
+
+            # Got errors from tests: "Task was destroyed but it is pending".
+            # To avoid them, make sure all tasks have enough time to go into
+            # 'done' state
+            while True:
+                for rw in all_request_windows:
+                    if rw.task is not None and not rw.task.done():
+                        break
+                else:
+                    break
+                await asyncio.sleep(0.001)
+
+            raise excp
+        else:
+            # for debugging purposes
+            for mfr in measurement_fetch_results:
+                try:
+                    next(mfr.request_window_iterator)
+                except StopIteration:
+                    pass
+                else:
+                    raise Exception(
+                        f"Window iterator for {mfr.measurement_id!r}"
+                        " did not stop"
+                    )
+                assert mfr.processed_count == len(timestamps)
+            assert awaited_task_count == len(all_request_windows)
 
         return None

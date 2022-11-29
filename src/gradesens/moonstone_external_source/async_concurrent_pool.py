@@ -27,5 +27,12 @@ class AsyncConcurrentPool:
         return asyncio.create_task(self.schedule(coroutine))
 
     async def __coroutine_wrapper(self, coroutine):
-        async with self.semaphore:
+        try:
+            await self.semaphore.acquire()
+        except asyncio.CancelledError:
+            coroutine.close()
+            raise
+        try:
             return await coroutine
+        finally:
+            self.semaphore.release()
